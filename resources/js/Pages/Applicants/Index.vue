@@ -1,5 +1,5 @@
 <script setup>
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref, onMounted, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
@@ -15,20 +15,29 @@ import {
     DocumentTextIcon,
     PhoneIcon,
     EnvelopeIcon,
-    BriefcaseIcon // Added
+    BriefcaseIcon,
+    FolderIcon,
+    ArrowUpTrayIcon,
+    CheckCircleIcon,
+    XMarkIcon
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
     applicants: Object,
     filters: Object,
-    options: Object, // Added
+    options: Object, 
 });
 
 const showModal = ref(false);
-const showHireModal = ref(false); // Added
+const showHireModal = ref(false);
+const showDocsModal = ref(false);
 const isEditing = ref(false);
 const editingApplicant = ref(null);
-const hiringApplicant = ref(null); // Added
+const hiringApplicant = ref(null);
+const managingApplicant = ref(null);
+const applicantDocs = ref([]);
+const stagedFiles = ref({});
+const uploadingDocId = ref(null);
 
 const { confirm } = useConfirm();
 const { post, put, destroy } = useErrorHandler();
@@ -44,8 +53,6 @@ onMounted(() => {
 watch(() => props.applicants, (newApplicants) => {
     pagination.updateData(newApplicants);
 }, { deep: true });
-
-// ... existing form and functions ...
 
 const hireForm = useForm({
     company_id: '',
@@ -154,6 +161,73 @@ const deleteApplicant = async (applicant) => {
     }
 };
 
+// --- Document Management Functions ---
+
+const fetchApplicantDocs = (applicantId) => {
+    axios.get(route('applicants.documents.list', applicantId))
+        .then(response => {
+            applicantDocs.value = response.data;
+        })
+        .catch(() => showError('Failed to load documents'));
+};
+
+const openDocsModal = (applicant) => {
+    managingApplicant.value = applicant;
+    applicantDocs.value = [];
+    stagedFiles.value = {};
+    uploadingDocId.value = null;
+    showDocsModal.value = true;
+    fetchApplicantDocs(applicant.id);
+};
+
+const triggerFileInput = (docTypeId) => {
+    document.getElementById(`file-input-${docTypeId}`).click();
+};
+
+const handleFileSelect = (event, docTypeId) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+        showError('File is too large. Maximum size is 10MB.');
+        event.target.value = '';
+        return;
+    }
+
+    stagedFiles.value[docTypeId] = file;
+    event.target.value = ''; 
+};
+
+const cancelStage = (docTypeId) => {
+    delete stagedFiles.value[docTypeId];
+};
+
+const saveDocument = (docTypeId) => {
+    const file = stagedFiles.value[docTypeId];
+    if (!file) return;
+
+    uploadingDocId.value = docTypeId;
+    const formData = new FormData();
+    formData.append('document_type_id', docTypeId);
+    formData.append('file', file);
+
+    axios.post(route('applicants.upload-document', managingApplicant.value.id), formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    }).then(() => {
+        showSuccess('Document uploaded successfully');
+        delete stagedFiles.value[docTypeId];
+        fetchApplicantDocs(managingApplicant.value.id);
+    }).catch(err => {
+        showError(err.response?.data?.message || 'Upload failed');
+    }).finally(() => {
+        uploadingDocId.value = null;
+    });
+};
+
+const getDocStatus = (docTypeId) => {
+    return applicantDocs.value.find(d => d.document_type_id == docTypeId);
+};
+
 const statusColors = {
     pool: 'bg-slate-100 text-slate-700 border-slate-200',
     exam: 'bg-blue-50 text-blue-700 border-blue-100',
@@ -161,6 +235,8 @@ const statusColors = {
     passed: 'bg-emerald-50 text-emerald-700 border-emerald-100',
     failed: 'bg-rose-50 text-rose-700 border-rose-100',
     hired: 'bg-purple-50 text-purple-700 border-purple-100',
+    backed_out: 'bg-gray-50 text-gray-600 border-gray-200',
+    backed_out: 'bg-slate-100 text-slate-500 border-slate-200',
 };
 </script>
 
@@ -240,7 +316,7 @@ const statusColors = {
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span :class="['inline-flex px-2.5 py-1 text-xs font-bold rounded-lg border capitalize', statusColors[applicant.status] || 'bg-slate-100 text-slate-500']">
-                                        {{ applicant.status }}
+                                        {{ applicant.status.replace('_', ' ') }}
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
@@ -251,6 +327,13 @@ const statusColors = {
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                      <div class="flex justify-end space-x-1">
+                                        <button
+                                            @click="openDocsModal(applicant)"
+                                            class="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                                            title="Manage Requirements"
+                                        >
+                                            <FolderIcon class="w-5 h-5" />
+                                        </button>
                                         <button
                                             v-if="hasPermission('applicants.hire') && applicant.status === 'passed'" 
                                             @click="openHireModal(applicant)"
@@ -336,7 +419,7 @@ const statusColors = {
                                     <option value="interview">For Interview</option>
                                     <option value="passed">Passed</option>
                                     <option value="failed">Failed</option>
-                                    <option value="hired">Hired</option>
+                                    <option value="backed_out">Back Out</option>
                                 </select>
                             </div>
                              <div>
@@ -359,6 +442,110 @@ const statusColors = {
                 </form>
              </div>
         </div>
+
+        <!-- Documents Modal -->
+        <div v-if="showDocsModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6" role="dialog" aria-modal="true">
+             <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" @click="showDocsModal = false"></div>
+             
+             <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full relative flex flex-col max-h-[90vh] animate-in fade-in zoom-in duration-200">
+                <div class="px-8 py-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center flex-shrink-0 rounded-t-2xl">
+                    <div>
+                        <h3 class="text-xl font-bold text-slate-900">Applicant Requirements</h3>
+                        <p class="text-sm text-slate-500">Manage documents for <strong>{{ managingApplicant?.first_name }} {{ managingApplicant?.last_name }}</strong></p>
+                    </div>
+                    <button @click="showDocsModal = false" class="text-slate-400 hover:text-slate-500 transition-colors p-1 rounded-lg hover:bg-slate-100">
+                        <span class="sr-only">Close</span>
+                        <XMarkIcon class="h-6 w-6" />
+                    </button>
+                </div>
+                
+                <div class="flex-1 overflow-y-auto custom-scrollbar p-0">
+                    <table class="min-w-full divide-y divide-slate-100">
+                        <thead class="bg-slate-50 sticky top-0 z-10 shadow-sm">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider w-10">Status</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Requirement</th>
+                                <th scope="col" class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 bg-white">
+                            <tr v-for="docType in options?.document_types" :key="docType.id" class="hover:bg-slate-50 transition-colors group">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div v-if="getDocStatus(docType.id)" class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 border border-emerald-200">
+                                        <CheckCircleIcon class="w-5 h-5" />
+                                    </div>
+                                    <div v-else class="w-8 h-8 border-2 border-slate-200 rounded-full mx-auto bg-slate-50 border-dashed"></div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-normal">
+                                    <div class="flex flex-col">
+                                        <div class="flex items-center mb-1">
+                                            <span class="text-sm font-bold text-slate-800">{{ docType.name }}</span>
+                                            <span v-if="docType.is_required" class="ml-2 text-[10px] text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100 font-bold uppercase tracking-wide">Required</span>
+                                        </div>
+
+                                        <!-- Staged File Info -->
+                                        <div v-if="stagedFiles[docType.id]" class="text-xs text-blue-600 font-semibold bg-blue-50 px-2 py-1.5 rounded-md border border-blue-100 flex items-center w-fit animate-in fade-in zoom-in duration-200">
+                                            <DocumentTextIcon class="w-4 h-4 mr-1.5" />
+                                            <span class="truncate max-w-[200px]">{{ stagedFiles[docType.id].name }}</span>
+                                        </div>
+
+                                        <!-- Uploaded File Info -->
+                                        <div v-else-if="getDocStatus(docType.id)" class="flex items-center space-x-2 text-xs text-slate-500">
+                                            <span class="bg-slate-100 px-2 py-0.5 rounded text-slate-600 font-mono uppercase">
+                                                {{ getDocStatus(docType.id).file_path.split('.').pop() }}
+                                            </span>
+                                            <span>• Uploaded {{ new Date(getDocStatus(docType.id).created_at).toLocaleDateString() }}</span>
+                                        </div>
+                                        
+                                        <div v-else class="text-xs text-slate-400 italic">Not uploaded yet.</div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-right">
+                                    <input 
+                                        type="file" 
+                                        :id="`file-input-${docType.id}`" 
+                                        class="hidden" 
+                                        @change="(e) => handleFileSelect(e, docType.id)"
+                                    >
+                                    
+                                    <!-- Saving State -->
+                                    <div v-if="uploadingDocId === docType.id" class="flex items-center justify-end text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
+                                        <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        <span class="text-xs font-bold">Uploading...</span>
+                                    </div>
+
+                                    <!-- Action Buttons: Save / Cancel -->
+                                    <div v-else-if="stagedFiles[docType.id]" class="flex items-center justify-end space-x-2">
+                                        <button @click="cancelStage(docType.id)" class="text-slate-500 hover:text-slate-700 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors">
+                                            Cancel
+                                        </button>
+                                        <button @click="saveDocument(docType.id)" class="bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-all shadow-sm shadow-blue-500/30 flex items-center">
+                                            <ArrowUpTrayIcon class="w-4 h-4 mr-1" />
+                                            Save File
+                                        </button>
+                                    </div>
+
+                                    <div v-else class="flex justify-end items-center space-x-2">
+                                        <a v-if="getDocStatus(docType.id)" :href="'/' + getDocStatus(docType.id).file_path" target="_blank" class="text-slate-500 hover:text-blue-600 text-xs font-bold flex items-center px-2 py-1.5 rounded hover:bg-blue-50 transition-all">
+                                            <DocumentTextIcon class="w-4 h-4 mr-1.5" /> View
+                                        </a>
+                                        
+                                        <button @click="triggerFileInput(docType.id)" class="flex items-center ml-auto text-slate-600 hover:text-blue-600 font-bold text-xs bg-white border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-blue-50 hover:border-blue-200 hover:shadow-sm transition-all">
+                                            <span v-if="getDocStatus(docType.id)">Replace</span>
+                                            <span v-else>Select File</span>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+             </div>
+        </div>
+
         <!-- Hire Modal -->
         <div v-if="showHireModal" class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
              <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity" @click="showHireModal = false"></div>

@@ -135,6 +135,7 @@ class ScheduleController extends Controller
             'days_of_week' => 'required|array', // [1,2,3,4,5]
             'grace_period_minutes' => 'nullable|integer|min:0',
             'is_ot_allowed' => 'boolean',
+            'late_policy' => 'required|in:exact,block_30',
         ]);
 
         $workDaysStr = implode(',', $request->days_of_week);
@@ -147,6 +148,7 @@ class ScheduleController extends Controller
                         'default_shift_id' => $request->shift_id,
                         'work_days' => $workDaysStr,
                         'grace_period_minutes' => $request->grace_period_minutes ?? 0,
+                        'late_policy' => $request->late_policy,
                         'is_ot_allowed' => $request->is_ot_allowed ?? false,
                     ]);
                 }

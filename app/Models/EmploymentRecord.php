@@ -17,6 +17,7 @@ class EmploymentRecord extends Model
         'default_shift_id',
         'work_days',
         'grace_period_minutes',
+        'late_policy', // 'exact' or 'block_30'
         'is_ot_allowed',
         'employment_status',
         'start_date',

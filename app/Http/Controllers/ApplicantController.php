@@ -16,6 +16,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 
+use App\Models\DocumentType;
+
 class ApplicantController extends Controller
 {
     public function index(Request $request)
@@ -33,6 +35,9 @@ class ApplicantController extends Controller
         
         if ($request->filled('status')) {
             $query->where('status', $request->status);
+        } else {
+            // Default: Hide hired applicants as they are now employees
+            $query->where('status', '!=', 'hired');
         }
 
         $applicants = $query->latest()->paginate(10)->withQueryString();
@@ -44,6 +49,7 @@ class ApplicantController extends Controller
                 'companies' => Company::select('id', 'name')->where('is_active', true)->orderBy('name')->get(),
                 'departments' => Department::select('id', 'name')->orderBy('name')->get(),
                 'positions' => Position::select('id', 'name')->orderBy('name')->get(),
+                'document_types' => DocumentType::where('is_active', true)->orderBy('name')->get(),
             ],
         ]);
     }
@@ -114,7 +120,7 @@ class ApplicantController extends Controller
             'last_name' => 'required|string|max:255',
             'email' => 'required|email|unique:applicants,email,' . $applicant->id,
             'phone' => 'required|string|max:20',
-            'status' => 'required|string|in:pool,exam,interview,passed,failed,hired',
+            'status' => 'required|string|in:pool,exam,interview,passed,failed,hired,backed_out',
             'exam_score' => 'nullable|numeric|min:0|max:100',
             'interviewer_notes' => 'nullable|string',
             'resume' => 'nullable|file|mimes:pdf,doc,docx|max:2048',
@@ -209,10 +215,61 @@ class ApplicantController extends Controller
                 'effective_date' => $request->start_date,
             ]);
 
+            // Transfer uploaded documents to new employee
+            \App\Models\EmployeeDocument::where('applicant_id', $applicant->id)
+                ->update(['employee_id' => $employee->id, 'applicant_id' => null]);
+
             // Update Applicant
             $applicant->update(['status' => 'hired']);
         });
 
         return redirect()->back()->with('success', 'Applicant successfully hired and converted to Employee.');
+    }
+
+    public function uploadDocument(Request $request, Applicant $applicant)
+    {
+        $request->validate([
+            'document_type_id' => 'required|exists:document_types,id',
+            'file' => 'required|file|max:10240|mimes:pdf,jpg,jpeg,png',
+        ]);
+
+        $file = $request->file('file');
+        $extension = $file->getClientOriginalExtension();
+        $fileName = time() . '_' . uniqid() . '.' . $extension;
+        
+        $targetPath = public_path('uploads/employee-documents');
+        if (!file_exists($targetPath)) {
+            mkdir($targetPath, 0755, true);
+        }
+        
+        $file->move($targetPath, $fileName);
+        $relativePath = 'uploads/employee-documents/' . $fileName;
+
+        // Check if exists
+        $existing = \App\Models\EmployeeDocument::where('applicant_id', $applicant->id)
+            ->where('document_type_id', $request->document_type_id)
+            ->first();
+
+        if ($existing) {
+             // Delete old file
+            if (file_exists(public_path($existing->file_path))) {
+                unlink(public_path($existing->file_path));
+            }
+            $existing->update(['file_path' => $relativePath]);
+        } else {
+            \App\Models\EmployeeDocument::create([
+                'applicant_id' => $applicant->id,
+                'document_type_id' => $request->document_type_id,
+                'file_path' => $relativePath,
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Document uploaded successfully.');
+    }
+
+    public function getDocuments(Applicant $applicant)
+    {
+        $documents = \App\Models\EmployeeDocument::where('applicant_id', $applicant->id)->get();
+        return response()->json($documents);
     }
 }

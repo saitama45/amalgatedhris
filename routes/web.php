@@ -23,6 +23,8 @@ Route::middleware('auth')->group(function () {
     // Recruitment
     Route::get('applicants/exams', [\App\Http\Controllers\ApplicantController::class, 'exams'])->name('applicants.exams');
     Route::post('applicants/{applicant}/hire', [\App\Http\Controllers\ApplicantController::class, 'hire'])->name('applicants.hire');
+    Route::post('applicants/{applicant}/documents', [\App\Http\Controllers\ApplicantController::class, 'uploadDocument'])->name('applicants.upload-document');
+    Route::get('applicants/{applicant}/documents', [\App\Http\Controllers\ApplicantController::class, 'getDocuments'])->name('applicants.documents.list');
     Route::resource('applicants', \App\Http\Controllers\ApplicantController::class);
 
     // Employees
@@ -40,6 +42,13 @@ Route::middleware('auth')->group(function () {
     Route::get('schedules', [\App\Http\Controllers\ScheduleController::class, 'index'])->name('schedules.index');
     Route::get('schedules/{employee}', [\App\Http\Controllers\ScheduleController::class, 'show'])->name('schedules.show');
     Route::post('schedules', [\App\Http\Controllers\ScheduleController::class, 'store'])->name('schedules.store');
+
+    // Attendance (DTR)
+    Route::get('dtr', [\App\Http\Controllers\AttendanceController::class, 'index'])->name('dtr.index');
+    Route::post('dtr', [\App\Http\Controllers\AttendanceController::class, 'store'])->name('dtr.store');
+    Route::put('dtr/{attendanceLog}', [\App\Http\Controllers\AttendanceController::class, 'update'])->name('dtr.update');
+    Route::delete('dtr/{attendanceLog}', [\App\Http\Controllers\AttendanceController::class, 'destroy'])->name('dtr.destroy');
+    Route::post('dtr/import', [\App\Http\Controllers\AttendanceController::class, 'import'])->name('dtr.import');
 
     Route::resource('employees', \App\Http\Controllers\EmployeeController::class)->only(['index', 'update']);
     Route::resource('departments', \App\Http\Controllers\DepartmentController::class)->except(['create', 'edit', 'show']);

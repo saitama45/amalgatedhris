@@ -291,6 +291,7 @@ const editForm = useForm({
     philhealth_no: '',
     pagibig_no: '',
     tin_no: '',
+    employment_status: '', // Added
 });
 
 const openEditModal = (employee) => {
@@ -306,6 +307,7 @@ const openEditModal = (employee) => {
     editForm.philhealth_no = employee.philhealth_no || '';
     editForm.pagibig_no = employee.pagibig_no || '';
     editForm.tin_no = employee.tin_no || '';
+    editForm.employment_status = employee.active_employment_record?.employment_status || ''; // Added
     editForm.clearErrors();
     showEditModal.value = true;
 };
@@ -600,6 +602,17 @@ const submitResign = () => {
                             <option value="Male">Male</option>
                             <option value="Female">Female</option>
                             <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">Employment Status</label>
+                        <select v-model="editForm.employment_status" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold text-blue-600">
+                            <option value="" disabled>Select Status</option>
+                            <option value="Probationary">Probationary</option>
+                            <option value="Regular">Regular</option>
+                            <option value="Consultant">Consultant</option>
+                            <option value="Project-Based">Project-Based</option>
+                            <option value="Casual">Casual</option>
                         </select>
                     </div>
                 </div>

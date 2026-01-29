@@ -283,8 +283,13 @@ const handleMouseLeave = () => {
                     <div v-show="(menuState.timekeeping && !isCollapsed) || isCollapsed" :class="{'ml-4 border-l border-[#1E293B] pl-2 space-y-1': !isCollapsed}">
                         <Link
                             v-if="hasPermission('dtr.view')"
-                            href="#"
-                             class="flex items-center px-3 py-2 rounded-lg text-slate-400 hover:bg-[#161F32] hover:text-white transition-all duration-200 group relative"
+                            :href="route('dtr.index')"
+                             :class="[
+                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
+                                route().current('dtr.*')
+                                    ? 'text-teal-400 bg-slate-800/50'
+                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
+                            ]"
                             @mouseenter="handleMouseEnter($event, 'Daily Time Records')"
                             @mouseleave="handleMouseLeave"
                         >

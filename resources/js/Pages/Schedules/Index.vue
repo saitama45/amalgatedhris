@@ -73,6 +73,7 @@ const editSchedule = (employee) => {
             form.days_of_week = employee.active_employment_record.work_days.split(',').map(Number);
         }
         form.grace_period_minutes = employee.active_employment_record.grace_period_minutes;
+        form.late_policy = employee.active_employment_record.late_policy || 'exact';
         form.is_ot_allowed = Boolean(employee.active_employment_record.is_ot_allowed);
     }
 };
@@ -82,6 +83,9 @@ const form = useForm({
     employee_ids: [],
     shift_id: '',
     days_of_week: [1, 2, 3, 4, 5], // Default Mon-Fri
+    grace_period_minutes: 0,
+    late_policy: 'exact',
+    is_ot_allowed: false
 });
 
 const daysOptions = [
@@ -276,12 +280,20 @@ watch(viewMonth, () => {
                                 <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Grace Period (Mins)</label>
                                 <input v-model="form.grace_period_minutes" type="number" min="0" class="w-full rounded-lg border-slate-200 text-sm focus:ring-blue-500 focus:border-blue-500">
                             </div>
-                            <div class="flex items-center pt-6">
-                                <label class="flex items-center cursor-pointer">
-                                    <input type="checkbox" v-model="form.is_ot_allowed" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 mr-2">
-                                    <span class="text-xs font-bold text-slate-700">Allow Overtime</span>
-                                </label>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Late Policy</label>
+                                <select v-model="form.late_policy" class="w-full rounded-lg border-slate-200 text-sm focus:ring-blue-500 focus:border-blue-500 bg-slate-50 font-bold">
+                                    <option value="exact">Exact Minute</option>
+                                    <option value="block_30">30-Min Block</option>
+                                </select>
                             </div>
+                        </div>
+
+                        <div class="pt-4 border-t border-slate-100">
+                            <label class="flex items-center cursor-pointer">
+                                <input type="checkbox" v-model="form.is_ot_allowed" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 mr-2">
+                                <span class="text-xs font-bold text-slate-700">Allow Overtime</span>
+                            </label>
                         </div>
 
                         <div class="pt-4 border-t border-slate-100">

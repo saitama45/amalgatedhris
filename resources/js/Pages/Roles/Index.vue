@@ -493,6 +493,7 @@ const permissionDescriptions = {
 
     // Timekeeping
     'dtr.view': 'View DTR Logs',
+    'dtr.create': 'Create/Add DTR Log',
     'dtr.edit': 'Edit DTR Logs',
     'dtr.delete': 'Delete DTR Logs',
     'dtr.approve': 'Approve Manual Logs/OT',

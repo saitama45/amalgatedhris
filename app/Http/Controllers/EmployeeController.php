@@ -52,9 +52,23 @@ class EmployeeController extends Controller
             'emergency_contact_relationship' => 'nullable|string|max:50',
             'emergency_contact_number' => 'nullable|string|max:20',
             'birthday' => 'nullable|date',
+            'employment_status' => 'nullable|string|in:Consultant,Probationary,Regular,Project-Based,Casual',
         ]);
 
-        $employee->update($request->all());
+        DB::transaction(function () use ($request, $employee) {
+            $employee->update($request->only([
+                'sss_no', 'philhealth_no', 'pagibig_no', 'tin_no', 
+                'civil_status', 'gender', 'address', 
+                'emergency_contact', 'emergency_contact_relationship', 'emergency_contact_number', 
+                'birthday'
+            ]));
+
+            if ($request->has('employment_status') && $employee->activeEmploymentRecord) {
+                $employee->activeEmploymentRecord->update([
+                    'employment_status' => $request->employment_status
+                ]);
+            }
+        });
 
         return redirect()->back()->with('success', 'Employee profile updated successfully.');
     }
