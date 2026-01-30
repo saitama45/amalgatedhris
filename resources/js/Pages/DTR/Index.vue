@@ -206,6 +206,45 @@ const statusClass = (status) => {
         default: return 'bg-gray-100 text-gray-700';
     }
 };
+
+const calculateWorkHours = (log) => {
+    if (!log.time_in || !log.time_out) return '0.00';
+    const inTime = new Date(log.time_in);
+    const outTime = new Date(log.time_out);
+    let diffMs = outTime - inTime;
+    
+    let hours = diffMs / (1000 * 60 * 60);
+    
+    const shift = log.employee?.active_employment_record?.default_shift;
+    if (shift && hours > 5) { // Assuming break is taken if worked > 5hrs
+        hours -= (shift.break_minutes / 60);
+    }
+    
+    return Math.max(0, hours).toFixed(2);
+};
+
+const calculateUndertime = (log) => {
+    if (!log.time_in || !log.time_out) return 0;
+    
+    const shift = log.employee?.active_employment_record?.default_shift;
+    if (!shift) return 0;
+
+    const logDate = String(log.date).split('T')[0];
+    const shiftStart = new Date(`${logDate}T${shift.start_time}`);
+    let shiftEnd = new Date(`${logDate}T${shift.end_time}`);
+    
+    if (shiftEnd < shiftStart) {
+        shiftEnd.setDate(shiftEnd.getDate() + 1);
+    }
+
+    const expectedMs = (shiftEnd - shiftStart) - (shift.break_minutes * 60 * 1000);
+    const expectedHours = expectedMs / (1000 * 60 * 60);
+    
+    const actualHours = parseFloat(calculateWorkHours(log));
+    
+    const undertime = expectedHours - actualHours;
+    return undertime > 0.02 ? (undertime * 60).toFixed(0) : 0; // 0.02 tolerance for rounding
+};
 </script>
 
 <template>
@@ -296,7 +335,8 @@ const statusClass = (status) => {
                                 <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Employee</th>
                                 <th class="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Time In</th>
                                 <th class="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Time Out</th>
-                                <th class="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Late / OT</th>
+                                <th class="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Work Hrs</th>
+                                <th class="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Late / UT / OT</th>
                                 <th class="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Status</th>
                                 <th class="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Actions</th>
                             </tr>
@@ -317,14 +357,22 @@ const statusClass = (status) => {
                                 <td class="px-6 py-4 whitespace-nowrap text-center font-mono text-sm text-slate-600">
                                     {{ log.time_out ? new Date(log.time_out).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '--:--' }}
                                 </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-center font-mono text-sm font-bold text-slate-700">
+                                    {{ calculateWorkHours(log) }}
+                                </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-center">
-                                    <div v-if="log.late_minutes > 0" class="text-xs text-rose-600 font-bold bg-rose-50 px-2 py-1 rounded inline-block mb-1">
-                                        {{ log.late_minutes }}m Late
+                                    <div class="flex flex-col items-center gap-1">
+                                        <div v-if="log.late_minutes > 0" class="text-[10px] leading-none text-rose-600 font-bold bg-rose-50 px-1.5 py-1 rounded border border-rose-100 w-16 text-center">
+                                            {{ log.late_minutes }}m Late
+                                        </div>
+                                        <div v-if="calculateUndertime(log) > 0" class="text-[10px] leading-none text-amber-600 font-bold bg-amber-50 px-1.5 py-1 rounded border border-amber-100 w-16 text-center">
+                                            {{ calculateUndertime(log) }}m UT
+                                        </div>
+                                        <div v-if="log.ot_minutes > 0" class="text-[10px] leading-none text-blue-600 font-bold bg-blue-50 px-1.5 py-1 rounded border border-blue-100 w-16 text-center">
+                                            {{ log.ot_minutes }}m OT
+                                        </div>
+                                        <div v-if="log.late_minutes == 0 && calculateUndertime(log) == 0 && log.ot_minutes == 0" class="text-xs text-slate-400">-</div>
                                     </div>
-                                    <div v-if="log.ot_minutes > 0" class="text-xs text-blue-600 font-bold bg-blue-50 px-2 py-1 rounded inline-block">
-                                        {{ log.ot_minutes }}m OT
-                                    </div>
-                                    <div v-if="log.late_minutes == 0 && log.ot_minutes == 0" class="text-xs text-slate-400">-</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-center">
                                     <span :class="['px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wide border border-transparent', statusClass(log.status)]">
@@ -385,7 +433,7 @@ const statusClass = (status) => {
                 <div v-else>
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Employee</label>
                     <div class="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 font-medium">
-                        {{ options.employees.find(e => e.id === form.employee_id)?.name || 'Unknown' }}
+                        {{ editingLog?.employee?.user?.name || 'Unknown' }}
                     </div>
                 </div>
                 <div>

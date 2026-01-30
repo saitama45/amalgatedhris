@@ -20,7 +20,7 @@ class AttendanceController extends Controller
         $startDate = $request->input('start_date', Carbon::now()->startOfMonth()->format('Y-m-d'));
         $endDate = $request->input('end_date', Carbon::now()->endOfMonth()->format('Y-m-d'));
         
-        $query = AttendanceLog::with(['employee.user', 'employee.activeEmploymentRecord.department', 'employee.activeEmploymentRecord.position', 'employee.activeEmploymentRecord.company'])
+        $query = AttendanceLog::with(['employee.user', 'employee.activeEmploymentRecord.department', 'employee.activeEmploymentRecord.position', 'employee.activeEmploymentRecord.company', 'employee.activeEmploymentRecord.defaultShift'])
             ->whereBetween('date', [$startDate, $endDate]);
 
         // Filters
