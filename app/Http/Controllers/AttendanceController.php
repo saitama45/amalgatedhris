@@ -7,6 +7,9 @@ use App\Models\Employee;
 use App\Models\Department;
 use App\Models\Company;
 use App\Services\AttendanceService;
+use App\Exports\AttendanceTemplateExport;
+use App\Imports\AttendanceImport;
+use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Carbon\Carbon;
@@ -192,18 +195,41 @@ class AttendanceController extends Controller
         return redirect()->back()->with('success', 'Attendance log deleted.');
     }
 
-    public function import(Request $request)
+    public function downloadTemplate()
+    {
+        return Excel::download(new AttendanceTemplateExport, 'attendance_import_template.xlsx');
+    }
+
+    public function import(Request $request, AttendanceService $attendanceService)
     {
         $request->validate([
             'file' => 'required|file|mimes:csv,txt,xlsx',
         ]);
 
-        // Placeholder for ZKTeco / Biometric Import Logic
-        // 1. Read file
-        // 2. Map biometric ID to Employee ID (using employee_code or a specific biometric_id field)
-        // 3. Loop rows, parse DateTime
-        // 4. UpdateOrCreate AttendanceLog
-        
-        return redirect()->back()->with('success', 'Attendance data imported successfully (Mock).');
+        try {
+            $import = new AttendanceImport($attendanceService);
+            Excel::import($import, $request->file('file'));
+            
+            $results = $import->getResults();
+            $count = $results['imported'];
+            $skipped = $results['skipped'];
+
+            if ($count === 0 && $skipped > 0) {
+                 return redirect()->back()->with('error', "Import failed. No records saved. $skipped rows skipped. First error: " . ($results['errors'][0] ?? 'Unknown error'));
+            }
+
+            if ($count === 0) {
+                 return redirect()->back()->with('error', "Import failed. No valid data found in file.");
+            }
+
+            $msg = "Successfully imported $count records.";
+            if ($skipped > 0) {
+                $msg .= " $skipped rows were skipped due to errors.";
+            }
+
+            return redirect()->back()->with('success', $msg);
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Import failed: ' . $e->getMessage());
+        }
     }
 }

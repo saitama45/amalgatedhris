@@ -32,6 +32,11 @@ const { hasPermission } = usePermission();
 const { confirm: confirmAction } = useConfirm();
 const pagination = usePagination(props.logs, 'dtr.index');
 
+// Keep pagination in sync with props (fix for filter not updating table)
+watch(() => props.logs, (newLogs) => {
+    pagination.updateData(newLogs);
+});
+
 // Helper for consistent date display (Avoids timezone shifts)
 const formatDisplayDate = (dateStr) => {
     if (!dateStr) return '';
@@ -190,9 +195,7 @@ const submitImport = () => {
     importForm.post(route('dtr.import'), {
         onSuccess: () => {
             showImportModal.value = false;
-            showSuccess('Import processed.');
         },
-        onError: () => showError('Import failed.')
     });
 };
 
@@ -467,8 +470,16 @@ const calculateUndertime = (log) => {
             <form @submit.prevent="submitImport" class="p-6 space-y-4">
                 <div class="bg-amber-50 border border-amber-100 rounded-lg p-3 flex gap-3 items-start">
                     <ExclamationTriangleIcon class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                    <p class="text-xs text-amber-700">Ensure the file is a CSV export from your ZKTeco device matching the standard format (ID, DateTime, Type).</p>
+                    <p class="text-xs text-amber-700">Ensure the file is a CSV export from your ZKTeco device or use the provided Excel template.</p>
                 </div>
+                
+                <div class="flex justify-between items-center bg-blue-50 p-3 rounded-lg border border-blue-100">
+                    <div class="text-xs text-blue-700 font-medium">Need a format guide?</div>
+                    <a :href="route('dtr.template')" class="text-xs bg-white text-blue-600 hover:text-blue-800 border border-blue-200 px-3 py-1.5 rounded-lg font-bold flex items-center shadow-sm transition-all hover:shadow-md">
+                        <DocumentTextIcon class="w-4 h-4 mr-1.5" /> Download Template
+                    </a>
+                </div>
+
                 <div>
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Select File</label>
                     <input type="file" @input="importForm.file = $event.target.files[0]" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-all">

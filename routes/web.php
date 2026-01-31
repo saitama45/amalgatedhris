@@ -48,6 +48,7 @@ Route::middleware('auth')->group(function () {
     Route::post('dtr', [\App\Http\Controllers\AttendanceController::class, 'store'])->name('dtr.store');
     Route::put('dtr/{attendanceLog}', [\App\Http\Controllers\AttendanceController::class, 'update'])->name('dtr.update');
     Route::delete('dtr/{attendanceLog}', [\App\Http\Controllers\AttendanceController::class, 'destroy'])->name('dtr.destroy');
+    Route::get('dtr/template', [\App\Http\Controllers\AttendanceController::class, 'downloadTemplate'])->name('dtr.template');
     Route::post('dtr/import', [\App\Http\Controllers\AttendanceController::class, 'import'])->name('dtr.import');
 
     Route::resource('employees', \App\Http\Controllers\EmployeeController::class)->only(['index', 'update']);

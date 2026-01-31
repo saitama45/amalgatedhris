@@ -44,6 +44,14 @@ const toggleSidebar = () => {
     sidebarCollapsed.value = !sidebarCollapsed.value;
 };
 
+// Watch for flash messages
+watch(() => page.props.flash, (flash) => {
+    if (flash?.success) success(flash.success);
+    if (flash?.error) error(flash.error);
+    if (flash?.warning) warning(flash.warning);
+    if (flash?.info) info(flash.info);
+}, { deep: true });
+
 // Watch for changes and save to localStorage
 watch(sidebarCollapsed, (newValue) => {
     if (typeof window !== 'undefined') {
