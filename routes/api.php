@@ -19,6 +19,9 @@ use App\Models\Garden;
 */
 
 Route::middleware('api')->group(function () {
+    // Government Contribution Calculator API
+    Route::post('/contributions/calculate', [\App\Http\Controllers\Api\ContributionApiController::class, 'calculate']);
+
     // Get calculator data for dropdowns
     Route::get('/calculator/data', function () {
         // Get garden types dynamically from the database

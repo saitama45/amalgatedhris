@@ -62,7 +62,8 @@ const filterForm = ref({
 const applyFilters = () => {
     const params = {
         ...filterForm.value,
-        search: pagination.search.value
+        search: pagination.search.value,
+        per_page: pagination.perPage.value // Explicitly include per_page
     };
     pagination.performSearch(route('dtr.index'), params);
 };

@@ -18,6 +18,7 @@ import {
     UsersIcon,
     Cog6ToothIcon,
     ComputerDesktopIcon,
+    TableCellsIcon,
     ChevronDownIcon,
     ChevronRightIcon
 } from '@heroicons/vue/24/outline';
@@ -66,6 +67,9 @@ const checkActiveRoutes = () => {
 
     // Timekeeping
     if (route().current('dtr.*') || route().current('shifts.*') || route().current('schedules.*') || route().current('holidays.*')) menuState.value.timekeeping = true;
+
+    // Compensation
+    if (route().current('contributions.*')) menuState.value.compensation = true;
 
     // Workforce vs System (Users)
     if (route().current('users.*')) {
@@ -345,6 +349,21 @@ const handleMouseLeave = () => {
                     <div v-else class="my-4 border-t border-[#1E293B]"></div>
 
                     <div v-show="(menuState.compensation && !isCollapsed) || isCollapsed" :class="{'ml-4 border-l border-[#1E293B] pl-2 space-y-1': !isCollapsed}">
+                        <Link
+                            :href="route('contributions.index')"
+                            :class="[
+                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
+                                route().current('contributions.*')
+                                    ? 'text-teal-400 bg-slate-800/50'
+                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
+                            ]"
+                            @mouseenter="handleMouseEnter($event, 'Contribution Tables')"
+                            @mouseleave="handleMouseLeave"
+                        >
+                            <TableCellsIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
+                            <span v-if="!isCollapsed" class="font-medium text-sm">Contribution Tables</span>
+                        </Link>
+
                         <Link
                             v-if="hasPermission('payroll.view')"
                             href="#"

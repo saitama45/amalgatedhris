@@ -46,12 +46,13 @@ class AttendanceController extends Controller
         }
 
         // Sort by Date DESC, then Employee Name
+        $perPage = $request->input('per_page', 10);
         $logs = $query->orderBy('date', 'desc')
             ->join('employees', 'attendance_logs.employee_id', '=', 'employees.id')
             ->join('users', 'employees.user_id', '=', 'users.id')
             ->orderBy('users.name')
             ->select('attendance_logs.*') // Avoid column collision
-            ->paginate(20)
+            ->paginate($perPage)
             ->withQueryString();
 
         return Inertia::render('DTR/Index', [

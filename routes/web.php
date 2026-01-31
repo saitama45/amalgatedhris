@@ -43,6 +43,12 @@ Route::middleware('auth')->group(function () {
     Route::get('schedules/{employee}', [\App\Http\Controllers\ScheduleController::class, 'show'])->name('schedules.show');
     Route::post('schedules', [\App\Http\Controllers\ScheduleController::class, 'store'])->name('schedules.store');
 
+    // Contributions
+    Route::resource('contributions', \App\Http\Controllers\ContributionController::class)->only(['index']);
+    Route::post('contributions/sss/generate', [\App\Http\Controllers\ContributionController::class, 'generateSSS'])->name('contributions.sss.generate');
+    Route::post('contributions/philhealth/update', [\App\Http\Controllers\ContributionController::class, 'updatePhilHealth'])->name('contributions.philhealth.update');
+    Route::post('contributions/pagibig/update', [\App\Http\Controllers\ContributionController::class, 'updatePagIBIG'])->name('contributions.pagibig.update');
+
     // Attendance (DTR)
     Route::get('dtr', [\App\Http\Controllers\AttendanceController::class, 'index'])->name('dtr.index');
     Route::post('dtr', [\App\Http\Controllers\AttendanceController::class, 'store'])->name('dtr.store');

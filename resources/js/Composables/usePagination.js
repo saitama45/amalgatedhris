@@ -3,7 +3,7 @@ import { router } from '@inertiajs/vue3'
 
 export function usePagination(initialData = {}, routeName = '', extraParams = {}) {
     const search = ref('')
-    const perPage = ref(10)
+    const perPage = ref(initialData.per_page || 10)
     const currentPage = ref(1)
     const data = ref(initialData.data || [])
     const total = ref(initialData.total || 0)

@@ -42,8 +42,15 @@ class AttendanceService
         //   8:31 -> 31 mins raw -> Round up to 60.
         
         if ($record->late_policy === 'block_30') {
-            // Formula: ceil(rawLate / 30) * 30
-            return (int) (ceil($rawLate / 30) * 30);
+            // New "Fair" Logic:
+            // If late is between grace period (exclusive) and 30 mins (inclusive) -> 30 mins late.
+            // If late > 30 mins -> exact minutes late.
+            
+            if ($rawLate <= 30) {
+                return 30;
+            }
+            
+            return $rawLate;
         }
 
         // Default 'exact'
