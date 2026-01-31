@@ -10,6 +10,12 @@ use App\Models\PagibigContribution;
 
 class ContributionController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('can:contributions.view')->only(['index']);
+        $this->middleware('can:contributions.edit')->only(['generateSSS', 'updatePhilHealth', 'updatePagIBIG']);
+    }
+
     /**
      * Display a listing of the resource.
      */

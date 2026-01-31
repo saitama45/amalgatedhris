@@ -73,6 +73,10 @@ class RolesAndPermissionSeeder extends Seeder
             'payroll.manage_loans' => 'Manage Employee Loans',
             'payroll.settings' => 'Edit Payroll Settings',
 
+            // Compensation - Contributions
+            'contributions.view' => 'View Contribution Tables',
+            'contributions.edit' => 'Update Contribution Rates',
+
             // My Portal
             'portal.view' => 'Access My Portal',
             'portal.file_leave' => 'File Leave/OT',

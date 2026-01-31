@@ -282,7 +282,7 @@ const sidebarStructure = {
     'Recruitment': ['applicants', 'exams'],
     'Workforce': ['employees'],
     'Time & Attendance': ['dtr', 'shifts', 'schedules', 'holidays'],
-    'Compensation': ['payroll'],
+    'Compensation': ['payroll', 'contributions'],
     'My Portal (Self Service)': ['portal'],
     'System Administration': ['users', 'companies', 'departments', 'positions', 'document_types', 'roles']
 };
@@ -408,7 +408,6 @@ const submitForm = () => {
     requestMethod(url, form, {
         onSuccess: () => {
             closeModal()
-            showSuccess(isEditing.value ? 'Role configuration updated' : 'Security role created')
         },
         onError: (errors) => {
             const errorMessage = Object.values(errors).flat().join(', ') || 'Validation error'
@@ -425,7 +424,7 @@ const deleteRole = async (role) => {
     
     if (confirmed) {
         destroy(`/roles/${role.id}`, {
-            onSuccess: () => showSuccess('Role deleted from directory'),
+            onSuccess: () => {},
             onError: (errors) => {
                 const errorMessage = Object.values(errors).flat().join(', ') || 'Dependencies exist for this role'
                 showError(errorMessage)
@@ -521,6 +520,10 @@ const permissionDescriptions = {
     'payroll.delete': 'Rollback Payroll (Delete)',
     'payroll.manage_loans': 'Manage Employee Loans',
     'payroll.settings': 'Edit Payroll Settings',
+
+    // Contributions
+    'contributions.view': 'View Contribution Tables',
+    'contributions.edit': 'Update Contribution Rates',
 
     // My Portal
     'portal.view': 'Access Employee Dashboard',

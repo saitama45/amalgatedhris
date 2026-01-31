@@ -4,6 +4,7 @@ import { ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Modal from '@/Components/Modal.vue';
 import { useToast } from '@/Composables/useToast';
+import { usePermission } from '@/Composables/usePermission';
 import { 
     BanknotesIcon, 
     ShieldCheckIcon, 
@@ -21,6 +22,7 @@ const props = defineProps({
 });
 
 const { showSuccess, showError } = useToast();
+const { hasPermission } = usePermission();
 const activeTab = ref('sss');
 const showSSSModal = ref(false);
 const showPhilHealthModal = ref(false);
@@ -169,7 +171,7 @@ const formatSalaryRange = (min, max) => {
                             <div class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold">
                                 MSC Cap: {{ formatCurrency(sss[sss.length - 1]?.msc || 35000) }}
                             </div>
-                            <button @click="showSSSModal = true" class="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm">
+                            <button v-if="hasPermission('contributions.edit')" @click="showSSSModal = true" class="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm">
                                 <ArrowPathIcon class="w-3.5 h-3.5" /> Regenerate
                             </button>
                         </div>
@@ -265,7 +267,7 @@ const formatSalaryRange = (min, max) => {
                             <h3 class="text-lg font-bold text-slate-800">PhilHealth</h3>
                             <p class="text-xs text-slate-500">Philippine Health Insurance Corp. (Effective Year {{ philhealth?.effective_year || new Date().getFullYear() }})</p>
                         </div>
-                        <button @click="showPhilHealthModal = true" class="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm">
+                        <button v-if="hasPermission('contributions.edit')" @click="showPhilHealthModal = true" class="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm">
                             <ArrowPathIcon class="w-3.5 h-3.5" /> Update Settings
                         </button>
                     </div>
@@ -377,7 +379,7 @@ const formatSalaryRange = (min, max) => {
                              <div class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold">
                                 Max Fund Salary: ₱10,000
                             </div>
-                            <button @click="showPagIbigModal = true" class="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm">
+                            <button v-if="hasPermission('contributions.edit')" @click="showPagIbigModal = true" class="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm">
                                 <ArrowPathIcon class="w-3.5 h-3.5" /> Update Settings
                             </button>
                         </div>
