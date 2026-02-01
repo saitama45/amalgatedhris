@@ -19,6 +19,7 @@ import {
     Cog6ToothIcon,
     ComputerDesktopIcon,
     TableCellsIcon,
+    CreditCardIcon,
     ChevronDownIcon,
     ChevronRightIcon
 } from '@heroicons/vue/24/outline';
@@ -69,7 +70,7 @@ const checkActiveRoutes = () => {
     if (route().current('dtr.*') || route().current('shifts.*') || route().current('schedules.*') || route().current('holidays.*')) menuState.value.timekeeping = true;
 
     // Compensation
-    if (route().current('contributions.*')) menuState.value.compensation = true;
+    if (route().current('contributions.*') || route().current('deductions.*')) menuState.value.compensation = true;
 
     // Workforce vs System (Users)
     if (route().current('users.*')) {
@@ -362,6 +363,22 @@ const handleMouseLeave = () => {
                         >
                             <TableCellsIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
                             <span v-if="!isCollapsed" class="font-medium text-sm">Contribution Tables</span>
+                        </Link>
+
+                        <Link
+                            v-if="hasPermission('deductions.view')"
+                            :href="route('deductions.index')"
+                            :class="[
+                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
+                                route().current('deductions.*')
+                                    ? 'text-teal-400 bg-slate-800/50'
+                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
+                            ]"
+                            @mouseenter="handleMouseEnter($event, 'Other Deductions')"
+                            @mouseleave="handleMouseLeave"
+                        >
+                            <CreditCardIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
+                            <span v-if="!isCollapsed" class="font-medium text-sm">Other Deductions</span>
                         </Link>
 
                         <Link

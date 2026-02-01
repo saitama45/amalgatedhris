@@ -77,6 +77,12 @@ class RolesAndPermissionSeeder extends Seeder
             'contributions.view' => 'View Contribution Tables',
             'contributions.edit' => 'Update Contribution Rates',
 
+            // Compensation - Other Deductions
+            'deductions.view' => 'View Other Deductions',
+            'deductions.create' => 'Add/Assign Deduction',
+            'deductions.edit' => 'Edit Deduction Details',
+            'deductions.delete' => 'Delete/Stop Deduction',
+
             // My Portal
             'portal.view' => 'Access My Portal',
             'portal.file_leave' => 'File Leave/OT',

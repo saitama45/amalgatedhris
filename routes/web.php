@@ -49,6 +49,10 @@ Route::middleware('auth')->group(function () {
     Route::post('contributions/philhealth/update', [\App\Http\Controllers\ContributionController::class, 'updatePhilHealth'])->name('contributions.philhealth.update');
     Route::post('contributions/pagibig/update', [\App\Http\Controllers\ContributionController::class, 'updatePagIBIG'])->name('contributions.pagibig.update');
 
+    // Other Deductions
+    Route::resource('deductions', \App\Http\Controllers\DeductionController::class);
+    Route::resource('deduction-types', \App\Http\Controllers\DeductionTypeController::class)->except(['create', 'edit', 'show']);
+
     // Attendance (DTR)
     Route::get('dtr', [\App\Http\Controllers\AttendanceController::class, 'index'])->name('dtr.index');
     Route::post('dtr', [\App\Http\Controllers\AttendanceController::class, 'store'])->name('dtr.store');
