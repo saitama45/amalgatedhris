@@ -123,11 +123,13 @@ class EmployeeController extends Controller
                     Log::error("Error processing face_data: " . $e->getMessage());
                     // Don't crash the whole update, but log it.
                 }
-            } elseif ($request->has('face_data') && is_null($request->face_data)) {
-                // If explicitly null (cleared), do we want to clear it? 
-                // Currently user logic suggests we only update if new. 
-                // But if we want to support deletion, we'd uncomment this.
-                // $data['face_data'] = null;
+                } // Close else
+            } else if ($request->has('face_data') && is_null($request->face_data)) {
+                 // Explicitly cleared
+                 // $data['face_data'] = null;
+            } else if ($request->has('face_data') && $request->face_data === 'CLEAR') {
+                 // Explicitly cleared via CLEAR command
+                 $data['face_data'] = null;
             }
 
             $employee->update($data);
