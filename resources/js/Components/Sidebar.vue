@@ -67,7 +67,7 @@ const checkActiveRoutes = () => {
     if (route().current('employees.*')) menuState.value.workforce = true;
 
     // Timekeeping
-    if (route().current('dtr.*') || route().current('shifts.*') || route().current('schedules.*') || route().current('holidays.*')) menuState.value.timekeeping = true;
+    if (route().current('dtr.*') || route().current('shifts.*') || route().current('schedules.*') || route().current('holidays.*') || route().current('attendance.kiosk')) menuState.value.timekeeping = true;
 
     // Compensation
     if (route().current('contributions.*') || route().current('deductions.*')) menuState.value.compensation = true;
@@ -271,7 +271,7 @@ const handleMouseLeave = () => {
                 </template>
 
                  <!-- MODULE: TIMEKEEPING -->
-                <template v-if="hasAnyPermission(['dtr.view', 'shifts.manage'])">
+                <template v-if="hasAnyPermission(['dtr.view', 'shifts.view', 'attendance.kiosk'])">
                      <div 
                         v-if="!isCollapsed"
                         @click="toggleMenu('timekeeping')"
@@ -286,6 +286,21 @@ const handleMouseLeave = () => {
                     <div v-else class="my-4 border-t border-[#1E293B]"></div>
 
                     <div v-show="(menuState.timekeeping && !isCollapsed) || isCollapsed" :class="{'ml-4 border-l border-[#1E293B] pl-2 space-y-1': !isCollapsed}">
+                        <Link
+                            v-if="hasPermission('attendance.kiosk')"
+                            :href="route('attendance.kiosk')"
+                             :class="[
+                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
+                                route().current('attendance.kiosk')
+                                    ? 'text-teal-400 bg-slate-800/50'
+                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
+                            ]"
+                            @mouseenter="handleMouseEnter($event, 'Attendance Kiosk')"
+                            @mouseleave="handleMouseLeave"
+                        >
+                            <ComputerDesktopIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
+                            <span v-if="!isCollapsed" class="font-medium text-sm">Attendance Kiosk</span>
+                        </Link>
                         <Link
                             v-if="hasPermission('dtr.view')"
                             :href="route('dtr.index')"

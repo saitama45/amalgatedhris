@@ -54,6 +54,10 @@ Route::middleware('auth')->group(function () {
     Route::resource('deduction-types', \App\Http\Controllers\DeductionTypeController::class)->except(['create', 'edit', 'show']);
 
     // Attendance (DTR)
+    Route::get('attendance/kiosk', [\App\Http\Controllers\AttendanceKioskController::class, 'index'])->name('attendance.kiosk')->middleware('can:attendance.kiosk');
+    Route::post('attendance/kiosk', [\App\Http\Controllers\AttendanceKioskController::class, 'store'])->name('attendance.kiosk.store');
+    Route::post('attendance/kiosk/scan', [\App\Http\Controllers\AttendanceKioskController::class, 'scan'])->name('attendance.kiosk.scan');
+    
     Route::get('dtr', [\App\Http\Controllers\AttendanceController::class, 'index'])->name('dtr.index');
     Route::post('dtr', [\App\Http\Controllers\AttendanceController::class, 'store'])->name('dtr.store');
     Route::put('dtr/{attendanceLog}', [\App\Http\Controllers\AttendanceController::class, 'update'])->name('dtr.update');

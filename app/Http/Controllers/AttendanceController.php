@@ -78,76 +78,100 @@ class AttendanceController extends Controller
             'employee_id' => 'required|exists:employees,id',
             'date' => 'required|date',
             'time_in' => 'nullable|date_format:H:i',
-            'time_out' => 'nullable|date_format:H:i|after:time_in',
+            'time_out' => 'nullable|date_format:H:i',
         ]);
+
+        $dateStr = Carbon::parse($request->date)->format('Y-m-d');
+        
+        // Check for existing record to prevent duplicates
+        $exists = AttendanceLog::where('employee_id', $request->employee_id)
+            ->where('date', $dateStr)
+            ->exists();
+
+        if ($exists) {
+            return redirect()->back()->withErrors([
+                'employee_id' => 'An attendance record for this employee on this date already exists.'
+            ]);
+        }
 
         $employee = Employee::find($request->employee_id);
         
         // Convert time strings to Carbon objects on the specific date
-        $date = Carbon::parse($request->date);
-        $timeIn = $request->time_in ? Carbon::parse($request->date . ' ' . $request->time_in) : null;
-        $timeOut = $request->time_out ? Carbon::parse($request->date . ' ' . $request->time_out) : null;
+        $timeIn = $request->time_in ? Carbon::parse($dateStr . ' ' . $request->time_in) : null;
+        $timeOut = $request->time_out ? Carbon::parse($dateStr . ' ' . $request->time_out) : null;
+
+        // Handle Manual Entry Logic: If time_out is earlier than time_in, assume it is the next day.
+        if ($timeIn && $timeOut && $timeOut->lt($timeIn)) {
+            $timeOut->addDay();
+        }
 
         // Auto-compute status and late
         $status = 'Present';
         $lateMinutes = 0;
-        $otMinutes = 0; // Logic for OT can be added here or in service
+        $otMinutes = 0;
 
         if (!$timeIn && !$timeOut) {
             $status = 'Absent';
         } elseif (!$timeIn || !$timeOut) {
-            $status = 'Incomplete'; // Or 'No Time Out'
+            $status = 'Incomplete';
         }
 
-        // Calculate Late if Time In is present
-        if ($timeIn && $employee->activeEmploymentRecord && $employee->activeEmploymentRecord->defaultShift) {
-            $shiftStart = Carbon::parse($request->date . ' ' . $employee->activeEmploymentRecord->defaultShift->start_time);
-            $lateMinutes = $attendanceService->calculateLateMinutes($shiftStart, $timeIn, $employee->activeEmploymentRecord);
-            
-            if ($lateMinutes > 0) {
-                $status = 'Late';
-            }
-        }
+        $record = $employee->activeEmploymentRecord;
+        $shift = $record ? $record->defaultShift : null;
 
-        // Calculate OT if Time Out is present
-        if ($timeOut && $employee->activeEmploymentRecord && $employee->activeEmploymentRecord->defaultShift) {
-            $shiftEnd = Carbon::parse($request->date . ' ' . $employee->activeEmploymentRecord->defaultShift->end_time);
-            
-            // Handle cross-day shift if timeOut < shiftStart (very basic)
+        if ($shift) {
+            $shiftStart = Carbon::parse($dateStr . ' ' . $shift->start_time);
+            $shiftEnd = Carbon::parse($dateStr . ' ' . $shift->end_time);
+
+            // Handle Overnight Shift Definition (e.g. 22:00 - 06:00)
             if ($shiftEnd->lt($shiftStart)) {
                 $shiftEnd->addDay();
             }
 
-            $otMinutes = $attendanceService->calculateOvertimeMinutes($shiftEnd, $timeOut, $employee->activeEmploymentRecord);
+            // Calculate Late
+            if ($timeIn) {
+                $lateMinutes = $attendanceService->calculateLateMinutes($shiftStart, $timeIn, $record);
+                if ($lateMinutes > 0) {
+                    $status = 'Late';
+                }
+            }
+
+            // Calculate OT
+            if ($timeOut) {
+                // If the employee worked past the defined shift end
+                $otMinutes = $attendanceService->calculateOvertimeMinutes($shiftEnd, $timeOut, $record);
+            }
         }
 
-        AttendanceLog::updateOrCreate(
-            ['employee_id' => $employee->id, 'date' => $date->format('Y-m-d')],
-            [
+        try {
+            AttendanceLog::create([
+                'employee_id' => $employee->id,
+                'date' => $dateStr,
                 'time_in' => $timeIn,
                 'time_out' => $timeOut,
                 'status' => $status,
                 'late_minutes' => $lateMinutes,
                 'ot_minutes' => $otMinutes,
-            ]
-        );
+            ]);
 
-        return redirect()->back()->with('success', 'Attendance log saved successfully.');
+            return redirect()->back()->with('success', 'Attendance log saved successfully.');
+        } catch (\Exception $e) {
+            return redirect()->back()->withErrors(['error' => 'Database error: ' . $e->getMessage()]);
+        }
     }
 
     public function update(Request $request, AttendanceLog $attendanceLog, AttendanceService $attendanceService)
     {
         $request->validate([
             'time_in' => 'nullable|date_format:H:i',
-            'time_out' => 'nullable|date_format:H:i', // removed after:time_in for flexible editing/night shift handling need logic
+            'time_out' => 'nullable|date_format:H:i',
         ]);
 
-        // Same logic as store, essentially recalculating
         $dateStr = $attendanceLog->date->format('Y-m-d');
         $timeIn = $request->time_in ? Carbon::parse($dateStr . ' ' . $request->time_in) : null;
         $timeOut = $request->time_out ? Carbon::parse($dateStr . ' ' . $request->time_out) : null;
         
-        // Handle Night Shift cross-day (simplified: if out < in, assume next day)
+        // Handle Manual Entry / Night Shift cross-day
         if ($timeIn && $timeOut && $timeOut->lt($timeIn)) {
             $timeOut->addDay();
         }
@@ -160,23 +184,26 @@ class AttendanceController extends Controller
         if (!$timeIn && !$timeOut) $status = 'Absent';
         elseif (!$timeIn || !$timeOut) $status = 'Incomplete';
 
-        if ($timeIn && $employee->activeEmploymentRecord && $employee->activeEmploymentRecord->defaultShift) {
-            $shiftStart = Carbon::parse($dateStr . ' ' . $employee->activeEmploymentRecord->defaultShift->start_time);
-            $lateMinutes = $attendanceService->calculateLateMinutes($shiftStart, $timeIn, $employee->activeEmploymentRecord);
-             if ($lateMinutes > 0) $status = 'Late';
-        }
+        $record = $employee->activeEmploymentRecord;
+        $shift = $record ? $record->defaultShift : null;
 
-        // Calculate OT if Time Out is present
-        if ($timeOut && $employee->activeEmploymentRecord && $employee->activeEmploymentRecord->defaultShift) {
-            $shiftStart = Carbon::parse($dateStr . ' ' . $employee->activeEmploymentRecord->defaultShift->start_time);
-            $shiftEnd = Carbon::parse($dateStr . ' ' . $employee->activeEmploymentRecord->defaultShift->end_time);
-            
-            // Handle cross-day shift
+        if ($shift) {
+            $shiftStart = Carbon::parse($dateStr . ' ' . $shift->start_time);
+            $shiftEnd = Carbon::parse($dateStr . ' ' . $shift->end_time);
+
+            // Handle Overnight Shift Definition
             if ($shiftEnd->lt($shiftStart)) {
                 $shiftEnd->addDay();
             }
 
-            $otMinutes = $attendanceService->calculateOvertimeMinutes($shiftEnd, $timeOut, $employee->activeEmploymentRecord);
+            if ($timeIn) {
+                $lateMinutes = $attendanceService->calculateLateMinutes($shiftStart, $timeIn, $record);
+                if ($lateMinutes > 0) $status = 'Late';
+            }
+
+            if ($timeOut) {
+                $otMinutes = $attendanceService->calculateOvertimeMinutes($shiftEnd, $timeOut, $record);
+            }
         }
 
         $attendanceLog->update([

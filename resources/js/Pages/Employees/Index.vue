@@ -7,6 +7,7 @@ import Modal from '@/Components/Modal.vue';
 import { usePagination } from '@/Composables/usePagination';
 import { useToast } from '@/Composables/useToast';
 import { usePermission } from '@/Composables/usePermission';
+import * as faceapi from 'face-api.js';
 import { 
     UserIcon, 
     IdentificationIcon, 
@@ -23,7 +24,8 @@ import {
     ArrowPathIcon,
     BanknotesIcon,
     TrashIcon,
-    PlusIcon
+    PlusIcon,
+    CameraIcon
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
@@ -36,8 +38,21 @@ const { showSuccess, showError } = useToast();
 const { hasPermission } = usePermission();
 const pagination = usePagination(props.employees, 'employees.index');
 
-onMounted(() => {
+// Load Face API Models
+const modelsLoaded = ref(false);
+onMounted(async () => {
     pagination.updateData(props.employees);
+    try {
+        await Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
+            faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
+            faceapi.nets.faceRecognitionNet.loadFromUri('/models')
+        ]);
+        modelsLoaded.value = true;
+        console.log("Face API models loaded");
+    } catch (e) {
+        console.error("Failed to load face models", e);
+    }
 });
 
 watch(() => props.employees, (newEmployees) => {
@@ -145,7 +160,6 @@ const submitSalary = () => {
         // Update existing record
         salaryForm.put(route('salary-history.update', editingSalaryItem.value.id), {
             onSuccess: () => {
-                showSuccess('Salary record updated successfully');
                 resetSalaryForm();
                 fetchSalaryHistory(salaryEmployee.value.id);
             },
@@ -163,7 +177,6 @@ const submitSalary = () => {
         // Add new record
         salaryForm.post(route('employees.salary.store', salaryEmployee.value.id), {
             onSuccess: () => {
-                showSuccess('Salary rate added successfully');
                 fetchSalaryHistory(salaryEmployee.value.id);
                 // Keep form populated with new latest for convenience, or reset?
                 // Resetting to "Add Mode" is safer.
@@ -183,7 +196,6 @@ const deleteSalaryItem = (item) => {
 
     router.delete(route('salary-history.destroy', item.id), {
         onSuccess: () => {
-            showSuccess('Salary record deleted successfully');
             fetchSalaryHistory(salaryEmployee.value.id);
             if (editingSalaryItem.value?.id === item.id) {
                 resetSalaryForm();
@@ -280,6 +292,7 @@ const stopDrag = () => {
 const showEditModal = ref(false);
 const editingEmployee = ref(null);
 const editForm = useForm({
+    employee_code: '',
     civil_status: '',
     gender: '',
     birthday: '',
@@ -291,11 +304,101 @@ const editForm = useForm({
     philhealth_no: '',
     pagibig_no: '',
     tin_no: '',
-    employment_status: '', // Added
+    employment_status: '',
+    face_data: null, // For Biometrics
+    face_descriptor: null, // New field for descriptor
 });
+
+// Biometrics State
+const activeTab = ref('profile'); // 'profile', 'biometrics'
+const bioVideoRef = ref(null);
+const bioCanvasRef = ref(null);
+const bioStream = ref(null);
+const isBioCameraActive = ref(false);
+const bioImage = ref(null);
+const isBioProcessing = ref(false); // New state for processing
+
+const startBioCamera = async () => {
+    try {
+        bioStream.value = await navigator.mediaDevices.getUserMedia({ video: true });
+        if (bioVideoRef.value) {
+            bioVideoRef.value.srcObject = bioStream.value;
+            isBioCameraActive.value = true;
+        }
+    } catch (err) {
+        console.error("Camera error:", err);
+        showError("Could not access camera.");
+    }
+};
+
+const stopBioCamera = () => {
+    if (bioStream.value) {
+        bioStream.value.getTracks().forEach(track => track.stop());
+        isBioCameraActive.value = false;
+    }
+};
+
+const captureBio = async () => {
+    if (!bioVideoRef.value || !bioCanvasRef.value) return;
+    
+    isBioProcessing.value = true;
+    const context = bioCanvasRef.value.getContext('2d');
+    
+    // Resize to reasonable dimensions (e.g., max width 640)
+    const MAX_WIDTH = 640;
+    let width = bioVideoRef.value.videoWidth;
+    let height = bioVideoRef.value.videoHeight;
+    
+    if (width > MAX_WIDTH) {
+        height *= MAX_WIDTH / width;
+        width = MAX_WIDTH;
+    }
+    
+    bioCanvasRef.value.width = width;
+    bioCanvasRef.value.height = height;
+
+    context.drawImage(bioVideoRef.value, 0, 0, width, height);
+    bioImage.value = bioCanvasRef.value.toDataURL('image/jpeg', 0.7); // Quality 0.7
+    editForm.face_data = bioImage.value; // Stage for upload
+    
+    // Generate Descriptor
+    try {
+        if (!modelsLoaded.value) throw new Error("Models not loaded yet");
+        
+        // Detect face from the canvas (or image data)
+        // faceapi can take HTMLImageElement, HTMLVideoElement, or HTMLCanvasElement
+        const detections = await faceapi.detectSingleFace(bioCanvasRef.value, new faceapi.TinyFaceDetectorOptions())
+            .withFaceLandmarks()
+            .withFaceDescriptor();
+            
+        if (detections) {
+            editForm.face_descriptor = Array.from(detections.descriptor);
+            showSuccess("Face detected and registered!");
+            stopBioCamera();
+        } else {
+            showError("No face detected. Please try again.");
+            editForm.face_data = null; // Clear if invalid
+            bioImage.value = null;
+        }
+    } catch (err) {
+        console.error(err);
+        showError("Failed to process face data: " + err.message);
+    } finally {
+        isBioProcessing.value = false;
+    }
+};
+
+const retakeBio = () => {
+    bioImage.value = null;
+    editForm.face_data = null;
+    editForm.face_descriptor = null;
+    startBioCamera();
+};
 
 const openEditModal = (employee) => {
     editingEmployee.value = employee;
+    activeTab.value = 'profile'; // Reset tab
+    editForm.employee_code = employee.employee_code || '';
     editForm.civil_status = employee.civil_status || '';
     editForm.gender = employee.gender || '';
     editForm.birthday = employee.birthday ? employee.birthday.split('T')[0] : '';
@@ -307,20 +410,53 @@ const openEditModal = (employee) => {
     editForm.philhealth_no = employee.philhealth_no || '';
     editForm.pagibig_no = employee.pagibig_no || '';
     editForm.tin_no = employee.tin_no || '';
-    editForm.employment_status = employee.active_employment_record?.employment_status || ''; // Added
-    editForm.clearErrors();
-    showEditModal.value = true;
+        editForm.employment_status = employee.active_employment_record?.employment_status || '';
+        
+        // Handle JSON face_data
+        let faceFilename = null;
+        if (employee.face_data) {
+            try {
+                // Try parsing JSON
+                const parsed = JSON.parse(employee.face_data);
+                if (parsed && parsed.file) {
+                    faceFilename = parsed.file;
+                } else if (typeof parsed === 'string') {
+                    // Fallback if it was just a string (legacy/migration)
+                     faceFilename = parsed;
+                }
+            } catch (e) {
+                // Not JSON, assume string
+                faceFilename = employee.face_data;
+            }
+        }
+        
+        bioImage.value = faceFilename ? `/uploads/faces/${faceFilename}?t=${new Date().getTime()}` : null;
+        
+        editForm.face_data = null; // Reset staged change
+        editForm.face_descriptor = null;
+        
+        editForm.clearErrors();    showEditModal.value = true;
 };
 
 const submitEdit = () => {
+    console.log("Submitting edit form:", {
+        face_data_length: editForm.face_data ? editForm.face_data.length : 0,
+        face_descriptor: editForm.face_descriptor
+    });
+    
     editForm.put(route('employees.update', editingEmployee.value.id), {
         onSuccess: () => {
-            showEditModal.value = false;
-            showSuccess('Profile updated successfully');
+            closeEditModal();
         },
         onError: () => showError('Failed to update profile. Please check inputs.')
     });
 };
+
+const closeEditModal = () => {
+    stopBioCamera();
+    showEditModal.value = false;
+};
+
 
 // --- Document Checklist Logic ---
 const showDocsModal = ref(false);
@@ -402,7 +538,6 @@ const saveDocument = (docTypeId) => {
 
     router.post(route('employees.upload-document', docsEmployeeId.value), formData, {
         onSuccess: () => {
-            showSuccess('Document uploaded successfully');
             delete stagedFiles.value[docTypeId]; 
             // Fetch fresh documents immediately
             fetchDocuments(docsEmployeeId.value);
@@ -447,7 +582,6 @@ const submitResign = () => {
     resignForm.put(route('employees.resign', resigningEmployee.value.id), {
         onSuccess: () => {
             showResignModal.value = false;
-            showSuccess('Employee status updated to Resigned');
         },
         onError: () => showError('Failed to update status.')
     });
@@ -503,7 +637,13 @@ const submitResign = () => {
                                             <UserIcon class="w-5 h-5" />
                                         </div>
                                         <div class="ml-4">
-                                            <div class="text-sm font-bold text-slate-900">{{ employee.user?.name || 'N/A' }}</div>
+                                            <div class="flex items-center">
+                                                <div class="text-sm font-bold text-slate-900">{{ employee.user?.name || 'N/A' }}</div>
+                                                <div v-if="employee.face_data" class="ml-2 px-1.5 py-0.5 bg-emerald-100 text-[10px] text-emerald-700 font-bold rounded flex items-center" title="Face Biometrics Registered">
+                                                    <CheckCircleIcon class="w-3 h-3 mr-1" />
+                                                    FACE ID
+                                                </div>
+                                            </div>
                                             <div class="text-xs text-slate-500">Joined: {{ new Date(employee.created_at).toLocaleDateString() }}</div>
                                         </div>
                                     </div>
@@ -572,18 +712,42 @@ const submitResign = () => {
         </div>
 
         <!-- Edit Profile Modal -->
-        <Modal :show="showEditModal" @close="showEditModal = false" maxWidth="2xl">
+        <Modal :show="showEditModal" @close="closeEditModal" maxWidth="2xl">
             <div class="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
                 <div>
                     <h3 class="text-lg font-bold text-slate-900">Edit Employee Profile</h3>
                     <p class="text-sm text-slate-500">Update personal information for {{ editingEmployee?.user?.name }}</p>
                 </div>
-                <button @click="showEditModal = false" class="text-slate-400 hover:text-slate-500 transition-colors">
+                <button @click="closeEditModal" class="text-slate-400 hover:text-slate-500 transition-colors">
                     <XMarkIcon class="w-6 h-6" />
+                </button>
+            </div>
+
+            <!-- Tabs -->
+            <div class="px-6 pt-4 border-b border-slate-100 flex space-x-6">
+                <button 
+                    @click="activeTab = 'profile'" 
+                    class="pb-2 text-sm font-bold border-b-2 transition-all"
+                    :class="activeTab === 'profile' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'"
+                >
+                    Profile Information
+                </button>
+                <button 
+                    @click="activeTab = 'biometrics'" 
+                    class="pb-2 text-sm font-bold border-b-2 transition-all"
+                    :class="activeTab === 'biometrics' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'"
+                >
+                    Face Biometrics
                 </button>
             </div>
             
             <form @submit.prevent="submitEdit" class="p-6">
+                <div v-show="activeTab === 'profile'">
+                    <div class="mb-6">
+                        <label class="block text-sm font-bold text-slate-700 mb-1">Employee ID / Code</label>
+                        <input v-model="editForm.employee_code" type="text" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono">
+                    </div>
+
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div>
                         <label class="block text-sm font-bold text-slate-700 mb-1">Civil Status</label>
@@ -669,8 +833,50 @@ const submitResign = () => {
                     </div>
                 </div>
 
+                </div>
+
+                <!-- Biometrics Section -->
+                <div v-show="activeTab === 'biometrics'" class="space-y-6">
+                    <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 flex gap-3">
+                        <div class="p-2 bg-blue-100 rounded-full h-fit text-blue-600">
+                            <IdentificationIcon class="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-blue-900 text-sm">Face Registration</h4>
+                            <p class="text-xs text-blue-700 mt-1">Capture a clear photo of the employee for Kiosk face recognition.</p>
+                        </div>
+                    </div>
+
+                    <div class="relative bg-black rounded-2xl overflow-hidden aspect-video flex items-center justify-center group">
+                        <video ref="bioVideoRef" autoplay playsinline muted class="absolute inset-0 w-full h-full object-cover" :class="{'opacity-50': bioImage}"></video>
+                        <img v-if="bioImage" :src="bioImage" class="absolute inset-0 w-full h-full object-cover z-10">
+                        <canvas ref="bioCanvasRef" class="hidden"></canvas>
+
+                        <!-- Controls -->
+                        <div class="absolute bottom-4 z-20 flex gap-4">
+                            <button v-if="!bioImage && !isBioCameraActive" type="button" @click="startBioCamera" class="bg-white text-slate-900 px-4 py-2 rounded-full font-bold text-xs shadow-lg hover:bg-slate-100 transition-all flex items-center">
+                                <CameraIcon class="w-4 h-4 mr-2" /> Start Camera
+                            </button>
+                            <button v-if="isBioCameraActive" type="button" @click="captureBio" class="bg-white text-slate-900 px-4 py-2 rounded-full font-bold text-xs shadow-lg hover:bg-slate-100 transition-all flex items-center">
+                                <div class="w-3 h-3 bg-red-500 rounded-full animate-pulse mr-2"></div> Capture
+                            </button>
+                            <button v-if="bioImage" type="button" @click="retakeBio" class="bg-white/20 backdrop-blur text-white px-4 py-2 rounded-full font-bold text-xs shadow-lg hover:bg-white/30 transition-all flex items-center border border-white/30">
+                                <ArrowPathIcon class="w-4 h-4 mr-2" /> Retake
+                            </button>
+                            <button v-if="bioImage && !isBioCameraActive" type="button" @click="() => { bioImage = null; editForm.face_data = 'CLEAR'; }" class="bg-red-500/20 backdrop-blur text-red-200 px-4 py-2 rounded-full font-bold text-xs shadow-lg hover:bg-red-500/30 transition-all flex items-center border border-red-500/30">
+                                <TrashIcon class="w-4 h-4 mr-2" /> Clear Biometrics
+                            </button>
+                        </div>
+                        
+                        <div v-if="!isBioCameraActive && !bioImage" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500">
+                            <CameraIcon class="w-12 h-12 mb-2 opacity-50" />
+                            <span class="text-xs font-bold uppercase tracking-wider">Camera Off</span>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="flex justify-end space-x-3 pt-6 border-t border-slate-100 mt-6">
-                    <button type="button" @click="showEditModal = false" class="px-6 py-2.5 text-slate-600 font-bold bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors">Cancel</button>
+                    <button type="button" @click="closeEditModal" class="px-6 py-2.5 text-slate-600 font-bold bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors">Cancel</button>
                     <button type="submit" :disabled="editForm.processing" class="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-600/20 disabled:opacity-50 transition-all">
                         Save Changes
                     </button>

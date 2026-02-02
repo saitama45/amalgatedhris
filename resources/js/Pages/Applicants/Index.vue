@@ -73,7 +73,6 @@ const submitHire = () => {
     hireForm.post(route('applicants.hire', hiringApplicant.value.id), {
         onSuccess: () => {
             showHireModal.value = false;
-            showSuccess('Applicant hired and converted to Employee');
         },
         onError: (errors) => {
              const errorMessage = Object.values(errors).flat().join(', ') || 'Validation error';
@@ -126,7 +125,6 @@ const submitForm = () => {
         })).post(route('applicants.update', editingApplicant.value.id), {
             onSuccess: () => {
                 showModal.value = false;
-                showSuccess('Applicant updated successfully');
             },
             onError: (errors) => {
                  const errorMessage = Object.values(errors).flat().join(', ') || 'Validation error';
@@ -137,7 +135,6 @@ const submitForm = () => {
         form.post(route('applicants.store'), {
             onSuccess: () => {
                 showModal.value = false;
-                showSuccess('Applicant added successfully');
             },
             onError: (errors) => {
                  const errorMessage = Object.values(errors).flat().join(', ') || 'Validation error';
@@ -155,7 +152,6 @@ const deleteApplicant = async (applicant) => {
     
     if (confirmed) {
         destroy(route('applicants.destroy', applicant.id), {
-            onSuccess: () => showSuccess('Applicant deleted successfully'),
             onError: (errors) => showError('Failed to delete applicant')
         });
     }

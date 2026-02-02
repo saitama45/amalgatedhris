@@ -66,7 +66,6 @@ const submitForm = () => {
         form.put(route('positions.update', editingPosition.value.id), {
             onSuccess: () => {
                 showModal.value = false;
-                showSuccess('Position updated successfully');
             },
             onError: (errors) => {
                  const errorMessage = Object.values(errors).flat().join(', ') || 'Validation error';
@@ -77,7 +76,6 @@ const submitForm = () => {
         form.post(route('positions.store'), {
             onSuccess: () => {
                 showModal.value = false;
-                showSuccess('Position added successfully');
             },
             onError: (errors) => {
                  const errorMessage = Object.values(errors).flat().join(', ') || 'Validation error';
@@ -95,7 +93,6 @@ const deletePosition = async (position) => {
     
     if (confirmed) {
         destroy(route('positions.destroy', position.id), {
-            onSuccess: () => showSuccess('Position deleted successfully'),
             onError: (errors) => showError('Failed to delete position')
         });
     }

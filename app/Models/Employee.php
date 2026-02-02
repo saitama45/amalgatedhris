@@ -23,6 +23,7 @@ class Employee extends Model
         'emergency_contact_relationship',
         'emergency_contact_number',
         'birthday',
+        'face_data',
     ];
 
     protected $casts = [

@@ -68,7 +68,6 @@ const submitForm = () => {
         form.put(route('departments.update', editingDepartment.value.id), {
             onSuccess: () => {
                 showModal.value = false;
-                showSuccess('Department updated successfully');
             },
             onError: (errors) => {
                  const errorMessage = Object.values(errors).flat().join(', ') || 'Validation error';
@@ -79,7 +78,6 @@ const submitForm = () => {
         form.post(route('departments.store'), {
             onSuccess: () => {
                 showModal.value = false;
-                showSuccess('Department added successfully');
             },
             onError: (errors) => {
                  const errorMessage = Object.values(errors).flat().join(', ') || 'Validation error';
@@ -97,7 +95,6 @@ const deleteDepartment = async (department) => {
     
     if (confirmed) {
         destroy(route('departments.destroy', department.id), {
-            onSuccess: () => showSuccess('Department deleted successfully'),
             onError: (errors) => showError('Failed to delete department')
         });
     }

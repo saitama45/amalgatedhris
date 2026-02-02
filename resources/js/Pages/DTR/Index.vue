@@ -30,7 +30,18 @@ const props = defineProps({
 const { showSuccess, showError } = useToast();
 const { hasPermission } = usePermission();
 const { confirm: confirmAction } = useConfirm();
-const pagination = usePagination(props.logs, 'dtr.index');
+
+// Filters
+const filterForm = ref({
+    start_date: props.filters.start_date,
+    end_date: props.filters.end_date,
+    department_id: props.filters.department_id || '',
+    company_id: props.filters.company_id || '',
+});
+
+const pagination = usePagination(props.logs, 'dtr.index', () => ({
+    ...filterForm.value
+}));
 
 // Keep pagination in sync with props (fix for filter not updating table)
 watch(() => props.logs, (newLogs) => {
@@ -50,14 +61,6 @@ const formatDisplayDate = (dateStr) => {
     const options = { weekday: 'short', month: 'short', day: 'numeric' };
     return date.toLocaleDateString('en-US', options);
 };
-
-// Filters
-const filterForm = ref({
-    start_date: props.filters.start_date,
-    end_date: props.filters.end_date,
-    department_id: props.filters.department_id || '',
-    company_id: props.filters.company_id || '',
-});
 
 const applyFilters = () => {
     const params = {
@@ -107,16 +110,31 @@ const searchEmployees = () => {
     ).slice(0, 50);
 };
 
+// Solution: Use a temporary flag `isSelecting`.
+const isSelecting = ref(false);
+
 watch(employeeSearch, () => {
+    if (!isSelecting.value) {
+        form.employee_id = '';
+    }
     searchEmployees();
     highlightedIndex.value = -1;
+    isSelecting.value = false; // Reset flag
 });
 
 const selectEmployee = (employee) => {
+    isSelecting.value = true;
     form.employee_id = employee.id;
     employeeSearch.value = employee.name;
     showEmployeeDropdown.value = false;
 };
+
+const handleEmployeeSearchBlur = () => {
+    setTimeout(() => {
+        showEmployeeDropdown.value = false;
+    }, 200);
+};
+
 
 const openCreateModal = () => {
     isEditing.value = false;
@@ -158,7 +176,10 @@ const submitForm = () => {
                 showSuccess('Log updated successfully');
                 pagination.updateData(props.logs);
             },
-            onError: () => showError('Failed to update log.')
+            onError: (errors) => {
+                const message = Object.values(errors).flat().join('\n') || 'Failed to update log.';
+                showError(message);
+            }
         });
     } else {
         form.post(route('dtr.store'), {
@@ -167,7 +188,10 @@ const submitForm = () => {
                 showSuccess('Log added successfully');
                 pagination.updateData(props.logs);
             },
-            onError: () => showError('Failed to add log.')
+            onError: (errors) => {
+                const message = Object.values(errors).flat().join('\n') || 'Failed to add log.';
+                showError(message);
+            }
         });
     }
 };
@@ -413,7 +437,7 @@ const calculateUndertime = (log) => {
                         type="text" 
                         v-model="employeeSearch"
                         @focus="showEmployeeDropdown = true; searchEmployees()"
-                        @blur="setTimeout(() => showEmployeeDropdown = false, 200)"
+                        @blur="handleEmployeeSearchBlur"
                         placeholder="Type to search..."
                         class="w-full rounded-lg border-slate-200 text-sm"
                     >

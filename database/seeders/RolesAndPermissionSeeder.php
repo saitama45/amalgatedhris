@@ -48,6 +48,7 @@ class RolesAndPermissionSeeder extends Seeder
             'dtr.edit' => 'Edit DTR Logs',
             'dtr.delete' => 'Delete DTR Logs',
             'dtr.approve' => 'Approve Manual Logs/OT',
+            'attendance.kiosk' => 'Access Attendance Kiosk',
             
             // Time & Attendance - Shifts
             'shifts.view' => 'View Shift Templates',
