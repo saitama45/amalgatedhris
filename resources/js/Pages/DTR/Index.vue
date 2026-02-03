@@ -5,7 +5,6 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
 import Modal from '@/Components/Modal.vue';
 import ConfirmModal from '@/Components/ConfirmModal.vue';
-import { useToast } from '@/Composables/useToast';
 import { usePagination } from '@/Composables/usePagination';
 import { usePermission } from '@/Composables/usePermission';
 import { useConfirm } from '@/Composables/useConfirm';
@@ -27,7 +26,6 @@ const props = defineProps({
     options: Object,
 });
 
-const { showSuccess, showError } = useToast();
 const { hasPermission } = usePermission();
 const { confirm: confirmAction } = useConfirm();
 
@@ -173,25 +171,15 @@ const submitForm = () => {
         form.put(route('dtr.update', editingLog.value.id), {
             onSuccess: () => {
                 showModal.value = false;
-                showSuccess('Log updated successfully');
                 pagination.updateData(props.logs);
             },
-            onError: (errors) => {
-                const message = Object.values(errors).flat().join('\n') || 'Failed to update log.';
-                showError(message);
-            }
         });
     } else {
         form.post(route('dtr.store'), {
             onSuccess: () => {
                 showModal.value = false;
-                showSuccess('Log added successfully');
                 pagination.updateData(props.logs);
             },
-            onError: (errors) => {
-                const message = Object.values(errors).flat().join('\n') || 'Failed to add log.';
-                showError(message);
-            }
         });
     }
 };
@@ -203,10 +191,7 @@ const deleteLog = async (log) => {
     });
 
     if (confirmed) {
-        router.delete(route('dtr.destroy', log.id), {
-            onSuccess: () => showSuccess('Log deleted successfully'),
-            onError: () => showError('Failed to delete log')
-        });
+        router.delete(route('dtr.destroy', log.id));
     }
 };
 
@@ -237,18 +222,67 @@ const statusClass = (status) => {
 
 const calculateWorkHours = (log) => {
     if (!log.time_in || !log.time_out) return '0.00';
-    const inTime = new Date(log.time_in);
-    const outTime = new Date(log.time_out);
-    let diffMs = outTime - inTime;
-    
-    let hours = diffMs / (1000 * 60 * 60);
-    
+    let inTime = new Date(log.time_in);
+    let outTime = new Date(log.time_out);
+
     const shift = log.employee?.active_employment_record?.default_shift;
-    if (shift && hours > 5) { // Assuming break is taken if worked > 5hrs
-        hours -= (shift.break_minutes / 60);
+    if (shift) {
+        const logDate = String(log.date).split('T')[0];
+        const shiftStart = new Date(`${logDate}T${shift.start_time}`);
+        
+        // Calculate break window (assuming break starts 4 hours after shift start)
+        const breakStart = new Date(shiftStart.getTime() + (4 * 60 * 60 * 1000));
+        const breakEnd = new Date(breakStart.getTime() + (shift.break_minutes * 60 * 1000));
+
+        // Afternoon Amnesty Check (10:01 AM - 1:00 PM arrival)
+        const lateMinutes = Math.floor((inTime - shiftStart) / (1000 * 60));
+        if (lateMinutes > 120 && lateMinutes <= 300) {
+            inTime = new Date(breakEnd); // Start at 1:00 PM
+        }
+
+        // Calculate Morning Work Block
+        const morningStart = inTime < breakStart ? inTime : breakStart;
+        const morningEnd = outTime < breakStart ? outTime : breakStart;
+        const morningMs = Math.max(0, morningEnd - morningStart);
+
+        // Calculate Afternoon Work Block
+        const afternoonStart = inTime > breakEnd ? inTime : breakEnd;
+        const afternoonEnd = outTime > breakEnd ? outTime : breakEnd;
+        const afternoonMs = Math.max(0, afternoonEnd - afternoonStart);
+
+        return ((morningMs + afternoonMs) / (1000 * 60 * 60)).toFixed(2);
     }
     
-    return Math.max(0, hours).toFixed(2);
+    return ((outTime - inTime) / (1000 * 60 * 60)).toFixed(2);
+};
+
+const calculateLate = (log) => {
+    if (!log.time_in) return 0;
+    const shift = log.employee?.active_employment_record?.default_shift;
+    if (!shift) return 0;
+
+    const logDate = String(log.date).split('T')[0];
+    const shiftStart = new Date(`${logDate}T${shift.start_time}`);
+    const timeIn = new Date(log.time_in);
+    const outTime = log.time_out ? new Date(log.time_out) : null;
+
+    const workHours = parseFloat(calculateWorkHours(log));
+    const lateMinutes = Math.floor((timeIn - shiftStart) / (1000 * 60));
+
+    // Morning Half Day Amnesty: If worked 4 hours and timed out before 1:01 PM
+    if (workHours >= 4 && outTime) {
+        const afternoonCutoff = new Date(`${logDate}T13:01:00`);
+        if (outTime < afternoonCutoff) return 0;
+    }
+
+    if (lateMinutes <= 5) return 0;
+
+    // Afternoon Amnesty: 10:01 AM to 1:00 PM
+    if (lateMinutes > 120 && lateMinutes <= 300) {
+        return 0;
+    }
+
+    return Math.ceil(lateMinutes / 30) * 30;
 };
 
 const calculateUndertime = (log) => {
@@ -259,6 +293,23 @@ const calculateUndertime = (log) => {
 
     const logDate = String(log.date).split('T')[0];
     const shiftStart = new Date(`${logDate}T${shift.start_time}`);
+    const timeIn = new Date(log.time_in);
+    const outTime = new Date(log.time_out);
+
+    const workHours = parseFloat(calculateWorkHours(log));
+    const lateMinutes = Math.floor((timeIn - shiftStart) / (1000 * 60));
+
+    // Morning Half Day Amnesty: No UT if timed out at 1:00 PM or earlier and worked 4 hours
+    const afternoonCutoff = new Date(`${logDate}T13:01:00`);
+    if (workHours >= 4 && outTime < afternoonCutoff) {
+        return 0;
+    }
+
+    // Afternoon Amnesty: No UT if started during the afternoon window
+    if (lateMinutes > 120 && lateMinutes <= 300) {
+        return 0;
+    }
+
     let shiftEnd = new Date(`${logDate}T${shift.end_time}`);
     
     if (shiftEnd < shiftStart) {
@@ -390,8 +441,8 @@ const calculateUndertime = (log) => {
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-center">
                                     <div class="flex flex-col items-center gap-1">
-                                        <div v-if="log.late_minutes > 0" class="text-[10px] leading-none text-rose-600 font-bold bg-rose-50 px-1.5 py-1 rounded border border-rose-100 w-16 text-center">
-                                            {{ log.late_minutes }}m Late
+                                        <div v-if="calculateLate(log) > 0" class="text-[10px] leading-none text-rose-600 font-bold bg-rose-50 px-1.5 py-1 rounded border border-rose-100 w-16 text-center">
+                                            {{ calculateLate(log) }}m Late
                                         </div>
                                         <div v-if="calculateUndertime(log) > 0" class="text-[10px] leading-none text-amber-600 font-bold bg-amber-50 px-1.5 py-1 rounded border border-amber-100 w-16 text-center">
                                             {{ calculateUndertime(log) }}m UT
@@ -399,7 +450,7 @@ const calculateUndertime = (log) => {
                                         <div v-if="log.ot_minutes > 0" class="text-[10px] leading-none text-blue-600 font-bold bg-blue-50 px-1.5 py-1 rounded border border-blue-100 w-16 text-center">
                                             {{ log.ot_minutes }}m OT
                                         </div>
-                                        <div v-if="log.late_minutes == 0 && calculateUndertime(log) == 0 && log.ot_minutes == 0" class="text-xs text-slate-400">-</div>
+                                        <div v-if="calculateLate(log) == 0 && calculateUndertime(log) == 0 && log.ot_minutes == 0" class="text-xs text-slate-400">-</div>
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-center">

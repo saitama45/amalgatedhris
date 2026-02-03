@@ -156,7 +156,7 @@ class AttendanceController extends Controller
 
             return redirect()->back()->with('success', 'Attendance log saved successfully.');
         } catch (\Exception $e) {
-            return redirect()->back()->withErrors(['error' => 'Database error: ' . $e->getMessage()]);
+            return redirect()->back()->with('error', 'Database error: ' . $e->getMessage());
         }
     }
 
