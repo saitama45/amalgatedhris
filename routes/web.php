@@ -36,6 +36,7 @@ Route::middleware('auth')->group(function () {
     Route::put('salary-history/{salaryHistory}', [\App\Http\Controllers\SalaryHistoryController::class, 'update'])->name('salary-history.update');
     Route::delete('salary-history/{salaryHistory}', [\App\Http\Controllers\SalaryHistoryController::class, 'destroy'])->name('salary-history.destroy');
     Route::resource('employees', \App\Http\Controllers\EmployeeController::class)->only(['index', 'update']);
+    
     // Shifts & Schedules
     Route::resource('shifts', \App\Http\Controllers\ShiftController::class)->except(['create', 'edit', 'show']);
     Route::resource('holidays', \App\Http\Controllers\HolidayController::class)->except(['create', 'edit', 'show']);
@@ -54,10 +55,6 @@ Route::middleware('auth')->group(function () {
     Route::resource('deduction-types', \App\Http\Controllers\DeductionTypeController::class)->except(['create', 'edit', 'show']);
 
     // Attendance (DTR)
-    Route::get('attendance/kiosk', [\App\Http\Controllers\AttendanceKioskController::class, 'index'])->name('attendance.kiosk')->middleware('can:attendance.kiosk');
-    Route::post('attendance/kiosk', [\App\Http\Controllers\AttendanceKioskController::class, 'store'])->name('attendance.kiosk.store');
-    Route::post('attendance/kiosk/scan', [\App\Http\Controllers\AttendanceKioskController::class, 'scan'])->name('attendance.kiosk.scan');
-    
     Route::get('dtr', [\App\Http\Controllers\AttendanceController::class, 'index'])->name('dtr.index');
     Route::post('dtr', [\App\Http\Controllers\AttendanceController::class, 'store'])->name('dtr.store');
     Route::put('dtr/{attendanceLog}', [\App\Http\Controllers\AttendanceController::class, 'update'])->name('dtr.update');
@@ -65,7 +62,6 @@ Route::middleware('auth')->group(function () {
     Route::get('dtr/template', [\App\Http\Controllers\AttendanceController::class, 'downloadTemplate'])->name('dtr.template');
     Route::post('dtr/import', [\App\Http\Controllers\AttendanceController::class, 'import'])->name('dtr.import');
 
-    Route::resource('employees', \App\Http\Controllers\EmployeeController::class)->only(['index', 'update']);
     Route::resource('departments', \App\Http\Controllers\DepartmentController::class)->except(['create', 'edit', 'show']);
     Route::resource('positions', \App\Http\Controllers\PositionController::class)->except(['create', 'edit', 'show']);
     Route::resource('document-types', \App\Http\Controllers\DocumentTypeController::class)->except(['create', 'edit', 'show']);
@@ -74,5 +70,10 @@ Route::middleware('auth')->group(function () {
     Route::put('profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
 });
+
+// Public Attendance Kiosk
+Route::get('attendance/kiosk', [\App\Http\Controllers\AttendanceKioskController::class, 'index'])->name('attendance.kiosk');
+Route::post('attendance/kiosk', [\App\Http\Controllers\AttendanceKioskController::class, 'store'])->name('attendance.kiosk.store');
+Route::post('attendance/kiosk/scan', [\App\Http\Controllers\AttendanceKioskController::class, 'scan'])->name('attendance.kiosk.scan');
 
 require __DIR__.'/auth.php';

@@ -304,6 +304,7 @@ const editForm = useForm({
     philhealth_no: '',
     pagibig_no: '',
     tin_no: '',
+    department_id: '',
     employment_status: '',
     face_data: null, // For Biometrics
     face_descriptor: null, // New field for descriptor
@@ -410,7 +411,8 @@ const openEditModal = (employee) => {
     editForm.philhealth_no = employee.philhealth_no || '';
     editForm.pagibig_no = employee.pagibig_no || '';
     editForm.tin_no = employee.tin_no || '';
-        editForm.employment_status = employee.active_employment_record?.employment_status || '';
+    editForm.department_id = employee.active_employment_record?.department_id || '';
+    editForm.employment_status = employee.active_employment_record?.employment_status || '';
         
         // Handle JSON face_data
         let faceFilename = null;
@@ -766,6 +768,13 @@ const submitResign = () => {
                             <option value="Male">Male</option>
                             <option value="Female">Female</option>
                             <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">Department</label>
+                        <select v-model="editForm.department_id" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold">
+                            <option value="" disabled>Select Department</option>
+                            <option v-for="dept in options.departments" :key="dept.id" :value="dept.id">{{ dept.name }}</option>
                         </select>
                     </div>
                     <div>

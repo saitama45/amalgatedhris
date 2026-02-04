@@ -1,7 +1,7 @@
 <script setup>
 import { Head, useForm } from '@inertiajs/vue3';
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
-import AppLayout from '@/Layouts/AppLayout.vue';
+import Toast from '@/Components/Toast.vue';
 import * as faceapi from 'face-api.js';
 import { 
     CameraIcon, 
@@ -232,11 +232,11 @@ const formattedDate = computed(() => {
 
 <template>
     <Head title="Attendance Kiosk" />
-    <AppLayout :fluid="true">
-        <div class="h-[calc(100vh-4rem)] bg-slate-900 flex flex-col md:flex-row overflow-hidden">
-            
-            <!-- Left: Camera Feed -->
-            <div class="flex-1 relative bg-black flex items-center justify-center overflow-hidden">
+    <div class="h-screen bg-slate-900 flex flex-col md:flex-row overflow-hidden relative">
+        <Toast />
+        
+        <!-- Left: Camera Feed -->
+        <div class="flex-1 relative bg-black flex items-center justify-center overflow-hidden">
                 <video 
                     ref="videoRef" 
                     autoplay 
@@ -270,12 +270,14 @@ const formattedDate = computed(() => {
                         {{ isAutoScan ? 'Auto Scan ON' : 'Auto Scan OFF' }}
                     </button>
 
+                    <!-- Manual capture hidden per request
                     <button @click="resetCapture" v-if="capturedImage" class="bg-white/20 hover:bg-white/30 backdrop-blur-md text-white p-4 rounded-full transition-all">
                         <ArrowPathIcon class="w-8 h-8" />
                     </button>
                     <button @click="capture" v-if="!capturedImage" class="bg-white hover:bg-slate-200 text-slate-900 p-4 rounded-full shadow-lg transition-all transform hover:scale-105 active:scale-95">
                         <CameraIcon class="w-8 h-8" />
                     </button>
+                    -->
                 </div>
             </div>
 
@@ -366,8 +368,7 @@ const formattedDate = computed(() => {
                 </div>
             </div>
         </div>
-    </AppLayout>
-</template>
+    </template>
 
 <style scoped>
 /* High contrast focus for scanner visibility */

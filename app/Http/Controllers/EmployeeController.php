@@ -32,9 +32,10 @@ class EmployeeController extends Controller
             'employees' => $employees,
             'filters' => $request->only(['search']),
             'options' => [
-                'document_types' => DocumentType::all(),
-                'positions' => Position::select('id', 'name')->orderBy('name')->get(),
-                'companies' => Company::where('is_active', true)->select('id', 'name')->orderBy('name')->get(),
+                'document_types' => \App\Models\DocumentType::all(),
+                'positions' => \App\Models\Position::select('id', 'name')->orderBy('name')->get(),
+                'departments' => \App\Models\Department::select('id', 'name')->orderBy('name')->get(),
+                'companies' => \App\Models\Company::where('is_active', true)->select('id', 'name')->orderBy('name')->get(),
             ],
         ]);
     }
@@ -61,6 +62,7 @@ class EmployeeController extends Controller
             'emergency_contact_relationship' => 'nullable|string|max:50',
             'emergency_contact_number' => 'nullable|string|max:20',
             'birthday' => 'nullable|date',
+            'department_id' => 'nullable|exists:departments,id',
             'employment_status' => 'nullable|string|in:Consultant,Probationary,Regular,Project-Based,Casual',
             'face_data' => 'nullable|string', // Base64
             'face_descriptor' => 'nullable|array', // New descriptor
@@ -134,10 +136,18 @@ class EmployeeController extends Controller
 
             $employee->update($data);
 
-            if ($request->has('employment_status') && $employee->activeEmploymentRecord) {
-                $employee->activeEmploymentRecord->update([
-                    'employment_status' => $request->employment_status
-                ]);
+            if ($employee->activeEmploymentRecord) {
+                $employmentData = [];
+                if ($request->has('employment_status')) {
+                    $employmentData['employment_status'] = $request->employment_status;
+                }
+                if ($request->has('department_id')) {
+                    $employmentData['department_id'] = $request->department_id;
+                }
+                
+                if (!empty($employmentData)) {
+                    $employee->activeEmploymentRecord->update($employmentData);
+                }
             }
         });
 
