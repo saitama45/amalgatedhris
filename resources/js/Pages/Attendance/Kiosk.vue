@@ -31,6 +31,21 @@ const errorMsg = ref(null);
 const modelsLoaded = ref(false);
 const faceMatcher = ref(null);
 
+// High-Speed 3D Liveness Engine
+const livenessStatus = ref('waiting'); 
+const motionBuffer = [];
+const livenessScore = ref(0);
+const identifiedUser = ref(null);
+const livenessFeedback = ref('Ready for scan');
+
+const resetLiveness = () => {
+    livenessStatus.value = 'waiting';
+    livenessScore.value = 0;
+    identifiedUser.value = null;
+    livenessFeedback.value = 'Ready for scan';
+    motionBuffer.length = 0;
+};
+
 // Pre-load Success Sound
 const successSound = new Audio('/sounds/success.wav');
 successSound.load();
@@ -74,32 +89,85 @@ let scanInterval = null;
 
 const startAutoScan = () => {
     if (scanInterval) clearInterval(scanInterval);
-    // Scan frequently for "glimpse" effect (e.g., every 500ms or 1s)
+    // Scan even faster to ensure we catch the blink (approx 5 frames per second)
     scanInterval = setInterval(async () => {
         if (isAutoScan.value && isCameraActive.value && !isScanning.value && !scanCooldown.value && !isLoading.value && modelsLoaded.value) {
             await performLocalScan();
         }
-    }, 1000); 
+    }, 200); 
 };
 
 const performLocalScan = async () => {
-    if (!videoRef.value || videoRef.value.paused || videoRef.value.ended) return;
+    if (!videoRef.value || videoRef.value.paused || videoRef.value.ended || isLoading.value || scanCooldown.value) return;
 
-    // Detect Face
-    const detection = await faceapi.detectSingleFace(videoRef.value, new faceapi.TinyFaceDetectorOptions())
+    // Fast detection with landmarks
+    const detection = await faceapi.detectSingleFace(videoRef.value, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
         .withFaceLandmarks()
         .withFaceDescriptor();
 
-    if (detection) {
-        if (faceMatcher.value) {
-            const bestMatch = faceMatcher.value.findBestMatch(detection.descriptor);
+    if (!detection) {
+        if (livenessStatus.value !== 'waiting') resetLiveness();
+        return;
+    }
+
+    const landmarks = detection.landmarks.positions;
+    
+    // 1. Calculate 3D Perspective (Nose-to-Face Ratio)
+    // We measure the relative position of the nose tip (30) to the face edges (0, 16)
+    const noseTip = landmarks[30];
+    const leftEdge = landmarks[0];
+    const rightEdge = landmarks[16];
+    
+    const faceWidth = Math.sqrt(Math.pow(rightEdge.x - leftEdge.x, 2) + Math.pow(rightEdge.y - leftEdge.y, 2));
+    const noseOffset = (noseTip.x - leftEdge.x) / faceWidth; // Where is the nose relative to the face width
+
+    // 2. Track Micro-Motion Buffer
+    motionBuffer.push({
+        offset: noseOffset,
+        time: Date.now(),
+        landmarks: [landmarks[30], landmarks[36], landmarks[45]] // Track key points
+    });
+    if (motionBuffer.length > 8) motionBuffer.shift();
+
+    // 3. Quick Match
+    if (faceMatcher.value && !identifiedUser.value) {
+        const bestMatch = faceMatcher.value.findBestMatch(detection.descriptor);
+        if (bestMatch.label !== 'unknown') {
+            const emp = props.employees.find(e => e.employee_code === bestMatch.label);
+            identifiedUser.value = emp ? emp.name : bestMatch.label;
+            livenessStatus.value = 'verifying';
+        }
+    }
+
+    // 4. Liveness Analysis: 3D Parallax & Jitter
+    if (motionBuffer.length >= 5 && identifiedUser.value) {
+        const offsets = motionBuffer.map(m => m.offset);
+        const maxOffset = Math.max(...offsets);
+        const minOffset = Math.min(...offsets);
+        const variance = maxOffset - minOffset;
+
+        // PHOTO TEST:
+        // - A static photo has variance < 0.001 (Too still)
+        // - A handheld photo/screen moves perfectly "flatly"
+        // - A human has natural micro-jitter (variance between 0.002 and 0.05)
+        
+        if (variance > 0.002) {
+            livenessScore.value = 100; // Human life detected via micro-movement
+            livenessStatus.value = 'verified';
+            livenessFeedback.value = "Access Granted";
+
+            // Submit
+            form.employee_code = props.employees.find(e => e.name === identifiedUser.value || e.employee_code === identifiedUser.value)?.employee_code;
+            submitAttendance(true);
             
-            if (bestMatch.label !== 'unknown') {
-                // We found a match!
-                console.log("Match found:", bestMatch.toString());
-                form.employee_code = bestMatch.label;
-                submitAttendance(true); // true = auto submit
-            }
+            scanCooldown.value = true;
+            setTimeout(() => {
+                resetLiveness();
+                scanCooldown.value = false;
+            }, 4000);
+        } else {
+            livenessFeedback.value = "Please move slightly...";
+            livenessScore.value = 40;
         }
     }
 };
@@ -181,6 +249,7 @@ const submitAttendance = (isAuto = false) => {
         .then(response => {
             lastLog.value = response.data;
             form.employee_code = ''; // Reset ID
+            resetLiveness();
             if (!isAuto) resetCapture();
             else form.image = null; // Reset image for next auto scan
 
@@ -248,9 +317,22 @@ const formattedDate = computed(() => {
                 
                 <!-- Face Overlay Guide -->
                 <div v-if="isCameraActive && !capturedImage" class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div class="w-64 h-64 border-4 border-blue-500/50 rounded-full animate-pulse shadow-[0_0_100px_rgba(59,130,246,0.3)]"></div>
-                    <div class="absolute text-blue-200 font-mono text-sm mt-80 bg-black/50 px-4 py-1 rounded-full backdrop-blur-sm">
-                        Position face within frame
+                    <div 
+                        class="w-64 h-64 border-4 rounded-full transition-all duration-300 shadow-[0_0_100px_rgba(59,130,246,0.3)]"
+                        :class="livenessStatus === 'verified' ? 'border-emerald-500 scale-110' : (livenessStatus === 'verifying' ? 'border-amber-400 animate-pulse' : 'border-blue-500/50')"
+                    ></div>
+                    
+                    <div class="absolute flex flex-col items-center mt-96">
+                        <div class="text-blue-200 font-mono text-sm bg-black/70 px-6 py-2 rounded-xl backdrop-blur-md border border-white/10 shadow-2xl text-center">
+                            <div v-if="identifiedUser" class="text-emerald-400 font-bold mb-1">USER: {{ identifiedUser }}</div>
+                            <div class="flex items-center justify-center gap-2">
+                                <span v-if="livenessStatus === 'verifying'" class="flex h-2 w-2 relative">
+                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                    <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                                </span>
+                                {{ livenessFeedback }}
+                            </div>
+                        </div>
                     </div>
                 </div>
 

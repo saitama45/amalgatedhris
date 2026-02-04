@@ -62,6 +62,18 @@ Route::middleware('auth')->group(function () {
     Route::get('dtr/template', [\App\Http\Controllers\AttendanceController::class, 'downloadTemplate'])->name('dtr.template');
     Route::post('dtr/import', [\App\Http\Controllers\AttendanceController::class, 'import'])->name('dtr.import');
 
+    // Payroll
+    Route::resource('payroll', \App\Http\Controllers\PayrollController::class)->except(['edit', 'update']);
+    Route::put('payroll/{payroll}/approve', [\App\Http\Controllers\PayrollController::class, 'approve'])->name('payroll.approve');
+    Route::put('payslips/{payslip}', [\App\Http\Controllers\PayrollController::class, 'updatePayslip'])->name('payslips.update');
+
+    // Overtime
+    Route::resource('overtime', \App\Http\Controllers\OvertimeController::class);
+    Route::put('overtime/{overtimeRequest}/approve', [\App\Http\Controllers\OvertimeController::class, 'approve'])->name('overtime.approve');
+    Route::put('overtime/{overtimeRequest}/reject', [\App\Http\Controllers\OvertimeController::class, 'reject'])->name('overtime.reject');
+
+    Route::resource('overtime-rates', \App\Http\Controllers\OvertimeRateController::class)->except(['show', 'create', 'edit']);
+
     Route::resource('departments', \App\Http\Controllers\DepartmentController::class)->except(['create', 'edit', 'show']);
     Route::resource('positions', \App\Http\Controllers\PositionController::class)->except(['create', 'edit', 'show']);
     Route::resource('document-types', \App\Http\Controllers\DocumentTypeController::class)->except(['create', 'edit', 'show']);

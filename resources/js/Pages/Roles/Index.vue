@@ -516,7 +516,9 @@ const permissionDescriptions = {
 
     // Payroll
     'payroll.view': 'View Payroll',
-    'payroll.process': 'Process Payroll (Create)',
+    'payroll.create': 'Process Payroll (Create)',
+    'payroll.approve': 'Approve/Finalize Payroll',
+    'payroll.edit_payslip': 'Edit Payslip Adjustments',
     'payroll.delete': 'Rollback Payroll (Delete)',
     'payroll.manage_loans': 'Manage Employee Loans',
     'payroll.settings': 'Edit Payroll Settings',

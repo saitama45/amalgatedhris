@@ -34,6 +34,11 @@ class User extends Authenticatable
         return $this->belongsTo(Company::class);
     }
 
+    public function employee()
+    {
+        return $this->hasOne(Employee::class);
+    }
+
     protected function casts(): array
     {
         return [

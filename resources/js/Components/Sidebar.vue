@@ -67,10 +67,10 @@ const checkActiveRoutes = () => {
     if (route().current('employees.*')) menuState.value.workforce = true;
 
     // Timekeeping
-    if (route().current('dtr.*') || route().current('shifts.*') || route().current('schedules.*') || route().current('holidays.*') || route().current('attendance.kiosk')) menuState.value.timekeeping = true;
+    if (route().current('dtr.*') || route().current('shifts.*') || route().current('schedules.*') || route().current('holidays.*') || route().current('attendance.kiosk') || route().current('overtime.*') || route().current('overtime-rates.*')) menuState.value.timekeeping = true;
 
     // Compensation
-    if (route().current('contributions.*') || route().current('deductions.*')) menuState.value.compensation = true;
+    if (route().current('contributions.*') || route().current('deductions.*') || route().current('payroll.*')) menuState.value.compensation = true;
 
     // Workforce vs System (Users)
     if (route().current('users.*')) {
@@ -316,6 +316,36 @@ const handleMouseLeave = () => {
                             <ClockIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
                             <span v-if="!isCollapsed" class="font-medium text-sm">DTR Logs</span>
                         </Link>
+                         <Link
+                            v-if="hasAnyPermission(['overtime.view', 'overtime.create'])"
+                            :href="route('overtime.index')"
+                             :class="[
+                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
+                                route().current('overtime.*')
+                                    ? 'text-teal-400 bg-slate-800/50'
+                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
+                            ]"
+                            @mouseenter="handleMouseEnter($event, 'Overtime Requests')"
+                            @mouseleave="handleMouseLeave"
+                        >
+                            <ClockIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
+                            <span v-if="!isCollapsed" class="font-medium text-sm">Overtime Requests</span>
+                        </Link>
+                        <Link
+                            v-if="hasPermission('overtime_rates.view')"
+                            :href="route('overtime-rates.index')"
+                             :class="[
+                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
+                                route().current('overtime-rates.*')
+                                    ? 'text-teal-400 bg-slate-800/50'
+                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
+                            ]"
+                            @mouseenter="handleMouseEnter($event, 'OT Multipliers')"
+                            @mouseleave="handleMouseLeave"
+                        >
+                            <TableCellsIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
+                            <span v-if="!isCollapsed" class="font-medium text-sm">OT Multipliers</span>
+                        </Link>
                         <Link
                             v-if="hasPermission('shifts.view')"
                             :href="route('shifts.index')"
@@ -350,7 +380,7 @@ const handleMouseLeave = () => {
                 </template>
 
                 <!-- MODULE: PAYROLL -->
-                <template v-if="hasAnyPermission(['payroll.view', 'payroll.process'])">
+                <template v-if="hasAnyPermission(['payroll.view', 'payroll.create'])">
                      <div 
                         v-if="!isCollapsed"
                         @click="toggleMenu('compensation')"
@@ -398,8 +428,13 @@ const handleMouseLeave = () => {
 
                         <Link
                             v-if="hasPermission('payroll.view')"
-                            href="#"
-                             class="flex items-center px-3 py-2 rounded-lg text-slate-400 hover:bg-[#161F32] hover:text-white transition-all duration-200 group relative"
+                            :href="route('payroll.index')"
+                             :class="[
+                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
+                                route().current('payroll.*')
+                                    ? 'text-teal-400 bg-slate-800/50'
+                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
+                            ]"
                             @mouseenter="handleMouseEnter($event, 'Payroll Processing')"
                             @mouseleave="handleMouseLeave"
                         >

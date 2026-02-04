@@ -145,4 +145,12 @@ class RoleService
         $rank = $user->employee->employmentRecord->rank;
         return in_array($rank, ['Manager', 'Executive', 'Supervisor']);
     }
+
+    /**
+     * Check if user can manage dynamic overtime rates
+     */
+    public static function canManageOvertimeRates($user)
+    {
+        return $user->can('overtime_rates.manage');
+    }
 }

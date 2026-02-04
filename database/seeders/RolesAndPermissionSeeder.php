@@ -12,6 +12,9 @@ class RolesAndPermissionSeeder extends Seeder
 {
     public function run(): void
     {
+        // Cleanup legacy permissions if any
+        Permission::whereIn('name', ['payroll.process'])->delete();
+
         $permissions = [
             // Dashboard
             'dashboard.view' => 'Access Dashboard',
@@ -49,6 +52,16 @@ class RolesAndPermissionSeeder extends Seeder
             'dtr.delete' => 'Delete DTR Logs',
             'dtr.approve' => 'Approve Manual Logs/OT',
             'attendance.kiosk' => 'Access Attendance Kiosk',
+
+            // Time & Attendance - Overtime
+            'overtime.view' => 'View OT Requests',
+            'overtime.create' => 'Request Overtime',
+            'overtime.approve' => 'Approve Overtime',
+            'overtime.delete' => 'Cancel/Delete Overtime',
+
+            // Time & Attendance - Overtime Rates
+            'overtime_rates.view' => 'View OT Rates',
+            'overtime_rates.manage' => 'Manage OT Rates',
             
             // Time & Attendance - Shifts
             'shifts.view' => 'View Shift Templates',
@@ -69,7 +82,9 @@ class RolesAndPermissionSeeder extends Seeder
 
             // Compensation - Payroll
             'payroll.view' => 'View Payroll',
-            'payroll.process' => 'Process Payroll (Create)',
+            'payroll.create' => 'Process Payroll (Create)',
+            'payroll.approve' => 'Approve/Finalize Payroll',
+            'payroll.edit_payslip' => 'Edit Payslip Adjustments',
             'payroll.delete' => 'Rollback Payroll (Delete)',
             'payroll.manage_loans' => 'Manage Employee Loans',
             'payroll.settings' => 'Edit Payroll Settings',
@@ -142,6 +157,9 @@ class RolesAndPermissionSeeder extends Seeder
         $employee->syncPermissions([
             'dashboard.view', 'portal.view', 'portal.file_leave', 'portal.view_payslip'
         ]);
+
+        // Clear cache
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
         $this->command->info('✅ Roles and permissions updated successfully!');
     }
