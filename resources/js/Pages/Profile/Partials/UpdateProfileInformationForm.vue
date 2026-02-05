@@ -21,7 +21,17 @@ const { showSuccess, showError } = useToast();
 const form = useForm({
     name: user.name,
     email: user.email,
+    department: user.department,
+    position: user.position,
 });
+
+const handleEmailInput = (e) => {
+    const val = e.target.value.replace(/\p{Extended_Pictographic}/gu, '').replace(/[^a-zA-Z0-9@._-]/g, '');
+    form.email = val;
+    if (e.target.value !== val) {
+        e.target.value = val;
+    }
+};
 
 const updateProfile = () => {
     form.patch(route('profile.update'), {
@@ -44,7 +54,7 @@ const updateProfile = () => {
             </h2>
 
             <p class="mt-1 text-sm text-gray-600">
-                Update your account's profile information and email address.
+                View your professional details and update your email address.
             </p>
         </header>
 
@@ -53,29 +63,52 @@ const updateProfile = () => {
             class="mt-6 space-y-6"
         >
             <div>
-                <InputLabel for="name" value="Name" />
+                <InputLabel for="name" value="Full Name (Read-only)" />
 
                 <TextInput
                     id="name"
                     type="text"
-                    class="mt-1 block w-full"
+                    class="mt-1 block w-full bg-gray-100 text-gray-600 cursor-not-allowed font-bold"
                     v-model="form.name"
-                    required
-                    autofocus
-                    autocomplete="name"
+                    readonly
                 />
 
                 <InputError class="mt-2" :message="form.errors.name" />
             </div>
 
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <InputLabel for="department" value="Department (Read-only)" />
+                    <TextInput
+                        id="department"
+                        type="text"
+                        class="mt-1 block w-full bg-gray-100 text-gray-600 cursor-not-allowed uppercase"
+                        v-model="form.department"
+                        readonly
+                    />
+                </div>
+
+                <div>
+                    <InputLabel for="position" value="Position (Read-only)" />
+                    <TextInput
+                        id="position"
+                        type="text"
+                        class="mt-1 block w-full bg-gray-100 text-gray-600 cursor-not-allowed uppercase"
+                        v-model="form.position"
+                        readonly
+                    />
+                </div>
+            </div>
+
             <div>
-                <InputLabel for="email" value="Email" />
+                <InputLabel for="email" value="Email Address" />
 
                 <TextInput
                     id="email"
                     type="email"
                     class="mt-1 block w-full"
-                    v-model="form.email"
+                    :model-value="form.email"
+                    @input="handleEmailInput"
                     required
                     autocomplete="username"
                 />

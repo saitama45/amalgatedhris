@@ -13,7 +13,8 @@
                 <select
                     :value="perPage"
                     @change="$emit('changePerPage', parseInt($event.target.value))"
-                    class="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    class="border border-gray-300 rounded pl-2 pr-8 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 appearance-none bg-no-repeat bg-right"
+                    style="background-image: url('data:image/svg+xml;charset=utf-8,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 fill%3D%22none%22 viewBox%3D%220 0 20 20%22%3E%3Cpath stroke%3D%22%236b7280%22 stroke-linecap%3D%22round%22 stroke-linejoin%3D%22round%22 stroke-width%3D%221.5%22 d%3D%22m6 8 4 4 4-4%22%2F%3E%3C%2Fsvg%3E'); background-size: 1.5rem;"
                 >
                     <option value="10">10</option>
                     <option value="25">25</option>
@@ -29,7 +30,7 @@
                 <button
                     @click="$emit('goToPage', currentPage - 1)"
                     :disabled="currentPage <= 1"
-                    class="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed mr-2"
                 >
                     Previous
                 </button>
@@ -40,10 +41,10 @@
                         v-if="page !== '...'"
                         @click="$emit('goToPage', page)"
                         :class="[
-                            'px-3 py-1 text-sm border rounded',
+                            'px-3 py-1 text-sm border rounded transition-all',
                             page === currentPage
-                                ? 'bg-blue-600 text-white border-blue-600'
-                                : 'border-gray-300 hover:bg-gray-50'
+                                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                                : 'border-gray-300 hover:bg-gray-50 text-gray-600'
                         ]"
                     >
                         {{ page }}
@@ -55,7 +56,7 @@
                 <button
                     @click="$emit('goToPage', currentPage + 1)"
                     :disabled="currentPage >= lastPage"
-                    class="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed ml-2"
                 >
                     Next
                 </button>

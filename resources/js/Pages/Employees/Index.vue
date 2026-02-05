@@ -7,6 +7,7 @@ import Modal from '@/Components/Modal.vue';
 import { usePagination } from '@/Composables/usePagination';
 import { useToast } from '@/Composables/useToast';
 import { usePermission } from '@/Composables/usePermission';
+import { useConfirm } from '@/Composables/useConfirm';
 import * as faceapi from 'face-api.js';
 import { 
     UserIcon, 
@@ -36,6 +37,7 @@ const props = defineProps({
 
 const { showSuccess, showError } = useToast();
 const { hasPermission } = usePermission();
+const { confirm } = useConfirm();
 const pagination = usePagination(props.employees, 'employees.index');
 
 // Load Face API Models
@@ -191,8 +193,14 @@ const submitSalary = () => {
     }
 };
 
-const deleteSalaryItem = (item) => {
-    if (!confirm('Are you sure you want to delete this salary record? This action cannot be undone.')) return;
+const deleteSalaryItem = async (item) => {
+    const confirmed = await confirm({
+        title: 'Delete Salary Record',
+        message: 'Are you sure you want to delete this salary record? This action cannot be undone.',
+        confirmButtonText: 'Delete Record'
+    });
+
+    if (!confirmed) return;
 
     router.delete(route('salary-history.destroy', item.id), {
         onSuccess: () => {
@@ -396,6 +404,153 @@ const retakeBio = () => {
     startBioCamera();
 };
 
+const formatTIN = (value) => {
+    if (!value) return '';
+    let clean = value.replace(/\D/g, '');
+    if (clean.length > 12) clean = clean.slice(0, 12);
+    
+    let formatted = '';
+    for (let i = 0; i < clean.length; i++) {
+        if (i > 0 && i % 3 === 0) {
+            formatted += ' ';
+        }
+        formatted += clean[i];
+    }
+    return formatted;
+};
+
+const handleTINInput = (e) => {
+    const formatted = formatTIN(e.target.value);
+    editForm.tin_no = formatted;
+    if (e.target.value !== formatted) {
+        e.target.value = formatted;
+    }
+};
+
+const formatSSS = (value) => {
+    if (!value) return '';
+    let clean = value.replace(/\D/g, '');
+    if (clean.length > 10) clean = clean.slice(0, 10);
+    let formatted = '';
+    if (clean.length > 0) {
+        formatted = clean.substring(0, 2);
+        if (clean.length > 2) {
+            formatted += ' ' + clean.substring(2, 9);
+            if (clean.length > 9) {
+                formatted += ' ' + clean.substring(9, 10);
+            }
+        }
+    }
+    return formatted;
+};
+
+const formatPhilHealth = (value) => {
+    if (!value) return '';
+    let clean = value.replace(/\D/g, '');
+    if (clean.length > 12) clean = clean.slice(0, 12);
+    let formatted = '';
+    if (clean.length > 0) {
+        formatted = clean.substring(0, 2);
+        if (clean.length > 2) {
+            formatted += ' ' + clean.substring(2, 11);
+            if (clean.length > 11) {
+                formatted += ' ' + clean.substring(11, 12);
+            }
+        }
+    }
+    return formatted;
+};
+
+const formatPagIBIG = (value) => {
+    if (!value) return '';
+    let clean = value.replace(/\D/g, '');
+    if (clean.length > 12) clean = clean.slice(0, 12);
+    let formatted = '';
+    if (clean.length > 0) {
+        formatted = clean.substring(0, 4);
+        if (clean.length > 4) {
+            formatted += ' ' + clean.substring(4, 8);
+            if (clean.length > 8) {
+                formatted += ' ' + clean.substring(8, 12);
+            }
+        }
+    }
+    return formatted;
+};
+
+const formatPhone = (value) => {
+    if (!value) return '';
+    let clean = value.replace(/\D/g, '');
+    if (clean.length > 11) clean = clean.slice(0, 11);
+    let formatted = '';
+    if (clean.length > 0) {
+        formatted = clean.substring(0, 4);
+        if (clean.length > 4) {
+            formatted += ' ' + clean.substring(4, 7);
+            if (clean.length > 7) {
+                formatted += ' ' + clean.substring(7, 11);
+            }
+        }
+    }
+    return formatted;
+};
+
+const handleSSSInput = (e) => {
+    const formatted = formatSSS(e.target.value);
+    editForm.sss_no = formatted;
+    if (e.target.value !== formatted) e.target.value = formatted;
+};
+
+const handlePhilHealthInput = (e) => {
+    const formatted = formatPhilHealth(e.target.value);
+    editForm.philhealth_no = formatted;
+    if (e.target.value !== formatted) e.target.value = formatted;
+};
+
+const handlePagIBIGInput = (e) => {
+    const formatted = formatPagIBIG(e.target.value);
+    editForm.pagibig_no = formatted;
+    if (e.target.value !== formatted) e.target.value = formatted;
+};
+
+const handleEmergencyPhoneInput = (e) => {
+    const formatted = formatPhone(e.target.value);
+    editForm.emergency_contact_number = formatted;
+    if (e.target.value !== formatted) e.target.value = formatted;
+};
+
+const onlyNumbers = (e) => {
+    const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End'];
+    if (allowedKeys.includes(e.key)) return;
+    if (!/^[0-9]$/.test(e.key)) {
+        e.preventDefault();
+    }
+};
+
+const onlyLetters = (e) => {
+    const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End', ' ', '.'];
+    if (allowedKeys.includes(e.key)) return;
+    
+    // Block if NOT a letter (a-z, A-Z)
+    if (!/^[a-zA-Z]$/.test(e.key)) {
+        e.preventDefault();
+    }
+};
+
+const handleAlphaInput = (field, e) => {
+    // Strip anything that isn't a letter, space, or period
+    editForm[field] = e.target.value.replace(/[^a-zA-Z\s.]/g, '');
+};
+
+const handleAddressInput = (e) => {
+    // Remove emojis using unicode property escape
+    const val = e.target.value.replace(/\p{Extended_Pictographic}/gu, '');
+    editForm.address = val;
+    if (e.target.value !== val) {
+        e.target.value = val;
+    }
+};
+
 const openEditModal = (employee) => {
     editingEmployee.value = employee;
     activeTab.value = 'profile'; // Reset tab
@@ -406,11 +561,11 @@ const openEditModal = (employee) => {
     editForm.address = employee.address || '';
     editForm.emergency_contact = employee.emergency_contact || '';
     editForm.emergency_contact_relationship = employee.emergency_contact_relationship || '';
-    editForm.emergency_contact_number = employee.emergency_contact_number || '';
-    editForm.sss_no = employee.sss_no || '';
-    editForm.philhealth_no = employee.philhealth_no || '';
-    editForm.pagibig_no = employee.pagibig_no || '';
-    editForm.tin_no = employee.tin_no || '';
+    editForm.emergency_contact_number = formatPhone(employee.emergency_contact_number || '');
+    editForm.sss_no = formatSSS(employee.sss_no || '');
+    editForm.philhealth_no = formatPhilHealth(employee.philhealth_no || '');
+    editForm.pagibig_no = formatPagIBIG(employee.pagibig_no || '');
+    editForm.tin_no = formatTIN(employee.tin_no || '');
     editForm.department_id = employee.active_employment_record?.department_id || '';
     editForm.employment_status = employee.active_employment_record?.employment_status || '';
         
@@ -509,6 +664,15 @@ const handleFileSelect = (event, docTypeId) => {
     const file = event.target.files[0];
     if (!file) return;
 
+    // Validate file extension
+    const allowedExtensions = ['docx', 'pdf', 'jpg', 'jpeg', 'png'];
+    const extension = file.name.split('.').pop().toLowerCase();
+    if (!allowedExtensions.includes(extension)) {
+        showError('Invalid file type. Only DOCX, PDF, JPG, and PNG are allowed.');
+        event.target.value = '';
+        return;
+    }
+
     // 50MB Validation (50 * 1024 * 1024 bytes)
     const maxSize = 50 * 1024 * 1024;
     if (file.size > maxSize) {
@@ -578,8 +742,14 @@ const openResignModal = (employee) => {
     showResignModal.value = true;
 };
 
-const submitResign = () => {
-    if (!confirm('Are you sure you want to mark this employee as Resigned? This action usually cannot be undone easily.')) return;
+const submitResign = async () => {
+    const confirmed = await confirm({
+        title: 'Confirm Resignation',
+        message: 'Are you sure you want to mark this employee as Resigned? This action usually cannot be undone easily.',
+        confirmButtonText: 'Confirm Resignation'
+    });
+    
+    if (!confirmed) return;
     
     resignForm.put(route('employees.resign', resigningEmployee.value.id), {
         onSuccess: () => {
@@ -797,13 +967,27 @@ const submitResign = () => {
                     </div>
                      <div>
                         <label class="block text-sm font-bold text-slate-700 mb-1">TIN</label>
-                        <input v-model="editForm.tin_no" type="text" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                        <input 
+                            :value="editForm.tin_no" 
+                            @input="handleTINInput"
+                            @keydown="onlyNumbers"
+                            type="text" 
+                            placeholder="XXX XXX XXX XXX"
+                            maxlength="15"
+                            inputmode="numeric"
+                            class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono"
+                        >
                     </div>
                 </div>
 
                  <div class="mb-6">
                     <label class="block text-sm font-bold text-slate-700 mb-1">Complete Address</label>
-                    <textarea v-model="editForm.address" rows="2" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"></textarea>
+                    <textarea 
+                        :value="editForm.address" 
+                        @input="handleAddressInput" 
+                        rows="2" 
+                        class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                    ></textarea>
                 </div>
 
                 <div class="border-t border-slate-100 pt-6 mb-6">
@@ -811,15 +995,37 @@ const submitResign = () => {
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div class="md:col-span-1">
                             <label class="block text-sm font-bold text-slate-700 mb-1">Contact Person</label>
-                            <input v-model="editForm.emergency_contact" type="text" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                            <input 
+                                v-model="editForm.emergency_contact" 
+                                @keydown="onlyLetters"
+                                @input="handleAlphaInput('emergency_contact', $event)"
+                                type="text" 
+                                class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                            >
                         </div>
                          <div class="md:col-span-1">
                             <label class="block text-sm font-bold text-slate-700 mb-1">Relationship</label>
-                            <input v-model="editForm.emergency_contact_relationship" type="text" placeholder="e.g. Spouse, Parent" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                            <input 
+                                v-model="editForm.emergency_contact_relationship" 
+                                @keydown="onlyLetters"
+                                @input="handleAlphaInput('emergency_contact_relationship', $event)"
+                                type="text" 
+                                placeholder="e.g. Spouse, Parent" 
+                                class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                            >
                         </div>
                         <div class="md:col-span-1">
                             <label class="block text-sm font-bold text-slate-700 mb-1">Contact Number</label>
-                            <input v-model="editForm.emergency_contact_number" type="text" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                            <input 
+                                :value="editForm.emergency_contact_number" 
+                                @input="handleEmergencyPhoneInput"
+                                @keydown="onlyNumbers"
+                                type="text" 
+                                placeholder="09XX XXX XXXX"
+                                maxlength="13"
+                                inputmode="numeric"
+                                class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono"
+                            >
                         </div>
                     </div>
                 </div>
@@ -829,15 +1035,42 @@ const submitResign = () => {
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                          <div>
                             <label class="block text-sm font-bold text-slate-700 mb-1">SSS No.</label>
-                            <input v-model="editForm.sss_no" type="text" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                            <input 
+                                :value="editForm.sss_no" 
+                                @input="handleSSSInput"
+                                @keydown="onlyNumbers"
+                                type="text" 
+                                placeholder="XX XXXXXXX X"
+                                maxlength="12"
+                                inputmode="numeric"
+                                class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono"
+                            >
                         </div>
                          <div>
                             <label class="block text-sm font-bold text-slate-700 mb-1">PhilHealth No.</label>
-                            <input v-model="editForm.philhealth_no" type="text" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                            <input 
+                                :value="editForm.philhealth_no" 
+                                @input="handlePhilHealthInput"
+                                @keydown="onlyNumbers"
+                                type="text" 
+                                placeholder="XX XXXXXXXXX X"
+                                maxlength="14"
+                                inputmode="numeric"
+                                class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono"
+                            >
                         </div>
                          <div>
                             <label class="block text-sm font-bold text-slate-700 mb-1">Pag-IBIG No.</label>
-                            <input v-model="editForm.pagibig_no" type="text" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                            <input 
+                                :value="editForm.pagibig_no" 
+                                @input="handlePagIBIGInput"
+                                @keydown="onlyNumbers"
+                                type="text" 
+                                placeholder="XXXX XXXX XXXX"
+                                maxlength="14"
+                                inputmode="numeric"
+                                class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono"
+                            >
                         </div>
                     </div>
                 </div>
@@ -1008,6 +1241,7 @@ const submitResign = () => {
                                         type="file" 
                                         :ref="el => { if (el) fileInputs[docType.id] = el }" 
                                         class="hidden" 
+                                        accept=".docx,.pdf,.jpg,.jpeg,.png"
                                         @change="handleFileSelect($event, docType.id)"
                                     >
                                 </td>
@@ -1113,11 +1347,11 @@ const submitResign = () => {
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Basic Monthly Rate</label>
-                            <input v-model="salaryForm.basic_rate" type="number" step="0.01" required placeholder="0.00" class="w-full rounded-xl border-slate-200 text-sm focus:ring-emerald-500">
+                            <input v-model="salaryForm.basic_rate" type="number" step="0.01" min="0.01" @keypress="(e) => { if(e.key === '-') e.preventDefault(); }" required placeholder="0.00" class="w-full rounded-xl border-slate-200 text-sm focus:ring-emerald-500">
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Allowance</label>
-                            <input v-model="salaryForm.allowance" type="number" step="0.01" placeholder="0.00" class="w-full rounded-xl border-slate-200 text-sm focus:ring-emerald-500">
+                            <input v-model="salaryForm.allowance" type="number" step="0.01" min="0" @keypress="(e) => { if(e.key === '-') e.preventDefault(); }" placeholder="0.00" class="w-full rounded-xl border-slate-200 text-sm focus:ring-emerald-500">
                         </div>
                         <div class="md:col-span-2">
                             <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Effectivity Date</label>

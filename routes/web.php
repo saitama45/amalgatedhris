@@ -38,6 +38,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('employees', \App\Http\Controllers\EmployeeController::class)->only(['index', 'update']);
     
     // Shifts & Schedules
+    Route::post('holidays/sync', [\App\Http\Controllers\HolidayController::class, 'sync'])->name('holidays.sync');
     Route::resource('shifts', \App\Http\Controllers\ShiftController::class)->except(['create', 'edit', 'show']);
     Route::resource('holidays', \App\Http\Controllers\HolidayController::class)->except(['create', 'edit', 'show']);
     Route::get('schedules', [\App\Http\Controllers\ScheduleController::class, 'index'])->name('schedules.index');
@@ -63,9 +64,18 @@ Route::middleware('auth')->group(function () {
     Route::post('dtr/import', [\App\Http\Controllers\AttendanceController::class, 'import'])->name('dtr.import');
 
     // Payroll
+    Route::get('payroll/{payroll}/export-pdf', [\App\Http\Controllers\PayrollController::class, 'exportPdf'])->name('payroll.export-pdf');
+    Route::get('payroll/{payroll}/export-excel', [\App\Http\Controllers\PayrollController::class, 'exportExcel'])->name('payroll.export-excel');
     Route::resource('payroll', \App\Http\Controllers\PayrollController::class)->except(['edit', 'update']);
     Route::put('payroll/{payroll}/approve', [\App\Http\Controllers\PayrollController::class, 'approve'])->name('payroll.approve');
     Route::put('payslips/{payslip}', [\App\Http\Controllers\PayrollController::class, 'updatePayslip'])->name('payslips.update');
+    Route::resource('loans', \App\Http\Controllers\LoanController::class)->except(['show', 'create', 'edit']);
+
+    // Leave
+    Route::resource('leave-types', \App\Http\Controllers\LeaveTypeController::class)->except(['show', 'create', 'edit']);
+    Route::resource('leave-requests', \App\Http\Controllers\LeaveRequestController::class)->except(['show', 'create', 'edit']);
+    Route::put('leave-requests/{leaveRequest}/approve', [\App\Http\Controllers\LeaveRequestController::class, 'approve'])->name('leave-requests.approve');
+    Route::put('leave-requests/{leaveRequest}/reject', [\App\Http\Controllers\LeaveRequestController::class, 'reject'])->name('leave-requests.reject');
 
     // Overtime
     Route::resource('overtime', \App\Http\Controllers\OvertimeController::class);
@@ -81,6 +91,9 @@ Route::middleware('auth')->group(function () {
     Route::get('profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
+
+    // Global Search
+    Route::get('global-search', [\App\Http\Controllers\GlobalSearchController::class, 'search'])->name('global.search');
 });
 
 // Public Attendance Kiosk

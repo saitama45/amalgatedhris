@@ -58,6 +58,11 @@ const openEditModal = (rate) => {
 };
 
 const submit = () => {
+    if (parseFloat(form.rate) <= 0) {
+        showError('Multiplier value must be greater than 0.');
+        return;
+    }
+
     if (isEditing.value) {
         form.put(route('overtime-rates.update', editingId.value), {
             onSuccess: () => {
@@ -193,7 +198,7 @@ const deleteRate = async (id) => {
 
                 <div>
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Multiplier Value (Rate)</label>
-                    <input v-model="form.rate" type="number" step="0.01" required placeholder="1.25" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono text-lg font-bold text-blue-600">
+                    <input v-model="form.rate" type="number" step="0.01" min="0.01" @keypress="(e) => { if(e.key === '-') e.preventDefault(); }" required placeholder="1.25" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono text-lg font-bold text-blue-600">
                 </div>
 
                 <div>

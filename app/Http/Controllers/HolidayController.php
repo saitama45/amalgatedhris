@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Holiday;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Http;
+use Carbon\Carbon;
 
 class HolidayController extends Controller
 {
@@ -26,6 +28,39 @@ class HolidayController extends Controller
             'holidays' => $holidays,
             'filters' => $request->only(['search']),
         ]);
+    }
+
+    public function sync(Request $request)
+    {
+        $year = $request->input('year', date('Y'));
+        
+        // Trusted API: Nager.Date (No API Key required)
+        // .withoutVerifying() is added to handle local SSL certificate issues (cURL error 60)
+        $response = Http::withoutVerifying()->get("https://date.nager.at/api/v3/PublicHolidays/{$year}/PH");
+
+        if ($response->failed()) {
+            return back()->with('error', 'Could not connect to holiday service.');
+        }
+
+        $holidays = $response->json();
+        $addedCount = 0;
+
+        foreach ($holidays as $h) {
+            // Check if exists
+            $exists = Holiday::where('date', $h['date'])->exists();
+            if (!$exists) {
+                Holiday::create([
+                    'name' => $h['localName'] ?? $h['name'],
+                    'date' => $h['date'],
+                    'type' => $h['fixed'] ? 'Regular' : 'Special Non-Working',
+                    'is_recurring' => $h['fixed'],
+                    'description' => 'Automatically synced national holiday'
+                ]);
+                $addedCount++;
+            }
+        }
+
+        return back()->with('success', "Sync completed! added {$addedCount} new holidays.");
     }
 
     public function store(Request $request)

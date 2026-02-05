@@ -89,7 +89,6 @@ const submit = () => {
             onSuccess: () => {
                 showCreateModal.value = false;
                 form.reset();
-                showSuccess('Overtime request updated.');
             },
             onError: () => showError('Failed to update request.')
         });
@@ -98,17 +97,21 @@ const submit = () => {
             onSuccess: () => {
                 showCreateModal.value = false;
                 form.reset();
-                showSuccess('Overtime request submitted.');
             },
             onError: () => showError('Failed to submit request.')
         });
     }
 };
 
-const approve = (id) => {
-    if (confirm('Are you sure you want to approve this request?')) {
+const approve = async (id) => {
+    const isConfirmed = await confirm({
+        title: 'Approve Overtime',
+        message: 'Are you sure you want to approve this request?',
+        confirmButtonText: 'Approve'
+    });
+
+    if (isConfirmed) {
         router.put(route('overtime.approve', id), {}, {
-            onSuccess: () => showSuccess('Overtime approved.'),
             onError: () => showError('Failed to approve request.')
         });
     }
@@ -131,7 +134,6 @@ const submitReject = () => {
             showRejectModal.value = false;
             rejectReason.value = '';
             rejectingId.value = null;
-            showSuccess('Overtime request rejected.');
         },
         onError: () => showError('Failed to reject request.')
     });
@@ -140,12 +142,12 @@ const submitReject = () => {
 const deleteRequest = async (id) => {
     const isConfirmed = await confirm({
         title: 'Delete OT Request',
-        message: 'Are you sure you want to delete this overtime request? This cannot be undone.'
+        message: 'Are you sure you want to delete this overtime request? This cannot be undone.',
+        confirmButtonText: 'Delete Request'
     });
 
     if (isConfirmed) {
         router.delete(route('overtime.destroy', id), {
-            onSuccess: () => showSuccess('Request deleted.'),
             onError: () => showError('Failed to delete.')
         });
     }

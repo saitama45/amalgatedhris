@@ -30,6 +30,34 @@ const { hasPermission } = usePermission();
 
 const pagination = usePagination(props.companies, 'companies.index');
 
+// Input Handlers
+const handleAlphaInput = (formObj, field, e) => {
+    // Allow only letters and spaces, remove emojis
+    const val = e.target.value.replace(/[^a-zA-Z\s]/g, '').replace(/\p{Extended_Pictographic}/gu, '');
+    formObj[field] = val;
+    if (e.target.value !== val) {
+        e.target.value = val;
+    }
+};
+
+const handleNoEmojiInput = (formObj, field, e) => {
+    // Remove emojis
+    const val = e.target.value.replace(/\p{Extended_Pictographic}/gu, '');
+    formObj[field] = val;
+    if (e.target.value !== val) {
+        e.target.value = val;
+    }
+};
+
+const handleUpperNoEmojiInput = (formObj, field, e) => {
+    // Remove emojis and convert to uppercase
+    const val = e.target.value.replace(/\p{Extended_Pictographic}/gu, '').toUpperCase();
+    formObj[field] = val;
+    if (e.target.value !== val) {
+        e.target.value = val;
+    }
+};
+
 onMounted(() => {
     pagination.updateData(props.companies);
 });
@@ -239,18 +267,18 @@ const deleteCompany = async (company) => {
                 <form @submit.prevent="createCompany" class="p-8 space-y-5">
                     <div>
                         <label class="block text-sm font-bold text-slate-700 mb-1">Company Name</label>
-                        <input v-model="createForm.name" type="text" required placeholder="Ex. Amalgated Lending Inc." class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                        <input :value="createForm.name" @input="handleAlphaInput(createForm, 'name', $event)" type="text" required placeholder="Ex. Amalgated Lending Inc." class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
                     </div>
                     
                     <div>
                         <label class="block text-sm font-bold text-slate-700 mb-1">Company Code</label>
-                        <input v-model="createForm.code" type="text" required placeholder="Ex. ALI" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all uppercase">
+                        <input :value="createForm.code" @input="handleUpperNoEmojiInput(createForm, 'code', $event)" type="text" required placeholder="Ex. ALI" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all uppercase">
                         <p class="text-xs text-slate-400 mt-1">Unique identifier (max 20 chars)</p>
                     </div>
 
                     <div>
                         <label class="block text-sm font-bold text-slate-700 mb-1">Description</label>
-                        <textarea v-model="createForm.description" rows="3" placeholder="Brief description of the company..." class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"></textarea>
+                        <textarea :value="createForm.description" @input="handleNoEmojiInput(createForm, 'description', $event)" rows="3" placeholder="Brief description of the company..." class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"></textarea>
                     </div>
 
                     <div class="flex items-center">
@@ -279,17 +307,17 @@ const deleteCompany = async (company) => {
                 <form @submit.prevent="updateCompany" class="p-8 space-y-5">
                     <div>
                         <label class="block text-sm font-bold text-slate-700 mb-1">Company Name</label>
-                        <input v-model="editForm.name" type="text" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                        <input :value="editForm.name" @input="handleAlphaInput(editForm, 'name', $event)" type="text" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
                     </div>
                     
                     <div>
                         <label class="block text-sm font-bold text-slate-700 mb-1">Company Code</label>
-                        <input v-model="editForm.code" type="text" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all uppercase">
+                        <input :value="editForm.code" @input="handleUpperNoEmojiInput(editForm, 'code', $event)" type="text" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all uppercase">
                     </div>
 
                     <div>
                         <label class="block text-sm font-bold text-slate-700 mb-1">Description</label>
-                        <textarea v-model="editForm.description" rows="3" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"></textarea>
+                        <textarea :value="editForm.description" @input="handleNoEmojiInput(editForm, 'description', $event)" rows="3" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"></textarea>
                     </div>
 
                     <div class="flex items-center">

@@ -4,12 +4,12 @@ import { Head, Link, usePage, router } from '@inertiajs/vue3';
 import Sidebar from '@/Components/Sidebar.vue';
 import Toast from '@/Components/Toast.vue';
 import ConfirmModal from '@/Components/ConfirmModal.vue';
+import GlobalSearch from '@/Components/GlobalSearch.vue';
 import { useToast } from '@/Composables/useToast.js';
 import { useConfirm } from '@/Composables/useConfirm.js';
 import { usePermission } from '@/Composables/usePermission.js';
 import { 
     BellIcon, 
-    MagnifyingGlassIcon,
     Bars3Icon,
     XMarkIcon
 } from '@heroicons/vue/24/outline';
@@ -37,7 +37,7 @@ const mobileMenuOpen = ref(false);
 const userMenuOpen = ref(false);
 const userMenuRef = ref(null);
 const { success, error, warning, info } = useToast();
-const { showConfirmModal, confirmTitle, confirmMessage, handleConfirm, handleCancel } = useConfirm();
+const { showConfirmModal, confirmTitle, confirmMessage, confirmButtonText, handleConfirm, handleCancel } = useConfirm();
 const { hasPermission } = usePermission();
 
 const toggleSidebar = () => {
@@ -123,19 +123,7 @@ onUnmounted(() => {
 
                     <!-- Search Bar -->
                     <div class="flex-1 flex max-w-lg">
-                        <div class="relative w-full text-slate-400 focus-within:text-slate-600">
-                            <div class="absolute inset-y-0 left-0 flex items-center pointer-events-none">
-                                <MagnifyingGlassIcon class="h-5 w-5" aria-hidden="true" />
-                            </div>
-                            <input 
-                                name="search" 
-                                id="search" 
-                                class="block w-full h-full pl-10 pr-3 py-2 border-transparent text-slate-900 placeholder-slate-400 focus:outline-none focus:placeholder-slate-500 focus:ring-0 focus:border-transparent sm:text-sm" 
-                                placeholder="Global Search (Ctrl+K)" 
-                                type="search" 
-                                autocomplete="off"
-                            >
-                        </div>
+                        <GlobalSearch />
                     </div>
                 </div>
 
@@ -184,10 +172,9 @@ onUnmounted(() => {
                                 <p class="text-sm font-medium text-slate-900 truncate">{{ user.email }}</p>
                             </div>
                             
-                            <Link :href="route('profile.edit')" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50" role="menuitem" tabindex="-1">Your Profile</Link>
-                            <Link href="#" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50" role="menuitem" tabindex="-1">Settings</Link>
+                            <Link :href="route('profile.edit')" class="block px-4 py-2 text-sm text-slate-700 hover:bg-blue-600 hover:text-white hover:font-bold transition-all duration-200" role="menuitem" tabindex="-1">Your Profile</Link>
                             
-                            <button @click="logout" class="w-full text-left block px-4 py-2 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 font-medium border-t border-slate-100" role="menuitem" tabindex="-1">
+                            <button @click="logout" class="w-full text-left block px-4 py-2 text-sm text-red-600 hover:bg-red-600 hover:text-white hover:font-bold transition-all duration-200 border-t border-slate-100" role="menuitem" tabindex="-1">
                                 Sign out
                             </button>
                         </div>
@@ -219,6 +206,7 @@ onUnmounted(() => {
             :show="showConfirmModal" 
             :title="confirmTitle" 
             :message="confirmMessage" 
+            :confirm-button-text="confirmButtonText"
             @confirm="handleConfirm" 
             @cancel="handleCancel" 
         />

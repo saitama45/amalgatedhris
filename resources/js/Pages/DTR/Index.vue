@@ -8,6 +8,7 @@ import ConfirmModal from '@/Components/ConfirmModal.vue';
 import { usePagination } from '@/Composables/usePagination';
 import { usePermission } from '@/Composables/usePermission';
 import { useConfirm } from '@/Composables/useConfirm';
+import { useToast } from '@/Composables/useToast';
 import { 
     ClockIcon, 
     ArrowUpTrayIcon, 
@@ -28,6 +29,7 @@ const props = defineProps({
 
 const { hasPermission } = usePermission();
 const { confirm: confirmAction } = useConfirm();
+const { showError } = useToast();
 
 // Filters
 const filterForm = ref({
@@ -167,6 +169,12 @@ const openEditModal = (log) => {
 };
 
 const submitForm = () => {
+    // Validation: Time In should not be later than Time Out
+    if (form.time_in && form.time_out && form.time_in >= form.time_out) {
+        showError('Time Out must be later than Time In.');
+        return;
+    }
+
     if (isEditing.value) {
         form.put(route('dtr.update', editingLog.value.id), {
             onSuccess: () => {

@@ -3,6 +3,7 @@ import { ref } from 'vue'
 const showConfirmModal = ref(false)
 const confirmTitle = ref('')
 const confirmMessage = ref('')
+const confirmButtonText = ref('Delete')
 let confirmCallback = null
 let cancelCallback = null
 
@@ -11,6 +12,7 @@ export function useConfirm() {
         return new Promise((resolve, reject) => {
             confirmTitle.value = options.title || 'Confirm Delete'
             confirmMessage.value = options.message || 'Are you sure you want to delete this item? This action cannot be undone.'
+            confirmButtonText.value = options.confirmButtonText || 'Delete'
             
             confirmCallback = () => {
                 showConfirmModal.value = false
@@ -38,6 +40,7 @@ export function useConfirm() {
         showConfirmModal,
         confirmTitle,
         confirmMessage,
+        confirmButtonText,
         confirm,
         handleConfirm,
         handleCancel

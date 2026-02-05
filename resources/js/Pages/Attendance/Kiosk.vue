@@ -33,17 +33,23 @@ const faceMatcher = ref(null);
 
 // High-Speed 3D Liveness Engine
 const livenessStatus = ref('waiting'); 
-const motionBuffer = [];
+const livenessHistory = [];
 const livenessScore = ref(0);
 const identifiedUser = ref(null);
 const livenessFeedback = ref('Ready for scan');
+
+// Verification Steps
+const stepHeadTurn = ref(false);
+const stepMouthMove = ref(false);
 
 const resetLiveness = () => {
     livenessStatus.value = 'waiting';
     livenessScore.value = 0;
     identifiedUser.value = null;
     livenessFeedback.value = 'Ready for scan';
-    motionBuffer.length = 0;
+    livenessHistory.length = 0;
+    stepHeadTurn.value = false;
+    stepMouthMove.value = false;
 };
 
 // Pre-load Success Sound
@@ -100,7 +106,6 @@ const startAutoScan = () => {
 const performLocalScan = async () => {
     if (!videoRef.value || videoRef.value.paused || videoRef.value.ended || isLoading.value || scanCooldown.value) return;
 
-    // Fast detection with landmarks
     const detection = await faceapi.detectSingleFace(videoRef.value, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
         .withFaceLandmarks()
         .withFaceDescriptor();
@@ -112,62 +117,98 @@ const performLocalScan = async () => {
 
     const landmarks = detection.landmarks.positions;
     
-    // 1. Calculate 3D Perspective (Nose-to-Face Ratio)
-    // We measure the relative position of the nose tip (30) to the face edges (0, 16)
-    const noseTip = landmarks[30];
+    // 1. Distance & Face Quality Check
+    const box = detection.detection.box;
+    const faceArea = box.width * box.height;
+    if (faceArea < 45000) {
+        livenessFeedback.value = "Please come closer...";
+        return;
+    }
+
+    // 2. Calculate Key Points for 3D Verification
+    const leftEye = landmarks[36];
+    const rightEye = landmarks[45];
+    const noseBridge = landmarks[27];
     const leftEdge = landmarks[0];
     const rightEdge = landmarks[16];
-    
-    const faceWidth = Math.sqrt(Math.pow(rightEdge.x - leftEdge.x, 2) + Math.pow(rightEdge.y - leftEdge.y, 2));
-    const noseOffset = (noseTip.x - leftEdge.x) / faceWidth; // Where is the nose relative to the face width
+    const topLip = landmarks[62];
+    const bottomLip = landmarks[66];
 
-    // 2. Track Micro-Motion Buffer
-    motionBuffer.push({
-        offset: noseOffset,
-        time: Date.now(),
-        landmarks: [landmarks[30], landmarks[36], landmarks[45]] // Track key points
+    // A. Roll Check (Prevents tilted photo spoofing)
+    const roll = Math.abs(rightEye.y - leftEye.y) / Math.abs(rightEye.x - leftEye.x);
+    if (roll > 0.12) {
+        livenessFeedback.value = "Keep your head level...";
+        return;
+    }
+
+    // B. Parallax Meta-Ratio (The "3D Signature")
+    // In 3D, central features shift relative to edges at different rates than 2D scaling
+    const eyeDist = Math.abs(rightEye.x - leftEye.x);
+    const noseOffset = (noseBridge.x - leftEye.x) / eyeDist;
+    const edgeRatio = Math.abs(leftEye.x - leftEdge.x) / Math.abs(rightEdge.x - rightEye.x);
+
+    // C. Mouth Ratio (Action check)
+    const mouthOpenRatio = Math.abs(bottomLip.y - topLip.y) / eyeDist;
+
+    livenessHistory.push({
+        noseOffset,
+        edgeRatio,
+        mouthOpenRatio,
+        time: Date.now()
     });
-    if (motionBuffer.length > 8) motionBuffer.shift();
+    if (livenessHistory.length > 20) livenessHistory.shift();
 
-    // 3. Quick Match
-    if (faceMatcher.value && !identifiedUser.value) {
+    // 3. Identification Phase
+    if (faceMatcher.value && livenessStatus.value === 'waiting') {
         const bestMatch = faceMatcher.value.findBestMatch(detection.descriptor);
         if (bestMatch.label !== 'unknown') {
             const emp = props.employees.find(e => e.employee_code === bestMatch.label);
-            identifiedUser.value = emp ? emp.name : bestMatch.label;
-            livenessStatus.value = 'verifying';
+            if (emp) {
+                identifiedUser.value = emp.name;
+                form.employee_code = emp.employee_code;
+                livenessStatus.value = 'verifying';
+            }
         }
     }
 
-    // 4. Liveness Analysis: 3D Parallax & Jitter
-    if (motionBuffer.length >= 5 && identifiedUser.value) {
-        const offsets = motionBuffer.map(m => m.offset);
-        const maxOffset = Math.max(...offsets);
-        const minOffset = Math.min(...offsets);
-        const variance = maxOffset - minOffset;
+    // 4. Verification Phase (Anti-Spoofing)
+    if (livenessStatus.value === 'verifying') {
+        const offsets = livenessHistory.map(h => h.noseOffset);
+        const edgeRatios = livenessHistory.map(h => h.edgeRatio);
+        const mouthRatios = livenessHistory.map(h => h.mouthOpenRatio);
 
-        // PHOTO TEST:
-        // - A static photo has variance < 0.001 (Too still)
-        // - A handheld photo/screen moves perfectly "flatly"
-        // - A human has natural micro-jitter (variance between 0.002 and 0.05)
-        
-        if (variance > 0.002) {
-            livenessScore.value = 100; // Human life detected via micro-movement
+        if (!stepHeadTurn.value) {
+            livenessFeedback.value = "Slowly turn head left & right";
+            
+            // Turn Detection: Look for non-linear parallax variance
+            const yawVar = Math.max(...offsets) - Math.min(...offsets);
+            const edgeVar = Math.max(...edgeRatios) - Math.min(...edgeRatios);
+            
+            // In 3D, edgeVar changes much more drastically than yawVar (Parallax)
+            if (yawVar > 0.04 && edgeVar > 0.15) {
+                stepHeadTurn.value = true;
+                livenessHistory.length = 0; // Clear history to ensure mouth check starts fresh
+            }
+        } else if (!stepMouthMove.value) {
+            livenessFeedback.value = "Now Smile or Open Mouth";
+            
+            // Action Detection: Look for mouth movement (Smile or Open)
+            // Increased threshold to 0.07 to ensure intentional movement
+            const mouthVar = Math.max(...mouthRatios) - Math.min(...mouthRatios);
+            if (mouthVar > 0.07) {
+                stepMouthMove.value = true;
+            }
+        } else {
+            livenessScore.value = 100;
             livenessStatus.value = 'verified';
             livenessFeedback.value = "Access Granted";
-
-            // Submit
-            form.employee_code = props.employees.find(e => e.name === identifiedUser.value || e.employee_code === identifiedUser.value)?.employee_code;
             submitAttendance(true);
             
             scanCooldown.value = true;
             setTimeout(() => {
                 resetLiveness();
                 scanCooldown.value = false;
-            }, 4000);
-        } else {
-            livenessFeedback.value = "Please move slightly...";
-            livenessScore.value = 40;
+            }, 5000);
         }
     }
 };
@@ -180,7 +221,7 @@ const form = useForm({
 
 const startCamera = async () => {
     try {
-        stream.value = await navigator.mediaDevices.getUserMedia({ video: {} });
+        stream.value = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
         if (videoRef.value) {
             videoRef.value.srcObject = stream.value;
             isCameraActive.value = true;
@@ -208,7 +249,7 @@ const capture = () => {
     canvasRef.value.height = videoRef.value.videoHeight;
     context.drawImage(videoRef.value, 0, 0);
     
-    const data = canvasRef.value.toDataURL('image/jpeg');
+    const data = canvasRef.value.toDataURL('image/jpeg', 0.7); // Compressed
     form.image = data;
     capturedImage.value = data;
 };
@@ -225,51 +266,47 @@ const submitAttendance = (isAuto = false) => {
     }
 
     if (isAuto) {
-         // Visual feedback for auto scan
          isScanning.value = true;
     }
 
-    // Capture for record (optional, if we want to save the image of the log)
-    // For auto-scan, we might skip saving the image to save bandwidth, or capture invisible canvas
+    // Capture for record
     if (!form.image && isCameraActive.value) {
-        // Quick capture off-screen
          if (videoRef.value && canvasRef.value) {
             const context = canvasRef.value.getContext('2d');
             canvasRef.value.width = videoRef.value.videoWidth;
             canvasRef.value.height = videoRef.value.videoHeight;
             context.drawImage(videoRef.value, 0, 0);
-            form.image = canvasRef.value.toDataURL('image/jpeg');
+            form.image = canvasRef.value.toDataURL('image/jpeg', 0.6);
          }
     }
 
     isLoading.value = true;
     errorMsg.value = null;
 
-    axios.post(route('attendance.kiosk.store'), form)
+    // Use form.data() to send a plain object instead of the Inertia Form proxy
+    axios.post(route('attendance.kiosk.store'), form.data())
         .then(response => {
             lastLog.value = response.data;
-            form.employee_code = ''; // Reset ID
+            form.employee_code = ''; 
             resetLiveness();
             if (!isAuto) resetCapture();
-            else form.image = null; // Reset image for next auto scan
+            else form.image = null; 
 
-            // Cooldown to prevent double log
             scanCooldown.value = true;
             successSound.currentTime = 0;
             successSound.play().catch(e => console.warn("Audio play blocked:", e)); 
             
             setTimeout(() => {
                 scanCooldown.value = false;
-                // lastLog.value = null; // Keep showing last log for a bit?
             }, 5000);
         })
         .catch(err => {
-            // If auto-scan, maybe don't show error if it's just "Already timed in" to avoid spam?
-            // But user needs to know.
-            errorMsg.value = err.response?.data?.message || "Attendance failed.";
-            scanCooldown.value = true; // Cooldown on error too?
+            // Extract specific validation message if available
+            const responseData = err.response?.data;
+            errorMsg.value = responseData?.message || 
+                            (responseData?.errors ? Object.values(responseData.errors).flat()[0] : "Attendance failed.");
             
-            // Play Error Sound
+            scanCooldown.value = true;
             errorSound.currentTime = 0;
             errorSound.play().catch(e => console.warn("Audio play blocked:", e));
             
@@ -278,7 +315,6 @@ const submitAttendance = (isAuto = false) => {
         .finally(() => {
             isLoading.value = false;
             isScanning.value = false;
-            // Refocus input if manual
             const input = document.getElementById('employee_code');
             if(input) input.focus();
         });
@@ -325,12 +361,24 @@ const formattedDate = computed(() => {
                     <div class="absolute flex flex-col items-center mt-96">
                         <div class="text-blue-200 font-mono text-sm bg-black/70 px-6 py-2 rounded-xl backdrop-blur-md border border-white/10 shadow-2xl text-center">
                             <div v-if="identifiedUser" class="text-emerald-400 font-bold mb-1">USER: {{ identifiedUser }}</div>
-                            <div class="flex items-center justify-center gap-2">
+                            <div class="flex items-center justify-center gap-2 mb-1">
                                 <span v-if="livenessStatus === 'verifying'" class="flex h-2 w-2 relative">
                                     <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                                     <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
                                 </span>
                                 {{ livenessFeedback }}
+                            </div>
+                            <div v-if="livenessStatus !== 'waiting'" class="flex flex-col gap-1 mt-2">
+                                <div class="flex items-center justify-center gap-1 text-[10px] uppercase tracking-tighter" :class="stepHeadTurn ? 'text-emerald-400' : 'text-slate-500'">
+                                    <CheckCircleIcon v-if="stepHeadTurn" class="w-3 h-3" />
+                                    <div v-else class="w-2 h-2 rounded-full bg-slate-700"></div>
+                                    3D Rotation
+                                </div>
+                                <div class="flex items-center justify-center gap-1 text-[10px] uppercase tracking-tighter" :class="stepMouthMove ? 'text-emerald-400' : 'text-slate-500'">
+                                    <CheckCircleIcon v-if="stepMouthMove" class="w-3 h-3" />
+                                    <div v-else class="w-2 h-2 rounded-full bg-slate-700"></div>
+                                    Action Check
+                                </div>
                             </div>
                         </div>
                     </div>

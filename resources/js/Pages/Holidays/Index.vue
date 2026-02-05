@@ -1,5 +1,5 @@
 <script setup>
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, useForm, router } from '@inertiajs/vue3';
 import { ref, onMounted, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
@@ -14,7 +14,8 @@ import {
     PencilSquareIcon, 
     TrashIcon, 
     CalendarDaysIcon,
-    XMarkIcon
+    XMarkIcon,
+    ArrowPathIcon
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
@@ -70,11 +71,29 @@ const openEditModal = (holiday) => {
 };
 
 const submitForm = () => {
+    // Date Validation: Prevent past or unrealistic dates
+    const selectedDate = new Date(form.date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // If it's a new holiday or editing a future holiday, ensure it's not in the past
+    if (!isEditing.value || (editingHoliday.value && new Date(editingHoliday.value.date) >= today)) {
+        if (selectedDate < today) {
+            showError('Holiday date cannot be in the past.');
+            return;
+        }
+    }
+
+    const minRealisticYear = 2000;
+    if (selectedDate.getFullYear() < minRealisticYear) {
+        showError('Please enter a realistic date.');
+        return;
+    }
+
     if (isEditing.value) {
         form.put(route('holidays.update', editingHoliday.value.id), {
             onSuccess: () => {
                 showModal.value = false;
-                showSuccess('Holiday updated successfully');
             },
             onError: () => showError('Failed to update holiday')
         });
@@ -82,11 +101,30 @@ const submitForm = () => {
         form.post(route('holidays.store'), {
             onSuccess: () => {
                 showModal.value = false;
-                showSuccess('Holiday added successfully');
             },
             onError: () => showError('Failed to add holiday')
         });
     }
+};
+
+const isSyncing = ref(false);
+const syncHolidays = async () => {
+    const year = new Date().getFullYear();
+    const confirmed = await confirm({
+        title: 'Sync National Holidays',
+        message: `This will fetch official Philippines holidays for ${year}. New ones will be added, existing ones will be skipped. Proceed?`,
+        confirmButtonText: 'Sync Now'
+    });
+
+    if (!confirmed) return;
+
+    isSyncing.value = true;
+    router.post(route('holidays.sync'), { year }, {
+        onFinish: () => {
+            isSyncing.value = false;
+        },
+        onError: () => showError('Failed to sync holidays.')
+    });
 };
 
 const deleteHoliday = async (holiday) => {
@@ -143,14 +181,25 @@ const typeColors = {
                         @change-per-page="pagination.changePerPage"
                     >
                          <template #actions>
-                            <button
-                                v-if="hasPermission('holidays.create')"
-                                @click="openCreateModal"
-                                class="bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition-all duration-200 flex items-center space-x-2 text-sm font-semibold shadow-lg shadow-blue-600/20"
-                            >
-                                <PlusIcon class="w-5 h-5" />
-                                <span>New Holiday</span>
-                            </button>
+                            <div class="flex gap-2">
+                                <button
+                                    v-if="hasPermission('holidays.create')"
+                                    @click="syncHolidays"
+                                    :disabled="isSyncing"
+                                    class="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 px-4 py-2.5 rounded-xl transition-all font-bold text-sm flex items-center shadow-sm disabled:opacity-50"
+                                >
+                                    <ArrowPathIcon :class="['w-4 h-4 mr-2', isSyncing ? 'animate-spin' : '']" />
+                                    {{ isSyncing ? 'Syncing...' : 'Sync National Holidays' }}
+                                </button>
+                                <button
+                                    v-if="hasPermission('holidays.create')"
+                                    @click="openCreateModal"
+                                    class="bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition-all duration-200 flex items-center space-x-2 text-sm font-semibold shadow-lg shadow-blue-600/20"
+                                >
+                                    <PlusIcon class="w-5 h-5" />
+                                    <span>New Holiday</span>
+                                </button>
+                            </div>
                         </template>
 
                         <template #header>

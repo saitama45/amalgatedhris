@@ -1,6 +1,6 @@
 <script setup>
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
 import { useConfirm } from '@/Composables/useConfirm';
@@ -46,6 +46,31 @@ const { hasPermission } = usePermission();
 
 const pagination = usePagination(props.applicants, 'applicants.index');
 
+// Reactive Input Validation & Formatting
+const handleNameInput = (field, e) => {
+    // Allow only letters and spaces, then convert to uppercase
+    const val = e.target.value.replace(/[^a-zA-Z\s]/g, '').toUpperCase();
+    form[field] = val;
+    if (e.target.value !== val) {
+        e.target.value = val;
+    }
+};
+
+const handleEmailInput = (e) => {
+    // Disallow emojis and non-standard characters in email
+    const val = e.target.value.replace(/[^a-zA-Z0-9@._-]/g, '');
+    form.email = val;
+    if (e.target.value !== val) {
+        e.target.value = val;
+    }
+};
+
+const isEmailValid = computed(() => {
+    if (!form.email) return true;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(form.email);
+});
+
 onMounted(() => {
     pagination.updateData(props.applicants);
 });
@@ -70,6 +95,15 @@ const openHireModal = (applicant) => {
 };
 
 const submitHire = () => {
+    // Ensure values are positive before submission
+    if (hireForm.basic_rate <= 0) {
+        showError('Basic Rate must be greater than 0.');
+        return;
+    }
+    if (hireForm.allowance < 0) {
+        hireForm.allowance = 0;
+    }
+
     hireForm.post(route('applicants.hire', hiringApplicant.value.id), {
         onSuccess: () => {
             showHireModal.value = false;
@@ -108,7 +142,7 @@ const openEditModal = (applicant) => {
     form.middle_name = applicant.middle_name;
     form.last_name = applicant.last_name;
     form.email = applicant.email;
-    form.phone = applicant.phone;
+    form.phone = formatPhoneNumber(applicant.phone);
     form.status = applicant.status;
     form.exam_score = applicant.exam_score;
     form.interviewer_notes = applicant.interviewer_notes;
@@ -117,7 +151,50 @@ const openEditModal = (applicant) => {
     showModal.value = true;
 };
 
+const formatPhoneNumber = (value) => {
+    if (!value) return '';
+    let clean = value.replace(/\D/g, '');
+    if (clean.length > 11) clean = clean.slice(0, 11);
+    
+    let formatted = '';
+    if (clean.length > 0) {
+        formatted = clean.substring(0, 4);
+        if (clean.length > 4) {
+            formatted += ' ' + clean.substring(4, 7);
+            if (clean.length > 7) {
+                formatted += ' ' + clean.substring(7, 11);
+            }
+        }
+    }
+    return formatted;
+};
+
+const handlePhoneInput = (e) => {
+    const formatted = formatPhoneNumber(e.target.value);
+    form.phone = formatted;
+    // Force DOM sync to remove any invalid characters that escaped the keydown check
+    if (e.target.value !== formatted) {
+        e.target.value = formatted;
+    }
+};
+
+const onlyNumbers = (e) => {
+    // Allow navigation and deletion keys
+    const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End'];
+    if (allowedKeys.includes(e.key)) return;
+
+    // Block anything that isn't a number
+    if (!/^[0-9]$/.test(e.key)) {
+        e.preventDefault();
+    }
+};
+
 const submitForm = () => {
+    if (!isEmailValid.value) {
+        showError('Please provide a valid email address.');
+        return;
+    }
+
     if (isEditing.value) {
         form.transform((data) => ({
             ...data,
@@ -377,25 +454,64 @@ const statusColors = {
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                         <div>
                             <label class="block text-sm font-bold text-slate-700 mb-1">First Name</label>
-                            <input v-model="form.first_name" @input="form.first_name = $event.target.value.toUpperCase()" type="text" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                            <input 
+                                :value="form.first_name" 
+                                @input="handleNameInput('first_name', $event)" 
+                                type="text" 
+                                required 
+                                placeholder="JUAN"
+                                class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all uppercase"
+                            >
                         </div>
                         <div>
                             <label class="block text-sm font-bold text-slate-700 mb-1">Middle Name</label>
-                            <input v-model="form.middle_name" @input="form.middle_name = $event.target.value.toUpperCase()" type="text" placeholder="(Optional)" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                            <input 
+                                :value="form.middle_name" 
+                                @input="handleNameInput('middle_name', $event)" 
+                                type="text" 
+                                placeholder="(Optional)" 
+                                class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all uppercase"
+                            >
                         </div>
                          <div>
                             <label class="block text-sm font-bold text-slate-700 mb-1">Last Name</label>
-                            <input v-model="form.last_name" @input="form.last_name = $event.target.value.toUpperCase()" type="text" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                            <input 
+                                :value="form.last_name" 
+                                @input="handleNameInput('last_name', $event)" 
+                                type="text" 
+                                required 
+                                placeholder="DELA CRUZ"
+                                class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all uppercase"
+                            >
                         </div>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                          <div>
                             <label class="block text-sm font-bold text-slate-700 mb-1">Email Address</label>
-                            <input v-model="form.email" type="email" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                            <input 
+                                :value="form.email" 
+                                @input="handleEmailInput"
+                                type="email" 
+                                required 
+                                placeholder="juan@example.com"
+                                class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                                :class="{'border-rose-500 ring-rose-500/20': !isEmailValid && form.email}"
+                            >
+                            <p v-if="!isEmailValid && form.email" class="text-[10px] text-rose-600 mt-1 font-bold">Please enter a valid email format.</p>
                         </div>
                          <div>
                             <label class="block text-sm font-bold text-slate-700 mb-1">Phone Number</label>
-                            <input v-model="form.phone" type="text" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                            <input 
+                                :value="form.phone" 
+                                @input="handlePhoneInput"
+                                @keydown="onlyNumbers"
+                                type="text" 
+                                required 
+                                placeholder="09XX XXX XXXX"
+                                maxlength="13"
+                                inputmode="numeric"
+                                class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono"
+                            >
                         </div>
                     </div>
                     
@@ -587,11 +703,28 @@ const statusColors = {
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                         <div>
                             <label class="block text-sm font-bold text-slate-700 mb-1">Basic Rate</label>
-                            <input v-model="hireForm.basic_rate" type="number" step="0.01" required placeholder="0.00" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                            <input 
+                                v-model="hireForm.basic_rate" 
+                                type="number" 
+                                step="0.01" 
+                                min="0.01"
+                                @keypress="(e) => { if(e.key === '-') e.preventDefault(); }"
+                                required 
+                                placeholder="0.00" 
+                                class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono"
+                            >
                         </div>
                         <div>
                             <label class="block text-sm font-bold text-slate-700 mb-1">Allowance</label>
-                            <input v-model="hireForm.allowance" type="number" step="0.01" placeholder="0.00" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                            <input 
+                                v-model="hireForm.allowance" 
+                                type="number" 
+                                step="0.01" 
+                                min="0"
+                                @keypress="(e) => { if(e.key === '-') e.preventDefault(); }"
+                                placeholder="0.00" 
+                                class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono"
+                            >
                         </div>
                     </div>
 

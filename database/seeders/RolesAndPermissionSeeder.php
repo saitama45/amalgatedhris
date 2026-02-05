@@ -62,6 +62,14 @@ class RolesAndPermissionSeeder extends Seeder
             // Time & Attendance - Overtime Rates
             'overtime_rates.view' => 'View OT Rates',
             'overtime_rates.manage' => 'Manage OT Rates',
+
+            // Time & Attendance - Leave Management
+            'leave_requests.view' => 'View Leave Requests',
+            'leave_requests.create' => 'Create/File Leave',
+            'leave_requests.edit' => 'Edit Leave Requests',
+            'leave_requests.delete' => 'Delete Leave Requests',
+            'leave_requests.approve' => 'Approve Leave Requests',
+            'leave_requests.reject' => 'Reject Leave Requests',
             
             // Time & Attendance - Shifts
             'shifts.view' => 'View Shift Templates',

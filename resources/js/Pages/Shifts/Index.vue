@@ -71,11 +71,17 @@ const openEditModal = (shift) => {
 };
 
 const submitForm = () => {
+    // If the project doesn't support overnight shifts in this specific template, 
+    // we block start >= end.
+    if (form.start_time && form.end_time && form.start_time >= form.end_time) {
+        showError('End Time must be later than Start Time. Overnight shifts are not supported in this template.');
+        return;
+    }
+
     if (isEditing.value) {
         form.put(route('shifts.update', editingShift.value.id), {
             onSuccess: () => {
                 showModal.value = false;
-                showSuccess('Shift updated successfully');
             },
             onError: () => showError('Failed to update shift')
         });
@@ -83,7 +89,6 @@ const submitForm = () => {
         form.post(route('shifts.store'), {
             onSuccess: () => {
                 showModal.value = false;
-                showSuccess('Shift created successfully');
             },
             onError: () => showError('Failed to create shift')
         });
@@ -98,7 +103,6 @@ const deleteShift = async (shift) => {
     
     if (confirmed) {
         destroy(route('shifts.destroy', shift.id), {
-            onSuccess: () => showSuccess('Shift deleted successfully'),
             onError: () => showError('Failed to delete shift')
         });
     }

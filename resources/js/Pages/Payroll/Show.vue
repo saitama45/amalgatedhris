@@ -4,6 +4,7 @@ import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
 import Modal from '@/Components/Modal.vue';
+import ConfirmModal from '@/Components/ConfirmModal.vue';
 import { 
     PrinterIcon, 
     CheckBadgeIcon, 
@@ -13,17 +14,29 @@ import {
     PencilSquareIcon,
     XMarkIcon,
     CalculatorIcon,
-    UserCircleIcon
+    UserCircleIcon,
+    ArrowDownTrayIcon
 } from '@heroicons/vue/24/outline';
 import { useToast } from '@/Composables/useToast.js';
+import { usePagination } from '@/Composables/usePagination.js';
+import { useConfirm } from '@/Composables/useConfirm.js';
+import { watch } from 'vue';
 
 const props = defineProps({
     payroll: Object,
+    payslips: Object, // Changed from array to object (paginated)
     summary: Object,
     can: Object
 });
 
+const pagination = usePagination(props.payslips, 'payroll.show');
+
+watch(() => props.payslips, (newData) => {
+    pagination.updateData(newData);
+});
+
 const { showSuccess, showError } = useToast();
+const { confirm } = useConfirm();
 
 const showEditModal = ref(false);
 const editingSlip = ref(null);
@@ -55,7 +68,20 @@ const openEditModal = (slip) => {
     showEditModal.value = true;
 };
 
+const preventNegative = (e) => {
+    if (e.key === '-') e.preventDefault();
+};
+
 const submitEdit = () => {
+    // Validate all fields are >= 0
+    const fields = Object.keys(editForm.data());
+    for (const field of fields) {
+        if (parseFloat(editForm[field]) < 0) {
+            showError('All figures must be greater than or equal to 0.');
+            return;
+        }
+    }
+
     editForm.put(route('payslips.update', editingSlip.value.id), {
         onSuccess: () => {
             showEditModal.value = false;
@@ -64,13 +90,28 @@ const submitEdit = () => {
     });
 };
 
-const finalizePayroll = () => {
+const finalizePayroll = async () => {
     if (!props.can.approve) return;
-    if (confirm('Finalize this payroll? This will lock all values and mark them as ready for payout.')) {
+    
+    const isConfirmed = await confirm({
+        title: 'Finalize Payroll',
+        message: 'Are you sure you want to finalize this payroll? This will lock all values and mark them as ready for payout.',
+        confirmButtonText: 'Confirm Finalization'
+    });
+
+    if (isConfirmed) {
         router.put(route('payroll.approve', props.payroll.id), {}, {
             onSuccess: () => showSuccess('Payroll finalized successfully.')
         });
     }
+};
+
+const exportPdf = () => {
+    window.location.href = route('payroll.export-pdf', props.payroll.id);
+};
+
+const exportExcel = () => {
+    window.location.href = route('payroll.export-excel', props.payroll.id);
 };
 
 const formatCurrency = (amount) => {
@@ -100,7 +141,10 @@ const formatDate = (date) => {
                     </div>
                 </div>
                 <div class="flex gap-2">
-                    <button class="bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-xl font-bold text-sm flex items-center hover:bg-slate-50 transition-all shadow-sm">
+                    <button 
+                        @click="exportPdf"
+                        class="bg-rose-600 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center hover:bg-rose-700 transition-all shadow-lg shadow-rose-600/20"
+                    >
                         <PrinterIcon class="w-4 h-4 mr-2" /> Export PDF
                     </button>
                     <button 
@@ -138,66 +182,81 @@ const formatDate = (date) => {
 
                 <!-- Payslip Table -->
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                    <div class="p-6 border-b border-slate-100 flex justify-between items-center">
-                        <h3 class="font-bold text-lg text-slate-800">Payslip Breakdown</h3>
-                        <button class="flex items-center text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors">
-                            <PrinterIcon class="w-4 h-4 mr-2" /> Print Summary
-                        </button>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-slate-100">
-                            <thead class="bg-slate-50">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase">Employee</th>
-                                    <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Basic</th>
-                                    <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Allowances</th>
-                                    <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">OT Pay</th>
-                                    <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Gross</th>
-                                    <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Deductions</th>
-                                    <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase">Net Pay</th>
-                                    <th class="px-6 py-3"></th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100">
-                                <tr v-for="slip in payroll.payslips" :key="slip.id" class="hover:bg-slate-50/50 group">
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="flex items-center">
-                                            <div class="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center mr-3 text-slate-400">
-                                                <UserCircleIcon class="w-6 h-6" />
-                                            </div>
-                                            <div>
-                                                <div class="font-bold text-sm text-slate-900">{{ slip.employee?.user?.name }}</div>
-                                                <div class="text-[10px] text-slate-500 uppercase tracking-tighter">{{ slip.employee?.employee_code }}</div>
-                                            </div>
+                    <DataTable
+                        title="Payslip Breakdown"
+                        subtitle="Individual employee computation"
+                        :data="pagination.data.value"
+                        :current-page="pagination.currentPage.value"
+                        :last-page="pagination.lastPage.value"
+                        :per-page="pagination.perPage.value"
+                        :showing-text="pagination.showingText.value"
+                        :is-loading="pagination.isLoading.value"
+                        :show-search="true"
+                        search-placeholder="Search employee name..."
+                        @go-to-page="pagination.goToPage"
+                        @change-per-page="pagination.changePerPage"
+                    >
+                        <template #actions>
+                            <button 
+                                @click="exportExcel"
+                                class="flex items-center text-sm font-bold text-emerald-600 hover:text-emerald-700 transition-colors bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100"
+                            >
+                                <ArrowDownTrayIcon class="w-4 h-4 mr-2" /> Download Summary
+                            </button>
+                        </template>
+
+                        <template #header>
+                            <tr class="bg-slate-50">
+                                <th class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Employee</th>
+                                <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Basic</th>
+                                <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Allowances</th>
+                                <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">OT Pay</th>
+                                <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Gross</th>
+                                <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Deductions</th>
+                                <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Net Pay</th>
+                                <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Actions</th>
+                            </tr>
+                        </template>
+
+                        <template #body="{ data }">
+                            <tr v-for="slip in data" :key="slip.id" class="hover:bg-slate-50/50 group border-b border-slate-50 last:border-0">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <div class="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center mr-3 text-slate-400">
+                                            <UserCircleIcon class="w-6 h-6" />
                                         </div>
-                                    </td>
-                                    <td class="px-6 py-4 text-right text-sm text-slate-600 font-mono">{{ formatCurrency(slip.basic_pay) }}</td>
-                                    <td class="px-6 py-4 text-right text-sm text-slate-600 font-mono">{{ formatCurrency(slip.allowances) }}</td>
-                                    <td class="px-6 py-4 text-right text-sm text-blue-600 font-mono font-medium">{{ formatCurrency(slip.ot_pay) }}</td>
-                                    <td class="px-6 py-4 text-right text-sm text-slate-800 font-mono font-bold">{{ formatCurrency(slip.gross_pay) }}</td>
-                                    <td class="px-6 py-4 text-right text-sm text-rose-600 font-mono">
-                                        {{ formatCurrency((parseFloat(slip.sss_deduction) + parseFloat(slip.philhealth_ded) + parseFloat(slip.pagibig_ded) + parseFloat(slip.tax_withheld) + parseFloat(slip.late_deduction) + parseFloat(slip.undertime_deduction) + parseFloat(slip.other_deductions))) }}
-                                    </td>
-                                    <td class="px-6 py-4 text-right text-sm text-emerald-600 font-mono font-bold text-lg">{{ formatCurrency(slip.net_pay) }}</td>
-                                    <td class="px-6 py-4 text-right">
-                                        <div class="flex justify-end gap-2">
-                                            <button 
-                                                v-if="payroll.status === 'Draft' && can.edit_payslip"
-                                                @click="openEditModal(slip)"
-                                                class="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-all"
-                                                title="Adjust Values"
-                                            >
-                                                <PencilSquareIcon class="w-4 h-4" />
-                                            </button>
-                                            <button class="p-1.5 text-slate-400 hover:text-slate-600 transition-colors">
-                                                <PrinterIcon class="w-4 h-4" />
-                                            </button>
+                                        <div>
+                                            <div class="font-bold text-sm text-slate-900">{{ slip.employee?.user?.name }}</div>
+                                            <div class="text-[10px] text-slate-500 uppercase tracking-tighter">{{ slip.employee?.employee_code }}</div>
                                         </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-right text-sm text-slate-600 font-mono">{{ formatCurrency(slip.basic_pay) }}</td>
+                                <td class="px-6 py-4 text-right text-sm text-slate-600 font-mono">{{ formatCurrency(slip.allowances) }}</td>
+                                <td class="px-6 py-4 text-right text-sm text-blue-600 font-mono font-medium">{{ formatCurrency(slip.ot_pay) }}</td>
+                                <td class="px-6 py-4 text-right text-sm text-slate-800 font-mono font-bold">{{ formatCurrency(slip.gross_pay) }}</td>
+                                <td class="px-6 py-4 text-right text-sm text-rose-600 font-mono">
+                                    {{ formatCurrency((parseFloat(slip.sss_deduction) + parseFloat(slip.philhealth_ded) + parseFloat(slip.pagibig_ded) + parseFloat(slip.tax_withheld) + parseFloat(slip.late_deduction) + parseFloat(slip.undertime_deduction) + parseFloat(slip.other_deductions))) }}
+                                </td>
+                                <td class="px-6 py-4 text-right text-sm text-emerald-600 font-mono font-bold text-lg">{{ formatCurrency(slip.net_pay) }}</td>
+                                <td class="px-6 py-4 text-right">
+                                    <div class="flex justify-end gap-2">
+                                        <button 
+                                            v-if="payroll.status === 'Draft' && can.edit_payslip"
+                                            @click="openEditModal(slip)"
+                                            class="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-all"
+                                            title="Adjust Values"
+                                        >
+                                            <PencilSquareIcon class="w-4 h-4" />
+                                        </button>
+                                        <button class="p-1.5 text-slate-400 hover:text-slate-600 transition-colors">
+                                            <PrinterIcon class="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
+                    </DataTable>
                 </div>
 
             </div>
@@ -226,15 +285,15 @@ const formatDate = (date) => {
                         
                         <div>
                             <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Basic Pay (Period)</label>
-                            <input v-model="editForm.basic_pay" type="number" step="0.01" class="w-full rounded-xl border-slate-200 text-sm focus:ring-emerald-500 font-mono">
+                            <input v-model="editForm.basic_pay" type="number" step="0.01" min="0" @keypress="preventNegative" class="w-full rounded-xl border-slate-200 text-sm focus:ring-emerald-500 font-mono">
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Total Allowances</label>
-                            <input v-model="editForm.allowances" type="number" step="0.01" class="w-full rounded-xl border-slate-200 text-sm focus:ring-emerald-500 font-mono">
+                            <input v-model="editForm.allowances" type="number" step="0.01" min="0" @keypress="preventNegative" class="w-full rounded-xl border-slate-200 text-sm focus:ring-emerald-500 font-mono">
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Overtime Pay</label>
-                            <input v-model="editForm.ot_pay" type="number" step="0.01" class="w-full rounded-xl border-slate-200 text-sm focus:ring-emerald-500 font-mono text-blue-600 font-bold">
+                            <input v-model="editForm.ot_pay" type="number" step="0.01" min="0" @keypress="preventNegative" class="w-full rounded-xl border-slate-200 text-sm focus:ring-emerald-500 font-mono text-blue-600 font-bold">
                         </div>
                     </div>
 
@@ -247,39 +306,39 @@ const formatDate = (date) => {
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Late</label>
-                                <input v-model="editForm.late_deduction" type="number" step="0.01" class="w-full rounded-xl border-slate-200 text-sm focus:ring-rose-500 font-mono text-rose-600">
+                                <input v-model="editForm.late_deduction" type="number" step="0.01" min="0" @keypress="preventNegative" class="w-full rounded-xl border-slate-200 text-sm focus:ring-rose-500 font-mono text-rose-600">
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Undertime</label>
-                                <input v-model="editForm.undertime_deduction" type="number" step="0.01" class="w-full rounded-xl border-slate-200 text-sm focus:ring-rose-500 font-mono text-rose-600">
+                                <input v-model="editForm.undertime_deduction" type="number" step="0.01" min="0" @keypress="preventNegative" class="w-full rounded-xl border-slate-200 text-sm focus:ring-rose-500 font-mono text-rose-600">
                             </div>
                         </div>
 
                         <div class="grid grid-cols-2 gap-4 border-t border-slate-50 pt-4">
                             <div>
                                 <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">SSS</label>
-                                <input v-model="editForm.sss_deduction" type="number" step="0.01" class="w-full rounded-xl border-slate-200 text-sm focus:ring-rose-500 font-mono">
+                                <input v-model="editForm.sss_deduction" type="number" step="0.01" min="0" @keypress="preventNegative" class="w-full rounded-xl border-slate-200 text-sm focus:ring-rose-500 font-mono">
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">PhilHealth</label>
-                                <input v-model="editForm.philhealth_ded" type="number" step="0.01" class="w-full rounded-xl border-slate-200 text-sm focus:ring-rose-500 font-mono">
+                                <input v-model="editForm.philhealth_ded" type="number" step="0.01" min="0" @keypress="preventNegative" class="w-full rounded-xl border-slate-200 text-sm focus:ring-rose-500 font-mono">
                             </div>
                         </div>
 
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Pag-IBIG</label>
-                                <input v-model="editForm.pagibig_ded" type="number" step="0.01" class="w-full rounded-xl border-slate-200 text-sm focus:ring-rose-500 font-mono">
+                                <input v-model="editForm.pagibig_ded" type="number" step="0.01" min="0" @keypress="preventNegative" class="w-full rounded-xl border-slate-200 text-sm focus:ring-rose-500 font-mono">
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Withholding Tax</label>
-                                <input v-model="editForm.tax_withheld" type="number" step="0.01" class="w-full rounded-xl border-slate-200 text-sm focus:ring-rose-500 font-mono">
+                                <input v-model="editForm.tax_withheld" type="number" step="0.01" min="0" @keypress="preventNegative" class="w-full rounded-xl border-slate-200 text-sm focus:ring-rose-500 font-mono">
                             </div>
                         </div>
 
                         <div>
                             <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Other Deductions</label>
-                            <input v-model="editForm.other_deductions" type="number" step="0.01" class="w-full rounded-xl border-slate-200 text-sm focus:ring-rose-500 font-mono">
+                            <input v-model="editForm.other_deductions" type="number" step="0.01" min="0" @keypress="preventNegative" class="w-full rounded-xl border-slate-200 text-sm focus:ring-rose-500 font-mono">
                         </div>
                     </div>
                 </div>
@@ -301,5 +360,14 @@ const formatDate = (date) => {
                 </div>
             </form>
         </Modal>
+
+        <ConfirmModal 
+            :show="showConfirmModal" 
+            :title="confirmTitle" 
+            :message="confirmMessage" 
+            :confirm-button-text="confirmButtonText"
+            @confirm="handleConfirm" 
+            @cancel="handleCancel" 
+        />
     </AppLayout>
 </template>

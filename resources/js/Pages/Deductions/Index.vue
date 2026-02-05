@@ -529,7 +529,14 @@ const formatCurrency = (val) => {
                     <!-- Amount -->
                     <div class="col-span-2 md:col-span-1">
                          <InputLabel value="Amount per Deduction (PHP)" />
-                        <TextInput type="number" step="0.01" v-model="deductionForm.amount" class="w-full mt-1" />
+                        <TextInput 
+                            type="number" 
+                            step="0.01" 
+                            min="0"
+                            @keypress="(e) => { if(e.key === '-') e.preventDefault(); }"
+                            v-model="deductionForm.amount" 
+                            class="w-full mt-1" 
+                        />
                         <InputError :message="deductionForm.errors.amount" class="mt-2" />
                     </div>
 
@@ -568,7 +575,15 @@ const formatCurrency = (val) => {
                     <!-- Total Amount (Loan) -->
                     <div class="col-span-2 md:col-span-1">
                          <InputLabel value="Total Amount (Optional)" />
-                         <TextInput type="number" step="0.01" v-model="deductionForm.total_amount" class="w-full mt-1" placeholder="For loans/limited deductions" />
+                         <TextInput 
+                            type="number" 
+                            step="0.01" 
+                            min="0"
+                            @keypress="(e) => { if(e.key === '-') e.preventDefault(); }"
+                            v-model="deductionForm.total_amount" 
+                            class="w-full mt-1" 
+                            placeholder="For loans/limited deductions" 
+                        />
                          <p class="text-xs text-gray-500 mt-1">Leave empty for continuous deductions</p>
                          <InputError :message="deductionForm.errors.total_amount" class="mt-2" />
                     </div>
@@ -576,14 +591,29 @@ const formatCurrency = (val) => {
                     <!-- Terms / Installments (Helper) -->
                     <div class="col-span-2 md:col-span-1" v-if="deductionForm.total_amount > 0">
                          <InputLabel value="Terms (Installments)" />
-                         <TextInput type="number" step="1" v-model="deductionForm.terms" class="w-full mt-1" placeholder="e.g. 12" />
+                         <TextInput 
+                            type="number" 
+                            step="1" 
+                            min="1"
+                            @keypress="(e) => { if(e.key === '-') e.preventDefault(); }"
+                            v-model="deductionForm.terms" 
+                            class="w-full mt-1" 
+                            placeholder="e.g. 12" 
+                        />
                          <p class="text-xs text-gray-500 mt-1">Auto-calculates the deduction amount.</p>
                     </div>
 
                     <!-- Remaining Balance (Edit Only) -->
                     <div class="col-span-2 md:col-span-1" v-if="editingDeduction && deductionForm.total_amount > 0">
                          <InputLabel value="Current Balance" />
-                         <TextInput type="number" step="0.01" v-model="deductionForm.remaining_balance" class="w-full mt-1" />
+                         <TextInput 
+                            type="number" 
+                            step="0.01" 
+                            min="0"
+                            @keypress="(e) => { if(e.key === '-') e.preventDefault(); }"
+                            v-model="deductionForm.remaining_balance" 
+                            class="w-full mt-1" 
+                        />
                          <p class="text-xs text-gray-500 mt-1">Adjust if necessary.</p>
                          <InputError :message="deductionForm.errors.remaining_balance" class="mt-2" />
                     </div>

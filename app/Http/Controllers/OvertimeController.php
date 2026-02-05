@@ -213,17 +213,17 @@ class OvertimeController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(OvertimeRequest $overtimeRequest)
+    public function destroy(OvertimeRequest $overtime)
     {
-        if ($overtimeRequest->user_id !== Auth::id() && !Auth::user()->can('overtime.delete')) {
+        if ($overtime->user_id !== Auth::id() && !Auth::user()->can('overtime.delete')) {
             abort(403);
         }
         
-        if ($overtimeRequest->status === 'Approved') {
+        if ($overtime->status === 'Approved') {
              return back()->with('error', 'Cannot delete approved overtime.');
         }
 
-        $overtimeRequest->delete();
+        $overtime->delete();
 
         return back()->with('success', 'Overtime request deleted.');
     }

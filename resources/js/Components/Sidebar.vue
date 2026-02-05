@@ -67,7 +67,7 @@ const checkActiveRoutes = () => {
     if (route().current('employees.*')) menuState.value.workforce = true;
 
     // Timekeeping
-    if (route().current('dtr.*') || route().current('shifts.*') || route().current('schedules.*') || route().current('holidays.*') || route().current('attendance.kiosk') || route().current('overtime.*') || route().current('overtime-rates.*')) menuState.value.timekeeping = true;
+    if (route().current('dtr.*') || route().current('shifts.*') || route().current('schedules.*') || route().current('holidays.*') || route().current('attendance.kiosk') || route().current('overtime.*') || route().current('overtime-rates.*') || route().current('leave-requests.*')) menuState.value.timekeeping = true;
 
     // Compensation
     if (route().current('contributions.*') || route().current('deductions.*') || route().current('payroll.*')) menuState.value.compensation = true;
@@ -349,7 +349,12 @@ const handleMouseLeave = () => {
                         <Link
                             v-if="hasPermission('shifts.view')"
                             :href="route('shifts.index')"
-                             class="flex items-center px-3 py-2 rounded-lg text-slate-400 hover:bg-[#161F32] hover:text-white transition-all duration-200 group relative"
+                             :class="[
+                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
+                                route().current('shifts.*')
+                                    ? 'text-teal-400 bg-slate-800/50'
+                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
+                            ]"
                             @mouseenter="handleMouseEnter($event, 'Shift Templates')"
                             @mouseleave="handleMouseLeave"
                         >
@@ -359,7 +364,12 @@ const handleMouseLeave = () => {
                          <Link
                             v-if="hasPermission('schedules.manage')"
                             :href="route('schedules.index')"
-                             class="flex items-center px-3 py-2 rounded-lg text-slate-400 hover:bg-[#161F32] hover:text-white transition-all duration-200 group relative"
+                             :class="[
+                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
+                                route().current('schedules.*')
+                                    ? 'text-teal-400 bg-slate-800/50'
+                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
+                            ]"
                             @mouseenter="handleMouseEnter($event, 'Shift Assignment')"
                             @mouseleave="handleMouseLeave"
                         >
@@ -369,12 +379,32 @@ const handleMouseLeave = () => {
                          <Link
                             v-if="hasPermission('holidays.view')"
                             :href="route('holidays.index')"
-                             class="flex items-center px-3 py-2 rounded-lg text-slate-400 hover:bg-[#161F32] hover:text-white transition-all duration-200 group relative"
+                             :class="[
+                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
+                                route().current('holidays.*')
+                                    ? 'text-teal-400 bg-slate-800/50'
+                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
+                            ]"
                             @mouseenter="handleMouseEnter($event, 'Holiday Calendar')"
                             @mouseleave="handleMouseLeave"
                         >
                             <CalendarDaysIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
                             <span v-if="!isCollapsed" class="font-medium text-sm">Holiday Calendar</span>
+                        </Link>
+                        <Link
+                            v-if="hasPermission('portal.file_leave')"
+                            :href="route('leave-requests.index')"
+                             :class="[
+                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
+                                route().current('leave-requests.*')
+                                    ? 'text-teal-400 bg-slate-800/50'
+                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
+                            ]"
+                            @mouseenter="handleMouseEnter($event, 'Leave Management')"
+                            @mouseleave="handleMouseLeave"
+                        >
+                            <DocumentDuplicateIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
+                            <span v-if="!isCollapsed" class="font-medium text-sm">Leave Management</span>
                         </Link>
                     </div>
                 </template>
@@ -440,6 +470,22 @@ const handleMouseLeave = () => {
                         >
                             <BanknotesIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
                             <span v-if="!isCollapsed" class="font-medium text-sm">Payroll</span>
+                        </Link>
+
+                        <Link
+                            v-if="hasPermission('payroll.manage_loans')"
+                            :href="route('loans.index')"
+                             :class="[
+                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
+                                route().current('loans.*')
+                                    ? 'text-teal-400 bg-slate-800/50'
+                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
+                            ]"
+                            @mouseenter="handleMouseEnter($event, 'Employee Loans')"
+                            @mouseleave="handleMouseLeave"
+                        >
+                            <CreditCardIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
+                            <span v-if="!isCollapsed" class="font-medium text-sm">Loans</span>
                         </Link>
                     </div>
                 </template>

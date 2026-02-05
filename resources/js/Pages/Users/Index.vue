@@ -1,6 +1,6 @@
 <script setup>
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
 import { useConfirm } from '@/Composables/useConfirm';
@@ -23,6 +23,7 @@ import {
 const props = defineProps({
     users: Object,
     roles: Array,
+    employees: Array,
 });
 
 const showCreateModal = ref(false);
@@ -36,6 +37,115 @@ const { showSuccess, showError } = useToast();
 const { hasPermission } = usePermission();
 
 const pagination = usePagination(props.users, 'users.index');
+
+// Autocomplete State
+const employeeSearch = ref('');
+const showEmployeeDropdown = ref(false);
+const filteredEmployees = ref([]);
+const isSelecting = ref(false);
+
+const searchEmployees = () => {
+    if (!employeeSearch.value) {
+        filteredEmployees.value = props.employees.slice(0, 50);
+        return;
+    }
+    
+    const term = employeeSearch.value.toLowerCase();
+    filteredEmployees.value = props.employees.filter(emp => 
+        emp.name.toLowerCase().includes(term)
+    ).slice(0, 50);
+};
+
+watch(employeeSearch, () => {
+    if (!isSelecting.value) {
+        const targetForm = showCreateModal.value ? createForm : (showEditModal.value ? editForm : null);
+        if (targetForm) {
+            targetForm.name = '';
+            targetForm.email = '';
+            targetForm.department = '';
+            targetForm.position = '';
+        }
+    }
+    searchEmployees();
+    isSelecting.value = false;
+});
+
+const selectEmployee = (employee) => {
+    isSelecting.value = true;
+    const targetForm = showCreateModal.value ? createForm : (showEditModal.value ? editForm : null);
+    if (targetForm) {
+        targetForm.name = employee.name;
+        targetForm.email = employee.email || '';
+        targetForm.department = employee.department_name || '';
+        targetForm.position = employee.position_name || '';
+        targetForm.applicant_id = employee.applicant_id || null;
+        targetForm.employee_id = employee.employee_id || null;
+    }
+    employeeSearch.value = employee.name;
+    showEmployeeDropdown.value = false;
+};
+
+const handleEmployeeSearchBlur = () => {
+    setTimeout(() => {
+        showEmployeeDropdown.value = false;
+    }, 200);
+};
+
+const openCreateModal = () => {
+    createForm.reset();
+    createForm.clearErrors();
+    employeeSearch.value = '';
+    filteredEmployees.value = props.employees.slice(0, 50);
+    showCreateModal.value = true;
+};
+
+// Reactive Input Validation & Formatting
+const handleAlphaUpperInput = (formObj, field, e) => {
+    // Allow only letters and spaces, then convert to uppercase
+    const val = e.target.value.replace(/[^a-zA-Z\s]/g, '').toUpperCase();
+    formObj[field] = val;
+    if (e.target.value !== val) {
+        e.target.value = val;
+    }
+};
+
+const handleEmailInput = (formObj, e) => {
+    // Disallow emojis and non-standard characters in email
+    const val = e.target.value.replace(/\p{Extended_Pictographic}/gu, '').replace(/[^a-zA-Z0-9@._-]/g, '');
+    formObj.email = val;
+    if (e.target.value !== val) {
+        e.target.value = val;
+    }
+};
+
+const handleEmojiBlocking = (val) => {
+    return val.replace(/\p{Extended_Pictographic}/gu, '');
+};
+
+const handleEmployeeSearchInput = (e) => {
+    const val = handleEmojiBlocking(e.target.value).toUpperCase();
+    employeeSearch.value = val;
+    if (e.target.value !== val) {
+        e.target.value = val;
+    }
+};
+
+const handlePasswordInput = (formObj, e) => {
+    const val = handleEmojiBlocking(e.target.value);
+    formObj.password = val;
+    if (e.target.value !== val) {
+        e.target.value = val;
+    }
+};
+
+const validateEmail = (email) => {
+    if (!email) return true;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+};
+
+const isCreateEmailValid = computed(() => validateEmail(createForm.email));
+const isEditEmailValid = computed(() => validateEmail(editForm.email));
 
 onMounted(() => {
     pagination.updateData(props.users);
@@ -52,6 +162,8 @@ const createForm = useForm({
     role: '',
     department: '',
     position: '',
+    applicant_id: null,
+    employee_id: null,
 });
 
 const editForm = useForm({
@@ -60,6 +172,7 @@ const editForm = useForm({
     role: '',
     department: '',
     position: '',
+    employee_id: null,
 });
 
 const passwordForm = useForm({
@@ -67,11 +180,13 @@ const passwordForm = useForm({
 });
 
 const createUser = () => {
+    if (!isCreateEmailValid.value) {
+        showError('Please provide a valid email address.');
+        return;
+    }
     post(route('users.store'), createForm.data(), {
         onSuccess: () => {
             showCreateModal.value = false;
-            createForm.reset();
-            showSuccess('User created successfully')
         },
         onError: (errors) => {
             const errorMessage = Object.values(errors).flat().join(', ') || 'An error occurred'
@@ -82,21 +197,26 @@ const createUser = () => {
 
 const editUser = (user) => {
     editingUser.value = user;
+    isSelecting.value = true;
     editForm.name = user.name;
     editForm.email = user.email;
     editForm.role = user.roles[0]?.name || '';
     editForm.department = user.department || '';
     editForm.position = user.position || '';
+    editForm.employee_id = user.employee?.id || null;
+    employeeSearch.value = user.name;
     showEditModal.value = true;
 };
 
 const updateUser = () => {
+    if (!isEditEmailValid.value) {
+        showError('Please provide a valid email address.');
+        return;
+    }
     put(route('users.update', editingUser.value.id), editForm.data(), {
         onSuccess: () => {
             showEditModal.value = false;
-            editForm.reset();
             editingUser.value = null;
-            showSuccess('User updated successfully')
         },
         onError: (errors) => {
             const errorMessage = Object.values(errors).flat().join(', ') || 'An error occurred'
@@ -113,7 +233,6 @@ const deleteUser = async (user) => {
     
     if (confirmed) {
         destroy(route('users.destroy', user.id), {
-            onSuccess: () => showSuccess('User deleted successfully'),
             onError: (errors) => {
                 const errorMessage = Object.values(errors).flat().join(', ') || 'Cannot delete user'
                 showError(errorMessage)
@@ -132,9 +251,7 @@ const updatePassword = () => {
     put(route('users.reset-password', resetPasswordUser.value.id), passwordForm.data(), {
         onSuccess: () => {
             showPasswordModal.value = false;
-            passwordForm.reset();
             resetPasswordUser.value = null;
-            showSuccess('Password reset successfully')
         },
         onError: (errors) => {
             const errorMessage = Object.values(errors).flat().join(', ') || 'An error occurred'
@@ -180,7 +297,7 @@ const updatePassword = () => {
                         <template #actions>
                             <button
                                 v-if="hasPermission('users.create')"
-                                @click="showCreateModal = true"
+                                @click="openCreateModal"
                                 class="bg-blue-600 text-white px-5 py-2.5 rounded-xl hover:bg-blue-700 transition-all duration-200 flex items-center space-x-2 text-sm font-semibold shadow-lg shadow-blue-600/20"
                             >
                                 <UserPlusIcon class="w-5 h-5" />
@@ -193,6 +310,7 @@ const updatePassword = () => {
                                 <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Personnel</th>
                                 <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Security Role</th>
                                 <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Department</th>
+                                <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Position</th>
                                 <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Access Status</th>
                                 <th class="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Actions</th>
                             </tr>
@@ -217,7 +335,10 @@ const updatePassword = () => {
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-medium">
-                                    {{ user.department || 'General' }}
+                                    {{ user.department }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-medium">
+                                    {{ user.position }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span class="inline-flex items-center px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100">
@@ -273,19 +394,63 @@ const updatePassword = () => {
                 
                 <form @submit.prevent="createUser" class="p-8 space-y-5">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        <div class="md:col-span-2">
-                            <label class="block text-sm font-bold text-slate-700 mb-1">Full Name</label>
+                        <div class="md:col-span-2 relative">
+                            <label class="block text-sm font-bold text-slate-700 mb-1">Search Employee</label>
                             <div class="relative">
                                 <UserCircleIcon class="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
-                                <input v-model="createForm.name" type="text" required placeholder="Ex. Juan Dela Cruz" class="block w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                                <input 
+                                    type="text" 
+                                    :value="employeeSearch"
+                                    @input="handleEmployeeSearchInput"
+                                    @focus="showEmployeeDropdown = true; searchEmployees()"
+                                    @blur="handleEmployeeSearchBlur"
+                                    required 
+                                    placeholder="Type name to search existing employee..." 
+                                    class="block w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all uppercase"
+                                >
                             </div>
+                            <!-- Dropdown -->
+                            <div v-if="showEmployeeDropdown && filteredEmployees.length > 0" class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                                <ul class="py-1">
+                                    <li 
+                                        v-for="emp in filteredEmployees" 
+                                        :key="emp.employee_id"
+                                        @mousedown.prevent="selectEmployee(emp)"
+                                        class="px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 cursor-pointer flex items-center"
+                                    >
+                                        <UserCircleIcon class="w-4 h-4 mr-2 text-slate-400" />
+                                        {{ emp.name }}
+                                    </li>
+                                </ul>
+                            </div>
+                            <div v-else-if="showEmployeeDropdown && filteredEmployees.length === 0" class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl p-4 text-sm text-slate-500 text-center">
+                                No employees found.
+                            </div>
+                        </div>
+
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-bold text-slate-700 mb-1">Full Name (Selected)</label>
+                            <input 
+                                :value="createForm.name" 
+                                readonly
+                                type="text" 
+                                required 
+                                class="block w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl transition-all uppercase font-bold text-slate-600 cursor-not-allowed"
+                            >
                         </div>
                         
                         <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-1">Email Address</label>
+                            <label class="block text-sm font-bold text-slate-700 mb-1">Email Address (Read-only)</label>
                             <div class="relative">
                                 <EnvelopeIcon class="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
-                                <input v-model="createForm.email" type="email" required placeholder="corporate@cci.com" class="block w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                                <input 
+                                    :value="createForm.email" 
+                                    readonly
+                                    type="email" 
+                                    required 
+                                    placeholder="corporate@cci.com" 
+                                    class="block w-full pl-10 pr-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-not-allowed font-medium text-slate-600"
+                                >
                             </div>
                         </div>
 
@@ -301,21 +466,38 @@ const updatePassword = () => {
                             <label class="block text-sm font-bold text-slate-700 mb-1">Security Password</label>
                             <div class="relative">
                                 <KeyIcon class="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
-                                <input v-model="createForm.password" type="password" required placeholder="••••••••" class="block w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                                <input 
+                                    :value="createForm.password" 
+                                    @input="handlePasswordInput(createForm, $event)"
+                                    type="password" 
+                                    required 
+                                    placeholder="••••••••" 
+                                    class="block w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                                >
                             </div>
                         </div>
 
                         <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-1">Department</label>
+                            <label class="block text-sm font-bold text-slate-700 mb-1">Department (Read-only)</label>
                              <div class="relative">
                                 <BuildingOfficeIcon class="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
-                                <input v-model="createForm.department" type="text" placeholder="Ex. Accounting" class="block w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                                <input 
+                                    :value="createForm.department" 
+                                    readonly
+                                    type="text" 
+                                    class="block w-full pl-10 pr-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl transition-all uppercase font-semibold text-slate-600 cursor-not-allowed"
+                                >
                             </div>
                         </div>
 
                          <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-1">Position</label>
-                            <input v-model="createForm.position" type="text" placeholder="Ex. Senior Manager" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                            <label class="block text-sm font-bold text-slate-700 mb-1">Position (Read-only)</label>
+                            <input 
+                                :value="createForm.position" 
+                                readonly
+                                type="text" 
+                                class="block w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl transition-all uppercase font-semibold text-slate-600 cursor-not-allowed"
+                            >
                         </div>
                     </div>
 
@@ -339,14 +521,60 @@ const updatePassword = () => {
                 
                 <form @submit.prevent="updateUser" class="p-8 space-y-5">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div class="md:col-span-2 relative">
+                            <label class="block text-sm font-bold text-slate-700 mb-1">Search/Change Employee</label>
+                            <div class="relative">
+                                <UserCircleIcon class="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
+                                <input 
+                                    type="text" 
+                                    :value="employeeSearch"
+                                    @input="handleEmployeeSearchInput"
+                                    @focus="showEmployeeDropdown = true; searchEmployees()"
+                                    @blur="handleEmployeeSearchBlur"
+                                    required 
+                                    placeholder="Type name to change employee..." 
+                                    class="block w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all uppercase"
+                                >
+                            </div>
+                            <!-- Dropdown -->
+                            <div v-if="showEmployeeDropdown && filteredEmployees.length > 0" class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                                <ul class="py-1">
+                                    <li 
+                                        v-for="emp in filteredEmployees" 
+                                        :key="emp.employee_id"
+                                        @mousedown.prevent="selectEmployee(emp)"
+                                        class="px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 cursor-pointer flex items-center"
+                                    >
+                                        <UserCircleIcon class="w-4 h-4 mr-2 text-slate-400" />
+                                        {{ emp.name }}
+                                    </li>
+                                </ul>
+                            </div>
+                            <div v-else-if="showEmployeeDropdown && filteredEmployees.length === 0" class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl p-4 text-sm text-slate-500 text-center">
+                                No employees found.
+                            </div>
+                        </div>
+
                         <div class="md:col-span-2">
-                            <label class="block text-sm font-bold text-slate-700 mb-1">Full Name</label>
-                            <input v-model="editForm.name" type="text" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                            <label class="block text-sm font-bold text-slate-700 mb-1">Full Name (Selected)</label>
+                            <input 
+                                :value="editForm.name" 
+                                readonly
+                                type="text" 
+                                required 
+                                class="block w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl transition-all uppercase font-bold text-slate-600 cursor-not-allowed"
+                            >
                         </div>
                         
                         <div class="md:col-span-2">
-                            <label class="block text-sm font-bold text-slate-700 mb-1">Email Address</label>
-                            <input v-model="editForm.email" type="email" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                            <label class="block text-sm font-bold text-slate-700 mb-1">Email Address (Read-only)</label>
+                            <input 
+                                :value="editForm.email" 
+                                readonly
+                                type="email" 
+                                required 
+                                class="block w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-not-allowed font-medium text-slate-600"
+                            >
                         </div>
                         
                         <div>
@@ -357,8 +585,23 @@ const updatePassword = () => {
                         </div>
                         
                         <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-1">Department</label>
-                            <input v-model="editForm.department" type="text" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                            <label class="block text-sm font-bold text-slate-700 mb-1">Department (Read-only)</label>
+                            <input 
+                                :value="editForm.department" 
+                                readonly
+                                type="text" 
+                                class="block w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl transition-all uppercase font-semibold text-slate-600 cursor-not-allowed"
+                            >
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-1">Position (Read-only)</label>
+                            <input 
+                                :value="editForm.position" 
+                                readonly
+                                type="text" 
+                                class="block w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl transition-all uppercase font-semibold text-slate-600 cursor-not-allowed"
+                            >
                         </div>
                     </div>
 

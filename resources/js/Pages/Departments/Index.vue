@@ -29,6 +29,34 @@ const { showSuccess, showError } = useToast();
 
 const pagination = usePagination(props.departments, 'departments.index');
 
+// Input Handlers
+const handleAlphaUpperInput = (formObj, field, e) => {
+    // Allow only letters and spaces, remove emojis, then convert to uppercase
+    const val = e.target.value.replace(/[^a-zA-Z\s]/g, '').replace(/\p{Extended_Pictographic}/gu, '').toUpperCase();
+    formObj[field] = val;
+    if (e.target.value !== val) {
+        e.target.value = val;
+    }
+};
+
+const handleUpperNoEmojiInput = (formObj, field, e) => {
+    // Remove emojis, then convert to uppercase
+    const val = e.target.value.replace(/\p{Extended_Pictographic}/gu, '').toUpperCase();
+    formObj[field] = val;
+    if (e.target.value !== val) {
+        e.target.value = val;
+    }
+};
+
+const handleNoEmojiInput = (formObj, field, e) => {
+    // Remove emojis
+    const val = e.target.value.replace(/\p{Extended_Pictographic}/gu, '');
+    formObj[field] = val;
+    if (e.target.value !== val) {
+        e.target.value = val;
+    }
+};
+
 onMounted(() => {
     pagination.updateData(props.departments);
 });
@@ -212,21 +240,21 @@ const deleteDepartment = async (department) => {
                     <div class="space-y-6">
                         <div>
                             <label class="block text-sm font-bold text-slate-700 mb-1">Department Name</label>
-                            <input v-model="form.name" @input="form.name = $event.target.value.toUpperCase()" type="text" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" placeholder="e.g. HUMAN RESOURCES">
+                            <input :value="form.name" @input="handleAlphaUpperInput(form, 'name', $event)" type="text" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" placeholder="e.g. HUMAN RESOURCES">
                         </div>
                         <div class="grid grid-cols-2 gap-6">
                             <div>
                                 <label class="block text-sm font-bold text-slate-700 mb-1">Department Code</label>
-                                <input v-model="form.department_code" @input="form.department_code = $event.target.value.toUpperCase()" type="text" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" placeholder="e.g. HR">
+                                <input :value="form.department_code" @input="handleUpperNoEmojiInput(form, 'department_code', $event)" type="text" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" placeholder="e.g. HR">
                             </div>
                             <div>
                                 <label class="block text-sm font-bold text-slate-700 mb-1">OMS Code</label>
-                                <input v-model="form.oms_code" @input="form.oms_code = $event.target.value.toUpperCase()" type="text" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" placeholder="e.g. 1001">
+                                <input :value="form.oms_code" @input="handleUpperNoEmojiInput(form, 'oms_code', $event)" type="text" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" placeholder="e.g. 1001">
                             </div>
                         </div>
                         <div>
                             <label class="block text-sm font-bold text-slate-700 mb-1">Description</label>
-                            <textarea v-model="form.description" rows="3" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" placeholder="Optional description..."></textarea>
+                            <textarea :value="form.description" @input="handleNoEmojiInput(form, 'description', $event)" rows="3" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" placeholder="Optional description..."></textarea>
                         </div>
                     </div>
 

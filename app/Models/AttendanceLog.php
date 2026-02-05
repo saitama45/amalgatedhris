@@ -57,28 +57,27 @@ class AttendanceLog extends Model
 
         if ($type === 'in') {
             $log->time_in = $dateTime;
-            $log->status = 'Present'; // Tentative
+            $log->status = 'Present';
 
-            // Calculate Late if Schedule exists
-            // This assumes logic to fetch schedule exists.
-            // For now, we demonstrate the calculation usage:
             $activeRecord = $employee->activeEmploymentRecord;
-            
-            // Hypothetical: Fetch today's schedule start time
-            // $schedule = ...; 
-            // $scheduledStart = ...;
-
-            // Example integration (commented out as it depends on Schedule logic):
-            // if ($activeRecord && $scheduledStart) {
-            //     $service = new \App\Services\AttendanceService();
-            //     $log->late_minutes = $service->calculateLateMinutes($scheduledStart, $dateTime, $activeRecord);
-            //     if ($log->late_minutes > 0) {
-            //         $log->status = 'Late';
-            //     }
-            // }
+            if ($activeRecord && $activeRecord->defaultShift) {
+                $service = new \App\Services\AttendanceService();
+                $scheduledStart = \Carbon\Carbon::parse($date . ' ' . $activeRecord->defaultShift->start_time);
+                
+                $log->late_minutes = $service->calculateLateMinutes($scheduledStart, $dateTime, $activeRecord);
+                if ($log->late_minutes > 0) {
+                    $log->status = 'Late';
+                }
+            }
         } else {
             $log->time_out = $dateTime;
-            // Calculate OT here if needed
+            
+            $activeRecord = $employee->activeEmploymentRecord;
+            if ($activeRecord && $activeRecord->defaultShift) {
+                $service = new \App\Services\AttendanceService();
+                $scheduledEnd = \Carbon\Carbon::parse($date . ' ' . $activeRecord->defaultShift->end_time);
+                $log->ot_minutes = $service->calculateOvertimeMinutes($scheduledEnd, $dateTime, $activeRecord);
+            }
         }
 
         $log->save();

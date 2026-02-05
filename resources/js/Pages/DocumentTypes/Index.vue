@@ -33,6 +33,16 @@ const { hasPermission } = usePermission();
 
 const pagination = usePagination(props.documentTypes, 'document-types.index');
 
+// Input Handlers
+const handleAlphaInput = (formObj, field, e) => {
+    // Allow only letters and spaces, remove emojis
+    const val = e.target.value.replace(/[^a-zA-Z\s]/g, '').replace(/\p{Extended_Pictographic}/gu, '');
+    formObj[field] = val;
+    if (e.target.value !== val) {
+        e.target.value = val;
+    }
+};
+
 onMounted(() => {
     pagination.updateData(props.documentTypes);
 });
@@ -217,7 +227,7 @@ const deleteType = async (docType) => {
                 <div class="space-y-6">
                     <div>
                         <label class="block text-sm font-bold text-slate-700 mb-1">Document Name</label>
-                        <input v-model="form.name" type="text" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" placeholder="e.g. Police Clearance">
+                        <input :value="form.name" @input="handleAlphaInput(form, 'name', $event)" type="text" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" placeholder="e.g. Police Clearance">
                     </div>
                     <div class="flex items-center">
                          <input v-model="form.is_required" id="is_required" type="checkbox" class="w-5 h-5 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500 focus:ring-2 transition-all cursor-pointer">

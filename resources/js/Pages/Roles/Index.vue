@@ -146,8 +146,8 @@
                     <div class="p-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
                         <div class="mb-8">
                             <label class="block text-sm font-bold text-slate-700 mb-2">Role Designation (Display Name)</label>
-                            <input v-model="form.name" type="text" required placeholder="Ex. Accounting Manager"
-                                   class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold">
+                            <input :value="form.name" @input="handleAlphaUpperInput(form, 'name', $event)" type="text" required placeholder="Ex. ACCOUNTING MANAGER"
+                                   class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold uppercase">
                         </div>
 
                         <div class="mb-8">
@@ -169,7 +169,7 @@
                             <div class="flex items-center justify-between mb-4">
                                 <label class="block text-sm font-bold text-slate-700 flex items-center">
                                     <LockClosedIcon class="w-4 h-4 mr-2 text-slate-400" />
-                                    Functional Permissions Scope
+                                    Module Management
                                 </label>
                                 <label class="flex items-center cursor-pointer group">
                                     <input type="checkbox" 
@@ -266,6 +266,16 @@ const { post, put, destroy } = useErrorHandler()
 const pagination = usePagination(props.roles, 'roles.index')
 const { hasPermission } = usePermission();
 
+// Input Handlers
+const handleAlphaUpperInput = (formObj, field, e) => {
+    // Allow only letters and spaces, remove emojis, then convert to uppercase
+    const val = e.target.value.replace(/[^a-zA-Z\s]/g, '').replace(/\p{Extended_Pictographic}/gu, '').toUpperCase();
+    formObj[field] = val;
+    if (e.target.value !== val) {
+        e.target.value = val;
+    }
+};
+
 const showModal = ref(false)
 const showPermissionsModal = ref(false)
 const isEditing = ref(false)
@@ -281,8 +291,8 @@ const form = reactive({
 const sidebarStructure = {
     'Recruitment': ['applicants', 'exams'],
     'Workforce': ['employees'],
-    'Time & Attendance': ['dtr', 'shifts', 'schedules', 'holidays'],
-    'Compensation': ['payroll', 'contributions'],
+    'Time & Attendance': ['dtr', 'shifts', 'schedules', 'holidays', 'overtime', 'overtime_rates', 'leave_requests'],
+    'Compensation': ['payroll', 'contributions', 'deductions', 'loans'],
     'My Portal (Self Service)': ['portal'],
     'System Administration': ['users', 'companies', 'departments', 'positions', 'document_types', 'roles']
 };
@@ -436,21 +446,29 @@ const deleteRole = async (role) => {
 const sortPermissions = (permissions) => {
     const order = [
         'view', 
-        'view_all', 
-        'view_sensitive', 
         'create', 
-        'file_leave',
-        'file_ot',
         'edit', 
         'update', 
+        'delete',
+        'view_all', 
+        'view_sensitive', 
+        'view_salary',
+        'create_salary',
+        'edit_salary',
+        'delete_salary',
+        'view_documents',
+        'edit_documents',
+        'file_leave',
+        'file_ot',
         'approve', 
+        'reject',
         'hire', 
         'process', 
         'manage', 
         'manage_loans',
         'config', 
-        'settings', 
-        'delete'
+        'settings',
+        'kiosk'
     ];
     
     return permissions.sort((a, b) => {
@@ -460,8 +478,8 @@ const sortPermissions = (permissions) => {
         const bIndex = order.indexOf(bAction);
         
         if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
-        if (aIndex !== -1) return 1;
-        if (bIndex !== -1) return -1;
+        if (aIndex !== -1) return -1; // If only 'a' is in order, 'a' comes first
+        if (bIndex !== -1) return 1;  // If only 'b' is in order, 'b' comes first
         
         return aAction.localeCompare(bAction);
     });
@@ -496,6 +514,24 @@ const permissionDescriptions = {
     'dtr.edit': 'Edit DTR Logs',
     'dtr.delete': 'Delete DTR Logs',
     'dtr.approve': 'Approve Manual Logs/OT',
+    
+    // Overtime
+    'overtime.view': 'View Overtime Requests',
+    'overtime.create': 'Request Overtime',
+    'overtime.approve': 'Approve Overtime',
+    'overtime.delete': 'Delete Overtime Request',
+
+    // Overtime Rates
+    'overtime_rates.view': 'View OT Multipliers',
+    'overtime_rates.manage': 'Manage OT Multipliers',
+
+    // Leave Requests
+    'leave_requests.view': 'View Leave Requests',
+    'leave_requests.create': 'Create/File Leave',
+    'leave_requests.edit': 'Edit Leave Requests',
+    'leave_requests.delete': 'Delete Leave Requests',
+    'leave_requests.approve': 'Approve Leave Requests',
+    'leave_requests.reject': 'Reject Leave Requests',
     
     // Shifts
     'shifts.view': 'View Shift Templates',
