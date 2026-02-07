@@ -25,6 +25,7 @@ class RolesAndPermissionSeeder extends Seeder
             'applicants.edit' => 'Edit Applicant Details',
             'applicants.delete' => 'Delete Applicant',
             'applicants.hire' => 'Hire/Convert to Employee',
+            'applicants.manage_requirements' => 'Manage Applicant Documents',
             
             // Recruitment - Exams
             'exams.view' => 'View Exam Results',

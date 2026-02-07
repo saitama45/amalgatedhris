@@ -153,4 +153,12 @@ class RoleService
     {
         return $user->can('overtime_rates.manage');
     }
+
+    /**
+     * Check if user can manage applicant requirements/documents
+     */
+    public static function canManageApplicantRequirements($user)
+    {
+        return $user->can('applicants.manage_requirements');
+    }
 }

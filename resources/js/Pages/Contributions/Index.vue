@@ -233,22 +233,22 @@ const formatSalaryRange = (min, max) => {
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Min MSC</label>
-                                <input v-model="sssForm.min_msc" type="number" class="w-full rounded-lg border-slate-200 text-sm">
+                                <input v-model="sssForm.min_msc" type="number" min="0" class="w-full rounded-lg border-slate-200 text-sm">
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Max MSC</label>
-                                <input v-model="sssForm.max_msc" type="number" class="w-full rounded-lg border-slate-200 text-sm">
+                                <input v-model="sssForm.max_msc" type="number" min="0" class="w-full rounded-lg border-slate-200 text-sm">
                             </div>
                         </div>
 
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Rate (%)</label>
-                                <input v-model="sssForm.rate" type="number" step="0.1" class="w-full rounded-lg border-slate-200 text-sm">
+                                <input v-model="sssForm.rate" type="number" step="0.1" min="0" class="w-full rounded-lg border-slate-200 text-sm">
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-slate-500 uppercase mb-1">MSC Step</label>
-                                <input v-model="sssForm.increment" type="number" class="w-full rounded-lg border-slate-200 text-sm" value="500">
+                                <input v-model="sssForm.increment" type="number" min="0" class="w-full rounded-lg border-slate-200 text-sm" value="500">
                             </div>
                         </div>
 
@@ -325,16 +325,16 @@ const formatSalaryRange = (min, max) => {
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Premium Rate (%)</label>
-                            <input v-model="philHealthForm.rate" type="number" step="0.1" class="w-full rounded-lg border-slate-200 text-sm">
+                            <input v-model="philHealthForm.rate" type="number" step="0.1" min="0" class="w-full rounded-lg border-slate-200 text-sm">
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Income Floor</label>
-                                <input v-model="philHealthForm.min_salary" type="number" class="w-full rounded-lg border-slate-200 text-sm">
+                                <input v-model="philHealthForm.min_salary" type="number" min="0" class="w-full rounded-lg border-slate-200 text-sm">
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Income Ceiling</label>
-                                <input v-model="philHealthForm.max_salary" type="number" class="w-full rounded-lg border-slate-200 text-sm">
+                                <input v-model="philHealthForm.max_salary" type="number" min="0" class="w-full rounded-lg border-slate-200 text-sm">
                             </div>
                         </div>
                         <div class="flex justify-end pt-4">
@@ -358,7 +358,7 @@ const formatSalaryRange = (min, max) => {
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Max Fund Salary</label>
-                            <input v-model="pagIBIGForm.max_fund_salary" type="number" class="w-full rounded-lg border-slate-200 text-sm">
+                            <input v-model="pagIBIGForm.max_fund_salary" type="number" min="0" class="w-full rounded-lg border-slate-200 text-sm">
                         </div>
                         <div class="flex justify-end pt-4">
                             <button type="submit" :disabled="pagIBIGForm.processing" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-xl transition-all shadow-lg shadow-indigo-600/20">

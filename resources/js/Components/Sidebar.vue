@@ -184,7 +184,7 @@ const handleMouseLeave = () => {
                 </Link>
 
                 <!-- MODULE: RECRUITMENT -->
-                <template v-if="hasAnyPermission(['recruitment.view', 'recruitment.create'])">
+                <template v-if="hasAnyPermission(['applicants.view', 'exams.view'])">
                     <!-- Main Menu Item -->
                     <div 
                         v-if="!isCollapsed"

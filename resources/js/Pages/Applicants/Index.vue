@@ -401,6 +401,7 @@ const statusColors = {
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                      <div class="flex justify-end space-x-1">
                                         <button
+                                            v-if="hasPermission('applicants.manage_requirements')"
                                             @click="openDocsModal(applicant)"
                                             class="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
                                             title="Manage Requirements"

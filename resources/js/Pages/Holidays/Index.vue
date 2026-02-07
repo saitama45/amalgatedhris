@@ -71,22 +71,15 @@ const openEditModal = (holiday) => {
 };
 
 const submitForm = () => {
-    // Date Validation: Prevent past or unrealistic dates
-    const selectedDate = new Date(form.date);
+    // Date Validation: Prevent past dates using local time comparison
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // If it's a new holiday or editing a future holiday, ensure it's not in the past
-    if (!isEditing.value || (editingHoliday.value && new Date(editingHoliday.value.date) >= today)) {
-        if (selectedDate < today) {
-            showError('Holiday date cannot be in the past.');
-            return;
-        }
-    }
+    const [y, m, d] = form.date.split('-').map(Number);
+    const selectedDate = new Date(y, m - 1, d);
 
-    const minRealisticYear = 2000;
-    if (selectedDate.getFullYear() < minRealisticYear) {
-        showError('Please enter a realistic date.');
+    if (selectedDate < today) {
+        showError('Holiday date cannot be in the past.');
         return;
     }
 
@@ -147,6 +140,8 @@ const typeColors = {
     'Special Working': 'bg-blue-50 text-blue-700 border-blue-100',
     'Local/Declared': 'bg-emerald-50 text-emerald-700 border-emerald-100',
 };
+
+const minDate = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD format
 </script>
 
 <template>
@@ -279,7 +274,7 @@ const typeColors = {
                     
                     <div>
                         <label class="block text-sm font-bold text-slate-700 mb-1">Date</label>
-                        <input v-model="form.date" type="date" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                        <input v-model="form.date" type="date" :min="minDate" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
                     </div>
 
                     <div>
