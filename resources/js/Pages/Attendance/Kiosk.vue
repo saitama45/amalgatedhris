@@ -79,7 +79,8 @@ onMounted(async () => {
                 const descriptor = new Float32Array(emp.descriptor);
                 return new faceapi.LabeledFaceDescriptors(emp.employee_code, [descriptor]);
             });
-            faceMatcher.value = new faceapi.FaceMatcher(labeledDescriptors, 0.6); // 0.6 distance threshold
+            // Tightened threshold from 0.6 to 0.45 for high accuracy (prevents false positives)
+            faceMatcher.value = new faceapi.FaceMatcher(labeledDescriptors, 0.45); 
             console.log("Face Matcher initialized with " + props.employees.length + " profiles.");
         }
         
@@ -95,18 +96,19 @@ let scanInterval = null;
 
 const startAutoScan = () => {
     if (scanInterval) clearInterval(scanInterval);
-    // Scan even faster to ensure we catch the blink (approx 5 frames per second)
+    // Scan at 5-10 FPS for responsiveness
     scanInterval = setInterval(async () => {
         if (isAutoScan.value && isCameraActive.value && !isScanning.value && !scanCooldown.value && !isLoading.value && modelsLoaded.value) {
             await performLocalScan();
         }
-    }, 200); 
+    }, 150); 
 };
 
 const performLocalScan = async () => {
     if (!videoRef.value || videoRef.value.paused || videoRef.value.ended || isLoading.value || scanCooldown.value) return;
 
-    const detection = await faceapi.detectSingleFace(videoRef.value, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
+    // Increased inputSize to 416 for better resolution/accuracy
+    const detection = await faceapi.detectSingleFace(videoRef.value, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 }))
         .withFaceLandmarks()
         .withFaceDescriptor();
 
@@ -115,12 +117,30 @@ const performLocalScan = async () => {
         return;
     }
 
+    const box = detection.detection.box;
+    
+    // --- SPATIAL FILTERING (Circle Constraint) ---
+    // Ensure face is centered within the 256px UI circle
+    const faceCenterX = box.x + (box.width / 2);
+    const faceCenterY = box.y + (box.height / 2);
+    const frameCenterX = videoRef.value.videoWidth / 2;
+    const frameCenterY = videoRef.value.videoHeight / 2;
+    
+    // Calculate distance from center (Euclidean distance)
+    const distFromCenter = Math.sqrt(Math.pow(faceCenterX - frameCenterX, 2) + Math.pow(faceCenterY - frameCenterY, 2));
+    
+    // 160px radius corresponds roughly to the UI circle on a 720p stream
+    if (distFromCenter > 160) {
+        livenessFeedback.value = "Center your face in the circle";
+        if (livenessStatus.value !== 'waiting') resetLiveness();
+        return;
+    }
+
     const landmarks = detection.landmarks.positions;
     
     // 1. Distance & Face Quality Check
-    const box = detection.detection.box;
     const faceArea = box.width * box.height;
-    if (faceArea < 45000) {
+    if (faceArea < 55000) { // Increased minimum area for better descriptor quality
         livenessFeedback.value = "Please come closer...";
         return;
     }
