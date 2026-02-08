@@ -12,8 +12,8 @@ class ContributionController extends Controller
 {
     public function __construct()
     {
-        $this->middleware('can:contributions.view')->only(['index']);
-        $this->middleware('can:contributions.edit')->only(['generateSSS', 'updatePhilHealth', 'updatePagIBIG', 'updateSchedules']);
+        $this->middleware('can:government_deductions.view')->only(['index']);
+        $this->middleware('can:government_deductions.edit')->only(['generateSSS', 'updatePhilHealth', 'updatePagIBIG', 'updateSchedules', 'syncTaxBrackets']);
     }
 
     /**
@@ -25,8 +25,9 @@ class ContributionController extends Controller
         $sssYears = SssContribution::distinct()->pluck('effective_year')->toArray();
         $phYears = PhilhealthContribution::distinct()->pluck('effective_year')->toArray();
         $piYears = PagibigContribution::distinct()->pluck('effective_year')->toArray();
+        $taxYears = \App\Models\WithholdingTaxBracket::distinct()->pluck('effective_year')->toArray();
         
-        $years = array_unique(array_merge($sssYears, $phYears, $piYears));
+        $years = array_unique(array_merge($sssYears, $phYears, $piYears, $taxYears));
         rsort($years); // Latest first
 
         // Default to latest year if no filter, or current year if list empty
@@ -40,6 +41,7 @@ class ContributionController extends Controller
             'sss' => SssContribution::where('effective_year', $selectedYear)->orderBy('min_salary')->get(),
             'philhealth' => PhilhealthContribution::where('effective_year', $selectedYear)->first(),
             'pagibig' => PagibigContribution::where('effective_year', $selectedYear)->orderBy('min_salary')->get(),
+            'taxBrackets' => \App\Models\WithholdingTaxBracket::where('effective_year', $selectedYear)->orderBy('min_salary')->get(),
             'companies' => $companies,
             'filters' => [
                 'year' => (int)$selectedYear,
@@ -49,6 +51,41 @@ class ContributionController extends Controller
         ]);
     }
 
+    public function syncTaxBrackets(Request $request)
+    {
+        $this->authorize('government_deductions.edit');
+        
+        $request->validate(['year' => 'required|integer']);
+        $year = $request->year;
+
+        // Current TRAIN Law brackets (2023 onwards)
+        $standardBrackets = [
+            ['min' => 0, 'max' => 20833, 'base' => 0, 'perc' => 0, 'over' => 0],
+            ['min' => 20833.01, 'max' => 33333, 'base' => 0, 'perc' => 15, 'over' => 20833],
+            ['min' => 33333.01, 'max' => 66667, 'base' => 1875, 'perc' => 20, 'over' => 33333],
+            ['min' => 66667.01, 'max' => 166667, 'base' => 8541.67, 'perc' => 25, 'over' => 66667],
+            ['min' => 166667.01, 'max' => 666667, 'base' => 33541.67, 'perc' => 30, 'over' => 166667],
+            ['min' => 666667.01, 'max' => 9999999, 'base' => 183541.67, 'perc' => 35, 'over' => 666667],
+        ];
+
+        \DB::transaction(function () use ($year, $standardBrackets) {
+            \App\Models\WithholdingTaxBracket::where('effective_year', $year)->delete();
+            foreach ($standardBrackets as $b) {
+                \App\Models\WithholdingTaxBracket::create([
+                    'effective_year' => $year,
+                    'min_salary' => $b['min'],
+                    'max_salary' => $b['max'],
+                    'base_tax' => $b['base'],
+                    'percentage' => $b['perc'],
+                    'excess_over' => $b['over'],
+                    'is_active' => true
+                ]);
+            }
+        });
+
+        return redirect()->back()->with('success', "Withholding Tax brackets for $year have been synced to TRAIN law standards.");
+    }
+
     public function updateSchedules(Request $request)
     {
         $request->validate([
@@ -56,6 +93,7 @@ class ContributionController extends Controller
             'sss_payout_schedule' => 'required|in:first_half,second_half,both',
             'philhealth_payout_schedule' => 'required|in:first_half,second_half,both',
             'pagibig_payout_schedule' => 'required|in:first_half,second_half,both',
+            'withholding_tax_payout_schedule' => 'required|in:first_half,second_half,both',
         ]);
 
         $company = \App\Models\Company::findOrFail($request->company_id);
@@ -63,6 +101,7 @@ class ContributionController extends Controller
             'sss_payout_schedule' => $request->sss_payout_schedule,
             'philhealth_payout_schedule' => $request->philhealth_payout_schedule,
             'pagibig_payout_schedule' => $request->pagibig_payout_schedule,
+            'withholding_tax_payout_schedule' => $request->withholding_tax_payout_schedule,
         ]);
 
         return redirect()->back()->with('success', 'Deduction schedules updated for ' . $company->name);

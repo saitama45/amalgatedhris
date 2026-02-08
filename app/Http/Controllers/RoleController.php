@@ -28,6 +28,11 @@ class RoleController extends Controller
             'roles' => $roles,
             'permissions' => $permissions,
             'companies' => $companies,
+            'config' => [
+                'sidebar_structure' => config('hris.sidebar_structure'),
+                'permission_descriptions' => config('hris.permission_descriptions'),
+                'module_labels' => config('hris.module_labels')
+            ]
         ]);
     }
 

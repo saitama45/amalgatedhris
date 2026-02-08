@@ -91,9 +91,10 @@ Route::middleware('auth')->group(function () {
     });
 
     // Compensation & Payroll
-    Route::middleware('permission:contributions.view')->group(function () {
+    Route::middleware('permission:government_deductions.view')->group(function () {
         Route::resource('contributions', \App\Http\Controllers\ContributionController::class)->only(['index']);
         Route::post('contributions/schedules', [\App\Http\Controllers\ContributionController::class, 'updateSchedules'])->name('contributions.schedules.update');
+        Route::post('contributions/tax/sync', [\App\Http\Controllers\ContributionController::class, 'syncTaxBrackets'])->name('contributions.tax.sync');
         Route::post('contributions/sss/generate', [\App\Http\Controllers\ContributionController::class, 'generateSSS'])->name('contributions.sss.generate');
         Route::post('contributions/philhealth/update', [\App\Http\Controllers\ContributionController::class, 'updatePhilHealth'])->name('contributions.philhealth.update');
         Route::post('contributions/pagibig/update', [\App\Http\Controllers\ContributionController::class, 'updatePagIBIG'])->name('contributions.pagibig.update');

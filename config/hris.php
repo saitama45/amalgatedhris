@@ -1,0 +1,171 @@
+<?php
+
+return [
+    'sidebar_structure' => [
+        'Recruitment' => ['applicants', 'exams'],
+        'Workforce' => ['employees'],
+        'Time & Attendance' => ['dtr', 'shifts', 'schedules', 'holidays', 'overtime', 'overtime_rates', 'leave_requests'],
+        'Compensation' => ['payroll', 'government_deductions', 'deductions'],
+        'My Portal (Self Service)' => ['portal'],
+        'System Administration' => ['users', 'companies', 'departments', 'positions', 'document_types', 'roles']
+    ],
+
+    'permission_descriptions' => [
+        // Dashboard
+        'dashboard.view' => 'Access Dashboard',
+
+        // Recruitment - Applicants
+        'applicants.view' => 'View Applicants',
+        'applicants.create' => 'Add New Applicant',
+        'applicants.edit' => 'Edit Applicant Details',
+        'applicants.delete' => 'Delete Applicant',
+        'applicants.hire' => 'Hire/Convert to Employee',
+        'applicants.manage_requirements' => 'Manage Applicant Documents',
+        
+        // Recruitment - Exams
+        'exams.view' => 'View Exam Results',
+
+        // Workforce - Employees
+        'employees.view' => 'View Employee Directory',
+        'employees.create' => 'Add Employee (Manual)',
+        'employees.edit' => 'Edit Employee Profile',
+        'employees.delete' => 'Delete Employee Record',
+        
+        // Workforce - Salary
+        'employees.view_salary' => 'View Salary Rates',
+        'employees.create_salary' => 'Add Salary History',
+        'employees.edit_salary' => 'Update Salary Rates',
+        'employees.delete_salary' => 'Delete Salary History',
+
+        // Workforce - Documents
+        'employees.view_documents' => 'View Employee Documents',
+        'employees.edit_documents' => 'Upload/Manage Documents',
+
+        // Time & Attendance - DTR
+        'dtr.view' => 'View DTR Logs',
+        'dtr.create' => 'Create/Add DTR Log',
+        'dtr.edit' => 'Edit DTR Logs',
+        'dtr.delete' => 'Delete DTR Logs',
+        'dtr.approve' => 'Approve Manual Logs/OT',
+        'attendance.kiosk' => 'Access Attendance Kiosk',
+
+        // Time & Attendance - Overtime
+        'overtime.view' => 'View OT Requests',
+        'overtime.create' => 'Request Overtime',
+        'overtime.approve' => 'Approve Overtime',
+        'overtime.delete' => 'Cancel/Delete Overtime',
+
+        // Time & Attendance - Overtime Rates
+        'overtime_rates.view' => 'View OT Multipliers',
+        'overtime_rates.manage' => 'Manage OT Multipliers',
+
+        // Time & Attendance - Leave Management
+        'leave_requests.view' => 'View Leave Requests',
+        'leave_requests.create' => 'Create/File Leave',
+        'leave_requests.edit' => 'Edit Leave Requests',
+        'leave_requests.delete' => 'Delete Leave Requests',
+        'leave_requests.approve' => 'Approve Leave Requests',
+        'leave_requests.reject' => 'Reject Leave Requests',
+        
+        // Time & Attendance - Shifts
+        'shifts.view' => 'View Shift Templates',
+        'shifts.create' => 'Create Shift Template',
+        'shifts.edit' => 'Edit Shift Template',
+        'shifts.delete' => 'Delete Shift Template',
+        
+        // Time & Attendance - Schedules
+        'schedules.view' => 'View Assignments',
+        'schedules.create' => 'Assign/Generate Shifts',
+        'schedules.delete' => 'Remove Shift Assignments',
+
+        // Time & Attendance - Holidays
+        'holidays.view' => 'View Holiday Calendar',
+        'holidays.create' => 'Add New Holiday',
+        'holidays.edit' => 'Edit Holiday Details',
+        'holidays.delete' => 'Delete Holiday',
+
+        // Compensation - Payroll
+        'payroll.view' => 'View Payroll',
+        'payroll.create' => 'Process Payroll (Create)',
+        'payroll.approve' => 'Approve/Finalize Payroll',
+        'payroll.edit_payslip' => 'Edit Payslip Adjustments',
+        'payroll.delete' => 'Rollback Payroll (Delete)',
+        'payroll.manage_loans' => 'Manage Employee Loans',
+        'payroll.settings' => 'Edit Payroll Settings',
+
+        // Compensation - Government Deductions
+        'government_deductions.view' => 'View Government Deductions',
+        'government_deductions.edit' => 'Update Government Deductions',
+
+        // Compensation - Other Deductions
+        'deductions.view' => 'View Other Deductions',
+        'deductions.create' => 'Add/Assign Deduction',
+        'deductions.edit' => 'Edit Deduction Details',
+        'deductions.delete' => 'Delete/Stop Deduction',
+
+        // My Portal
+        'portal.view' => 'Access My Portal',
+        'portal.file_leave' => 'File Leave/OT',
+        'portal.view_payslip' => 'View Own Payslips',
+
+        // System - Users
+        'users.view' => 'View Users',
+        'users.create' => 'Create User',
+        'users.edit' => 'Edit User',
+        'users.delete' => 'Delete User',
+        
+        // System - Roles
+        'roles.view' => 'View Roles',
+        'roles.create' => 'Create Role',
+        'roles.edit' => 'Edit Role',
+        'roles.delete' => 'Delete Role',
+
+        // System - Companies
+        'companies.view' => 'View Companies',
+        'companies.create' => 'Create Company',
+        'companies.edit' => 'Edit Company',
+        'companies.delete' => 'Delete Company',
+
+        // System - Departments
+        'departments.view' => 'View Departments',
+        'departments.create' => 'Create Department',
+        'departments.edit' => 'Edit Department',
+        'departments.delete' => 'Delete Department',
+
+        // System - Positions
+        'positions.view' => 'View Positions',
+        'positions.create' => 'Create Position',
+        'positions.edit' => 'Edit Position',
+        'positions.delete' => 'Delete Position',
+
+        // System - Doc Requirements
+        'document_types.view' => 'View Doc Setup',
+        'document_types.create' => 'Create Doc Requirement',
+        'document_types.edit' => 'Edit Doc Requirement',
+        'document_types.delete' => 'Delete Doc Requirement',
+    ],
+
+    // Mapping for UI Category Labels
+    'module_labels' => [
+        'applicants' => 'Applicants',
+        'exams' => 'Exams',
+        'employees' => 'Employees (201)',
+        'dtr' => 'Attendance Logs',
+        'shifts' => 'Shifts',
+        'schedules' => 'Schedules',
+        'holidays' => 'Holidays',
+        'overtime' => 'Overtime',
+        'overtime_rates' => 'OT Multipliers',
+        'leave_requests' => 'Leave Requests',
+        'payroll' => 'Payroll',
+        'government_deductions' => 'Government Deductions',
+        'deductions' => 'Other Deductions',
+        'portal' => 'Self Service',
+        'users' => 'User Management',
+        'companies' => 'Companies',
+        'departments' => 'Departments',
+        'positions' => 'Positions',
+        'document_types' => 'Document Types',
+        'roles' => 'Access Control'
+    ]
+];

@@ -410,7 +410,7 @@ const handleMouseLeave = () => {
                 </template>
 
                 <!-- MODULE: PAYROLL -->
-                <template v-if="hasAnyPermission(['payroll.view', 'payroll.create'])">
+                <template v-if="hasAnyPermission(['payroll.view', 'payroll.create', 'government_deductions.view'])">
                      <div 
                         v-if="!isCollapsed"
                         @click="toggleMenu('compensation')"
@@ -426,6 +426,7 @@ const handleMouseLeave = () => {
 
                     <div v-show="(menuState.compensation && !isCollapsed) || isCollapsed" :class="{'ml-4 border-l border-[#1E293B] pl-2 space-y-1': !isCollapsed}">
                         <Link
+                            v-if="hasPermission('government_deductions.view')"
                             :href="route('contributions.index')"
                             :class="[
                                 'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
@@ -433,11 +434,11 @@ const handleMouseLeave = () => {
                                     ? 'text-teal-400 bg-slate-800/50'
                                     : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
                             ]"
-                            @mouseenter="handleMouseEnter($event, 'Contribution Tables')"
+                            @mouseenter="handleMouseEnter($event, 'Government Deductions')"
                             @mouseleave="handleMouseLeave"
                         >
                             <TableCellsIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
-                            <span v-if="!isCollapsed" class="font-medium text-sm">Contribution Tables</span>
+                            <span v-if="!isCollapsed" class="font-medium text-sm">Government Deductions</span>
                         </Link>
 
                         <Link

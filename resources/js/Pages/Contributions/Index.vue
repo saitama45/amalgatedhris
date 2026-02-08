@@ -12,13 +12,15 @@ import {
     TableCellsIcon,
     ArrowPathIcon,
     XMarkIcon,
-    CheckCircleIcon
+    CheckCircleIcon,
+    ScaleIcon
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
     sss: Array,
     philhealth: Object,
     pagibig: Array,
+    taxBrackets: Array,
     companies: Array,
     filters: Object,
 });
@@ -36,7 +38,7 @@ watch(selectedYear, (val) => {
     router.get(route('contributions.index'), { year: val, company_id: selectedCompanyId.value }, {
         preserveState: true,
         preserveScroll: true,
-        only: ['sss', 'philhealth', 'pagibig', 'filters']
+        only: ['sss', 'philhealth', 'pagibig', 'taxBrackets', 'filters']
     });
 });
 
@@ -47,14 +49,25 @@ watch(selectedCompanyId, (val) => {
         scheduleForm.sss_payout_schedule = company.sss_payout_schedule;
         scheduleForm.philhealth_payout_schedule = company.philhealth_payout_schedule;
         scheduleForm.pagibig_payout_schedule = company.pagibig_payout_schedule;
+        scheduleForm.withholding_tax_payout_schedule = company.withholding_tax_payout_schedule;
     }
 });
+
+const syncTax = () => {
+    router.post(route('contributions.tax.sync'), { year: selectedYear.value }, {
+        onSuccess: () => {
+            // Success handled by global flash
+        },
+        onError: () => showError('Failed to sync tax brackets.')
+    });
+};
 
 const scheduleForm = useForm({
     company_id: props.companies.find(c => c.id == selectedCompanyId.value)?.id || '',
     sss_payout_schedule: props.companies.find(c => c.id == selectedCompanyId.value)?.sss_payout_schedule || 'second_half',
     philhealth_payout_schedule: props.companies.find(c => c.id == selectedCompanyId.value)?.philhealth_payout_schedule || 'second_half',
     pagibig_payout_schedule: props.companies.find(c => c.id == selectedCompanyId.value)?.pagibig_payout_schedule || 'second_half',
+    withholding_tax_payout_schedule: props.companies.find(c => c.id == selectedCompanyId.value)?.withholding_tax_payout_schedule || 'both',
 });
 
 const saveSchedules = () => {
@@ -136,13 +149,13 @@ const formatSalaryRange = (min, max) => {
 </script>
 
 <template>
-    <Head title="Contribution Tables - HRIS" />
+    <Head title="Government Deductions - HRIS" />
     <AppLayout>
         <template #header>
             <div class="flex flex-col md:flex-row md:items-center md:justify-between">
                 <div>
-                    <h2 class="font-bold text-2xl text-slate-800 leading-tight">Contribution Tables</h2>
-                    <p class="text-sm text-slate-500 mt-1">Reference tables for government mandated contributions.</p>
+                    <h2 class="font-bold text-2xl text-slate-800 leading-tight">Government Deductions</h2>
+                    <p class="text-sm text-slate-500 mt-1">Reference tables for government mandated contributions and taxes.</p>
                 </div>
                 <div class="mt-4 md:mt-0 flex items-center">
                     <label class="mr-2 text-sm font-bold text-slate-600">Effective Year:</label>
@@ -158,7 +171,7 @@ const formatSalaryRange = (min, max) => {
                 
                 <!-- Tabs -->
                 <div class="mb-8">
-                    <div class="flex space-x-1 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 shadow-sm max-w-3xl w-full">
+                    <div class="flex space-x-1 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 shadow-sm max-w-4xl w-full">
                         <button 
                             @click="activeTab = 'sss'"
                             :class="[
@@ -185,6 +198,15 @@ const formatSalaryRange = (min, max) => {
                             ]"
                         >
                             <BanknotesIcon class="w-4 h-4 mr-2" /> Pag-IBIG
+                        </button>
+                        <button 
+                            @click="activeTab = 'tax'"
+                            :class="[
+                                'flex-1 flex items-center justify-center py-2.5 text-sm font-bold rounded-xl transition-all',
+                                activeTab === 'tax' ? 'bg-white text-orange-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
+                            ]"
+                        >
+                            <ScaleIcon class="w-4 h-4 mr-2" /> Withholding Tax
                         </button>
                         <button 
                             @click="activeTab = 'cycles'"
@@ -215,7 +237,7 @@ const formatSalaryRange = (min, max) => {
                             </select>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
                             <!-- SSS Cycle -->
                             <div class="space-y-4">
                                 <div class="flex items-center gap-3">
@@ -287,6 +309,30 @@ const formatSalaryRange = (min, max) => {
                                     </label>
                                 </div>
                             </div>
+
+                            <!-- Withholding Tax Cycle -->
+                            <div class="space-y-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="p-2 bg-orange-100 text-orange-600 rounded-lg">
+                                        <ScaleIcon class="w-5 h-5" />
+                                    </div>
+                                    <h4 class="font-bold text-slate-800">Tax Cycle</h4>
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="flex items-center p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-all" :class="{'border-orange-500 bg-orange-50': scheduleForm.withholding_tax_payout_schedule === 'first_half'}">
+                                        <input type="radio" v-model="scheduleForm.withholding_tax_payout_schedule" value="first_half" class="hidden">
+                                        <span class="text-sm font-bold" :class="scheduleForm.withholding_tax_payout_schedule === 'first_half' ? 'text-orange-700' : 'text-slate-600'">15th Payout Date</span>
+                                    </label>
+                                    <label class="flex items-center p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-all" :class="{'border-orange-500 bg-orange-50': scheduleForm.withholding_tax_payout_schedule === 'second_half'}">
+                                        <input type="radio" v-model="scheduleForm.withholding_tax_payout_schedule" value="second_half" class="hidden">
+                                        <span class="text-sm font-bold" :class="scheduleForm.withholding_tax_payout_schedule === 'second_half' ? 'text-orange-700' : 'text-slate-600'">30th Payout Date</span>
+                                    </label>
+                                    <label class="flex items-center p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-all" :class="{'border-orange-500 bg-orange-50': scheduleForm.withholding_tax_payout_schedule === 'both'}">
+                                        <input type="radio" v-model="scheduleForm.withholding_tax_payout_schedule" value="both" class="hidden">
+                                        <span class="text-sm font-bold" :class="scheduleForm.withholding_tax_payout_schedule === 'both' ? 'text-orange-700' : 'text-slate-600'">Twice a Month (Split)</span>
+                                    </label>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="mt-12 pt-8 border-t border-slate-100 flex justify-center md:justify-end">
@@ -302,6 +348,54 @@ const formatSalaryRange = (min, max) => {
                     </div>
                 </div>
 
+                <!-- Withholding Tax Table -->
+                <div v-if="activeTab === 'tax'" class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div class="p-6 border-b border-slate-100 bg-orange-50/50 flex justify-between items-center">
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-800">Withholding Tax (TRAIN Law)</h3>
+                            <p class="text-xs text-slate-500">Effective Year {{ selectedYear }}</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <button v-if="hasPermission('government_deductions.edit')" @click="syncTax" class="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm">
+                                <ArrowPathIcon class="w-3.5 h-3.5" /> Sync from API
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-slate-100">
+                            <thead>
+                                <tr class="bg-slate-50 text-xs text-slate-500 uppercase tracking-wider font-bold">
+                                    <th class="px-6 py-3 text-left">Monthly Taxable Income</th>
+                                    <th class="px-6 py-3 text-center">Base Tax</th>
+                                    <th class="px-6 py-3 text-center">% on Excess</th>
+                                    <th class="px-6 py-3 text-center">Excess Over</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <tr v-for="row in taxBrackets" :key="row.id" class="hover:bg-slate-50 transition-colors text-sm">
+                                    <td class="px-6 py-3 font-medium text-slate-700 whitespace-nowrap">
+                                        {{ formatSalaryRange(row.min_salary, row.max_salary) }}
+                                    </td>
+                                    <td class="px-6 py-3 text-center font-bold text-slate-800">
+                                        {{ formatCurrency(row.base_tax) }}
+                                    </td>
+                                    <td class="px-6 py-3 text-center text-slate-600">
+                                        {{ row.percentage }}%
+                                    </td>
+                                    <td class="px-6 py-3 text-center text-slate-500">
+                                        {{ formatCurrency(row.excess_over) }}
+                                    </td>
+                                </tr>
+                                <tr v-if="!taxBrackets || taxBrackets.length === 0">
+                                    <td colspan="4" class="px-6 py-10 text-center text-slate-400 italic">
+                                        No tax brackets found for this year. Click "Sync from API" to initialize.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <!-- SSS Table -->
                 <div v-if="activeTab === 'sss'" class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <div class="p-6 border-b border-slate-100 bg-blue-50/50 flex justify-between items-center">
@@ -313,7 +407,7 @@ const formatSalaryRange = (min, max) => {
                             <div class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-bold">
                                 MSC Cap: {{ formatCurrency(sss[sss.length - 1]?.msc || 35000) }}
                             </div>
-                            <button v-if="hasPermission('contributions.edit')" @click="showSSSModal = true" class="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm">
+                            <button v-if="hasPermission('government_deductions.edit')" @click="showSSSModal = true" class="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm">
                                 <ArrowPathIcon class="w-3.5 h-3.5" /> Regenerate
                             </button>
                         </div>
@@ -409,7 +503,7 @@ const formatSalaryRange = (min, max) => {
                             <h3 class="text-lg font-bold text-slate-800">PhilHealth</h3>
                             <p class="text-xs text-slate-500">Philippine Health Insurance Corp. (Effective Year {{ philhealth?.effective_year || new Date().getFullYear() }})</p>
                         </div>
-                        <button v-if="hasPermission('contributions.edit')" @click="showPhilHealthModal = true" class="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm">
+                        <button v-if="hasPermission('government_deductions.edit')" @click="showPhilHealthModal = true" class="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm">
                             <ArrowPathIcon class="w-3.5 h-3.5" /> Update Settings
                         </button>
                     </div>
@@ -521,7 +615,7 @@ const formatSalaryRange = (min, max) => {
                              <div class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold">
                                 Max Fund Salary: ₱10,000
                             </div>
-                            <button v-if="hasPermission('contributions.edit')" @click="showPagIbigModal = true" class="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm">
+                            <button v-if="hasPermission('government_deductions.edit')" @click="showPagIbigModal = true" class="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm">
                                 <ArrowPathIcon class="w-3.5 h-3.5" /> Update Settings
                             </button>
                         </div>

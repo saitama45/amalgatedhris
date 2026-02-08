@@ -17,6 +17,7 @@ class Company extends Model
         'sss_payout_schedule',
         'philhealth_payout_schedule',
         'pagibig_payout_schedule',
+        'withholding_tax_payout_schedule',
     ];
 
     public function roles()

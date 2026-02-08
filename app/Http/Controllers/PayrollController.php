@@ -12,6 +12,7 @@ use App\Models\EmployeeDeduction;
 use App\Models\LeaveRequest;
 use App\Services\AttendanceService;
 use App\Services\ContributionService;
+use App\Services\TaxService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
@@ -21,11 +22,13 @@ class PayrollController extends Controller
 {
     protected $attendanceService;
     protected $contributionService;
+    protected $taxService;
 
-    public function __construct(AttendanceService $attendanceService, ContributionService $contributionService)
+    public function __construct(AttendanceService $attendanceService, ContributionService $contributionService, TaxService $taxService)
     {
         $this->attendanceService = $attendanceService;
         $this->contributionService = $contributionService;
+        $this->taxService = $taxService;
     }
 
     public function index(Request $request)
@@ -296,7 +299,33 @@ class PayrollController extends Controller
             }
 
             $grossPay = $basicPay + $salary->allowance + $approvedOT;
-            $netPay = $grossPay - ($lateDeduction + $utDeduction + $absenceDeduction + $sss + $philhealth + $pagibig + $totalOtherDeductions);
+            
+            // Calculate Taxable Income
+            $taxableIncome = $grossPay - ($sss + $philhealth + $pagibig);
+            
+            // Calculate Withholding Tax based on Company Cycle
+            $taxSched = $company->withholding_tax_payout_schedule ?: 'both';
+            $withholdingTax = 0;
+
+            if ($periodFactor < 1) {
+                // Semi-monthly: Estimate monthly tax then apply schedule
+                $monthlyEstimate = $taxableIncome * 2;
+                $monthlyTax = $this->taxService->calculateMonthlyTax($monthlyEstimate);
+
+                if ($taxSched === 'both') {
+                    $withholdingTax = $monthlyTax / 2;
+                } elseif ($taxSched === 'first_half' && $isFirstHalfPayout) {
+                    $withholdingTax = $monthlyTax;
+                } elseif ($taxSched === 'second_half' && !$isFirstHalfPayout) {
+                    $withholdingTax = $monthlyTax;
+                }
+            } else {
+                // Monthly: Calculate directly
+                $withholdingTax = $this->taxService->calculateMonthlyTax($taxableIncome);
+            }
+
+            $totalDeductions = $lateDeduction + $utDeduction + $absenceDeduction + $sss + $philhealth + $pagibig + $totalOtherDeductions + $withholdingTax;
+            $netPay = $grossPay - $totalDeductions;
 
             Payslip::create([
                 'payroll_id' => $payroll->id,
@@ -310,7 +339,7 @@ class PayrollController extends Controller
                 'sss_deduction' => $sss,
                 'philhealth_ded' => $philhealth,
                 'pagibig_ded' => $pagibig,
-                'tax_withheld' => 0,
+                'tax_withheld' => $withholdingTax,
                 'loan_deductions' => 0,
                 'other_deductions' => $totalOtherDeductions + $absenceDeduction,
                 'net_pay' => $netPay,

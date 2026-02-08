@@ -191,7 +191,7 @@
                                                 <div class="flex items-center justify-between mb-4">
                                                     <h4 class="font-bold text-slate-800 capitalize flex items-center text-sm">
                                                         <div class="w-1.5 h-4 bg-blue-500 rounded-full mr-2"></div>
-                                                        {{ category.replace('_', ' ') }}
+                                                        {{ props.config.module_labels[category] || category.replace('_', ' ') }}
                                                     </h4>
                                                     <label class="flex items-center cursor-pointer group">
                                                         <input type="checkbox" 
@@ -258,6 +258,7 @@ const props = defineProps({
     roles: Object,
     permissions: Object,
     companies: Array,
+    config: Object,
 })
 
 const { showSuccess, showError } = useToast()
@@ -288,22 +289,13 @@ const form = reactive({
     company_ids: [],
 })
 
-const sidebarStructure = {
-    'Recruitment': ['applicants', 'exams'],
-    'Workforce': ['employees'],
-    'Time & Attendance': ['dtr', 'shifts', 'schedules', 'holidays', 'overtime', 'overtime_rates', 'leave_requests'],
-    'Compensation': ['payroll', 'contributions', 'deductions', 'loans'],
-    'My Portal (Self Service)': ['portal'],
-    'System Administration': ['users', 'companies', 'departments', 'positions', 'document_types', 'roles']
-};
-
 const groupedPermissions = computed(() => {
-    if (!props.permissions) return {};
+    if (!props.permissions || !props.config?.sidebar_structure) return {};
     
     const result = {};
     
     // Iterate over our defined structure
-    Object.entries(sidebarStructure).forEach(([groupName, categories]) => {
+    Object.entries(props.config.sidebar_structure).forEach(([groupName, categories]) => {
         result[groupName] = {};
         
         categories.forEach(category => {
@@ -485,128 +477,8 @@ const sortPermissions = (permissions) => {
     });
 }
 
-const permissionDescriptions = {
-    // Applicants
-    'applicants.view': 'View Applicants',
-    'applicants.create': 'Add New Applicant',
-    'applicants.edit': 'Edit Applicant Details',
-    'applicants.delete': 'Delete Applicant',
-    'applicants.hire': 'Hire/Convert to Employee',
-    
-    // Exams
-    'exams.view': 'View Exam Results',
-
-    // Employees
-    'employees.view': 'View Employee Directory',
-    'employees.create': 'Add Employee (Manual)',
-    'employees.edit': 'Edit Employee Profile',
-    'employees.delete': 'Delete Employee Record',
-    'employees.view_salary': 'View Salary Rates',
-    'employees.create_salary': 'Add New Salary Rate',
-    'employees.edit_salary': 'Update Salary Rates',
-    'employees.delete_salary': 'Delete Salary History',
-    'employees.view_documents': 'View Employee Documents',
-    'employees.edit_documents': 'Upload/Manage Documents',
-
-    // Timekeeping
-    'dtr.view': 'View DTR Logs',
-    'dtr.create': 'Create/Add DTR Log',
-    'dtr.edit': 'Edit DTR Logs',
-    'dtr.delete': 'Delete DTR Logs',
-    'dtr.approve': 'Approve Manual Logs/OT',
-    
-    // Overtime
-    'overtime.view': 'View Overtime Requests',
-    'overtime.create': 'Request Overtime',
-    'overtime.approve': 'Approve Overtime',
-    'overtime.delete': 'Delete Overtime Request',
-
-    // Overtime Rates
-    'overtime_rates.view': 'View OT Multipliers',
-    'overtime_rates.manage': 'Manage OT Multipliers',
-
-    // Leave Requests
-    'leave_requests.view': 'View Leave Requests',
-    'leave_requests.create': 'Create/File Leave',
-    'leave_requests.edit': 'Edit Leave Requests',
-    'leave_requests.delete': 'Delete Leave Requests',
-    'leave_requests.approve': 'Approve Leave Requests',
-    'leave_requests.reject': 'Reject Leave Requests',
-    
-    // Shifts
-    'shifts.view': 'View Shift Templates',
-    'shifts.create': 'Create Shift Template',
-    'shifts.edit': 'Edit Shift Template',
-    'shifts.delete': 'Delete Shift Template',
-    
-    // Schedules
-    'schedules.view': 'View Assignments',
-    'schedules.create': 'Assign/Generate Shifts',
-    'schedules.delete': 'Remove Shift Assignments',
-
-    // Holidays
-    'holidays.view': 'View Holiday Calendar',
-    'holidays.create': 'Add New Holiday',
-    'holidays.edit': 'Edit Holiday Details',
-    'holidays.delete': 'Delete Holiday',
-
-    // Payroll
-    'payroll.view': 'View Payroll',
-    'payroll.create': 'Process Payroll (Create)',
-    'payroll.approve': 'Approve/Finalize Payroll',
-    'payroll.edit_payslip': 'Edit Payslip Adjustments',
-    'payroll.delete': 'Rollback Payroll (Delete)',
-    'payroll.manage_loans': 'Manage Employee Loans',
-    'payroll.settings': 'Edit Payroll Settings',
-
-    // Contributions
-    'contributions.view': 'View Contribution Tables',
-    'contributions.edit': 'Update Contribution Rates',
-
-    // My Portal
-    'portal.view': 'Access Employee Dashboard',
-    'portal.file_leave': 'File Leave/OT Requests',
-    'portal.view_payslip': 'View/Download Own Payslips',
-
-    // System - Users
-    'users.view': 'View System Users',
-    'users.create': 'Create New User',
-    'users.edit': 'Edit User Account',
-    'users.delete': 'Delete User Account',
-    
-    // System - Roles
-    'roles.view': 'View Security Roles',
-    'roles.create': 'Define New Role',
-    'roles.edit': 'Modify Role Permissions',
-    'roles.delete': 'Delete Role',
-
-    // System - Companies
-    'companies.view': 'View Company List',
-    'companies.create': 'Add New Company',
-    'companies.edit': 'Edit Company Details',
-    'companies.delete': 'Delete Company',
-
-    // System - Departments
-    'departments.view': 'View Departments',
-    'departments.create': 'Add New Department',
-    'departments.edit': 'Edit Department',
-    'departments.delete': 'Delete Department',
-
-    // System - Positions
-    'positions.view': 'View Job Positions',
-    'positions.create': 'Add New Position',
-    'positions.edit': 'Edit Position',
-    'positions.delete': 'Delete Position',
-
-    // System - Doc Requirements
-    'document_types.view': 'View Requirement Setup',
-    'document_types.create': 'Add Requirement',
-    'document_types.edit': 'Edit Requirement',
-    'document_types.delete': 'Delete Requirement',
-};
-
 const formatPermissionName = (name) => {
-    return permissionDescriptions[name] || name;
+    return props.config?.permission_descriptions[name] || name;
 }
 </script>
 
