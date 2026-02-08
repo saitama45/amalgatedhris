@@ -11,13 +11,15 @@ import {
     BuildingLibraryIcon, 
     TableCellsIcon,
     ArrowPathIcon,
-    XMarkIcon
+    XMarkIcon,
+    CheckCircleIcon
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
     sss: Array,
     philhealth: Object,
     pagibig: Array,
+    companies: Array,
     filters: Object,
 });
 
@@ -28,14 +30,41 @@ const showSSSModal = ref(false);
 const showPhilHealthModal = ref(false);
 const showPagIbigModal = ref(false);
 const selectedYear = ref(props.filters?.year || new Date().getFullYear());
+const selectedCompanyId = ref(props.filters?.company_id || props.companies[0]?.id || '');
 
 watch(selectedYear, (val) => {
-    router.get(route('contributions.index'), { year: val }, {
+    router.get(route('contributions.index'), { year: val, company_id: selectedCompanyId.value }, {
         preserveState: true,
         preserveScroll: true,
         only: ['sss', 'philhealth', 'pagibig', 'filters']
     });
 });
+
+watch(selectedCompanyId, (val) => {
+    const company = props.companies.find(c => c.id == val);
+    if (company) {
+        scheduleForm.company_id = company.id;
+        scheduleForm.sss_payout_schedule = company.sss_payout_schedule;
+        scheduleForm.philhealth_payout_schedule = company.philhealth_payout_schedule;
+        scheduleForm.pagibig_payout_schedule = company.pagibig_payout_schedule;
+    }
+});
+
+const scheduleForm = useForm({
+    company_id: props.companies.find(c => c.id == selectedCompanyId.value)?.id || '',
+    sss_payout_schedule: props.companies.find(c => c.id == selectedCompanyId.value)?.sss_payout_schedule || 'second_half',
+    philhealth_payout_schedule: props.companies.find(c => c.id == selectedCompanyId.value)?.philhealth_payout_schedule || 'second_half',
+    pagibig_payout_schedule: props.companies.find(c => c.id == selectedCompanyId.value)?.pagibig_payout_schedule || 'second_half',
+});
+
+const saveSchedules = () => {
+    scheduleForm.post(route('contributions.schedules.update'), {
+        onSuccess: () => {
+            // Success handled by global flash listener
+        },
+        onError: () => showError('Failed to update schedules.')
+    });
+};
 
 const sssForm = useForm({
     effective_year: new Date().getFullYear(),
@@ -128,13 +157,13 @@ const formatSalaryRange = (min, max) => {
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 
                 <!-- Tabs -->
-                <div class="flex justify-between items-center mb-6">
-                    <div class="flex space-x-1 bg-slate-100 p-1 rounded-xl max-w-md w-full">
+                <div class="mb-8">
+                    <div class="flex space-x-1 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 shadow-sm max-w-3xl w-full">
                         <button 
                             @click="activeTab = 'sss'"
                             :class="[
-                                'flex-1 flex items-center justify-center py-2.5 text-sm font-bold rounded-lg transition-all',
-                                activeTab === 'sss' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                'flex-1 flex items-center justify-center py-2.5 text-sm font-bold rounded-xl transition-all',
+                                activeTab === 'sss' ? 'bg-white text-blue-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
                             ]"
                         >
                             <ShieldCheckIcon class="w-4 h-4 mr-2" /> SSS
@@ -142,8 +171,8 @@ const formatSalaryRange = (min, max) => {
                         <button 
                             @click="activeTab = 'philhealth'"
                             :class="[
-                                'flex-1 flex items-center justify-center py-2.5 text-sm font-bold rounded-lg transition-all',
-                                activeTab === 'philhealth' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                'flex-1 flex items-center justify-center py-2.5 text-sm font-bold rounded-xl transition-all',
+                                activeTab === 'philhealth' ? 'bg-white text-emerald-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
                             ]"
                         >
                             <BuildingLibraryIcon class="w-4 h-4 mr-2" /> PhilHealth
@@ -151,12 +180,125 @@ const formatSalaryRange = (min, max) => {
                         <button 
                             @click="activeTab = 'pagibig'"
                             :class="[
-                                'flex-1 flex items-center justify-center py-2.5 text-sm font-bold rounded-lg transition-all',
-                                activeTab === 'pagibig' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                'flex-1 flex items-center justify-center py-2.5 text-sm font-bold rounded-xl transition-all',
+                                activeTab === 'pagibig' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
                             ]"
                         >
                             <BanknotesIcon class="w-4 h-4 mr-2" /> Pag-IBIG
                         </button>
+                        <button 
+                            @click="activeTab = 'cycles'"
+                            :class="[
+                                'flex-1 flex items-center justify-center py-2.5 text-sm font-bold rounded-xl transition-all',
+                                activeTab === 'cycles' ? 'bg-white text-rose-600 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
+                            ]"
+                        >
+                            <ArrowPathIcon class="w-4 h-4 mr-2" /> Deduction Cycles
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Deduction Cycles Tab -->
+                <div v-if="activeTab === 'cycles'" class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div class="p-6 border-b border-slate-100 bg-rose-50/50 flex justify-between items-center">
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-800">Company Deduction Cycles</h3>
+                            <p class="text-xs text-slate-500">Define when government contributions are deducted from payroll.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="p-8">
+                        <div class="mb-8 max-w-sm">
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Select Company</label>
+                            <select v-model="selectedCompanyId" class="w-full border-slate-200 rounded-xl text-sm font-bold bg-slate-50">
+                                <option v-for="co in companies" :key="co.id" :value="co.id">{{ co.name }}</option>
+                            </select>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                            <!-- SSS Cycle -->
+                            <div class="space-y-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="p-2 bg-blue-100 text-blue-600 rounded-lg">
+                                        <ShieldCheckIcon class="w-5 h-5" />
+                                    </div>
+                                    <h4 class="font-bold text-slate-800">SSS Cycle</h4>
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="flex items-center p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-all" :class="{'border-blue-500 bg-blue-50': scheduleForm.sss_payout_schedule === 'first_half'}">
+                                        <input type="radio" v-model="scheduleForm.sss_payout_schedule" value="first_half" class="hidden">
+                                        <span class="text-sm font-bold" :class="scheduleForm.sss_payout_schedule === 'first_half' ? 'text-blue-700' : 'text-slate-600'">15th Payout Date</span>
+                                    </label>
+                                    <label class="flex items-center p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-all" :class="{'border-blue-500 bg-blue-50': scheduleForm.sss_payout_schedule === 'second_half'}">
+                                        <input type="radio" v-model="scheduleForm.sss_payout_schedule" value="second_half" class="hidden">
+                                        <span class="text-sm font-bold" :class="scheduleForm.sss_payout_schedule === 'second_half' ? 'text-blue-700' : 'text-slate-600'">30th Payout Date</span>
+                                    </label>
+                                    <label class="flex items-center p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-all" :class="{'border-blue-500 bg-blue-50': scheduleForm.sss_payout_schedule === 'both'}">
+                                        <input type="radio" v-model="scheduleForm.sss_payout_schedule" value="both" class="hidden">
+                                        <span class="text-sm font-bold" :class="scheduleForm.sss_payout_schedule === 'both' ? 'text-blue-700' : 'text-slate-600'">Twice a Month (Split)</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- PhilHealth Cycle -->
+                            <div class="space-y-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="p-2 bg-emerald-100 text-emerald-600 rounded-lg">
+                                        <BuildingLibraryIcon class="w-5 h-5" />
+                                    </div>
+                                    <h4 class="font-bold text-slate-800">PhilHealth Cycle</h4>
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="flex items-center p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-all" :class="{'border-emerald-500 bg-emerald-50': scheduleForm.philhealth_payout_schedule === 'first_half'}">
+                                        <input type="radio" v-model="scheduleForm.philhealth_payout_schedule" value="first_half" class="hidden">
+                                        <span class="text-sm font-bold" :class="scheduleForm.philhealth_payout_schedule === 'first_half' ? 'text-emerald-700' : 'text-slate-600'">15th Payout Date</span>
+                                    </label>
+                                    <label class="flex items-center p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-all" :class="{'border-emerald-500 bg-emerald-50': scheduleForm.philhealth_payout_schedule === 'second_half'}">
+                                        <input type="radio" v-model="scheduleForm.philhealth_payout_schedule" value="second_half" class="hidden">
+                                        <span class="text-sm font-bold" :class="scheduleForm.philhealth_payout_schedule === 'second_half' ? 'text-emerald-700' : 'text-slate-600'">30th Payout Date</span>
+                                    </label>
+                                    <label class="flex items-center p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-all" :class="{'border-emerald-500 bg-emerald-50': scheduleForm.philhealth_payout_schedule === 'both'}">
+                                        <input type="radio" v-model="scheduleForm.philhealth_payout_schedule" value="both" class="hidden">
+                                        <span class="text-sm font-bold" :class="scheduleForm.philhealth_payout_schedule === 'both' ? 'text-emerald-700' : 'text-slate-600'">Twice a Month (Split)</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Pag-IBIG Cycle -->
+                            <div class="space-y-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="p-2 bg-indigo-100 text-indigo-600 rounded-lg">
+                                        <BanknotesIcon class="w-5 h-5" />
+                                    </div>
+                                    <h4 class="font-bold text-slate-800">Pag-IBIG Cycle</h4>
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="flex items-center p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-all" :class="{'border-indigo-500 bg-indigo-50': scheduleForm.pagibig_payout_schedule === 'first_half'}">
+                                        <input type="radio" v-model="scheduleForm.pagibig_payout_schedule" value="first_half" class="hidden">
+                                        <span class="text-sm font-bold" :class="scheduleForm.pagibig_payout_schedule === 'first_half' ? 'text-indigo-700' : 'text-slate-600'">15th Payout Date</span>
+                                    </label>
+                                    <label class="flex items-center p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-all" :class="{'border-indigo-500 bg-indigo-50': scheduleForm.pagibig_payout_schedule === 'second_half'}">
+                                        <input type="radio" v-model="scheduleForm.pagibig_payout_schedule" value="second_half" class="hidden">
+                                        <span class="text-sm font-bold" :class="scheduleForm.pagibig_payout_schedule === 'second_half' ? 'text-indigo-700' : 'text-slate-600'">30th Payout Date</span>
+                                    </label>
+                                    <label class="flex items-center p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-all" :class="{'border-indigo-500 bg-indigo-50': scheduleForm.pagibig_payout_schedule === 'both'}">
+                                        <input type="radio" v-model="scheduleForm.pagibig_payout_schedule" value="both" class="hidden">
+                                        <span class="text-sm font-bold" :class="scheduleForm.pagibig_payout_schedule === 'both' ? 'text-indigo-700' : 'text-slate-600'">Twice a Month (Split)</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-12 pt-8 border-t border-slate-100 flex justify-center md:justify-end">
+                            <button 
+                                @click="saveSchedules" 
+                                :disabled="scheduleForm.processing" 
+                                class="w-full md:w-auto bg-slate-800 hover:bg-slate-900 text-white font-bold py-3.5 px-16 rounded-full transition-all shadow-xl shadow-slate-900/20 flex items-center justify-center gap-3 active:scale-95 min-w-[240px]"
+                            >
+                                <CheckCircleIcon class="w-6 h-6" />
+                                <span>Save Cycles</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 

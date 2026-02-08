@@ -15,7 +15,8 @@ import {
     XMarkIcon,
     CalculatorIcon,
     UserCircleIcon,
-    ArrowDownTrayIcon
+    ArrowDownTrayIcon,
+    ArrowPathIcon
 } from '@heroicons/vue/24/outline';
 import { useToast } from '@/Composables/useToast.js';
 import { usePagination } from '@/Composables/usePagination.js';
@@ -85,9 +86,25 @@ const submitEdit = () => {
     editForm.put(route('payslips.update', editingSlip.value.id), {
         onSuccess: () => {
             showEditModal.value = false;
-            showSuccess('Payslip adjusted.');
         }
     });
+};
+
+const regeneratePayroll = async () => {
+    const isConfirmed = await confirm({
+        title: 'Regenerate Computation',
+        message: 'This will reset all manual adjustments and re-calculate every payslip based on current DTR, salary, and deduction settings. Continue?',
+        confirmButtonText: 'Yes, Recalculate All'
+    });
+
+    if (isConfirmed) {
+        router.post(route('payroll.regenerate', props.payroll.id), {}, {
+            preserveScroll: true,
+            onSuccess: () => {
+                // Flash success handled by Layout
+            }
+        });
+    }
 };
 
 const finalizePayroll = async () => {
@@ -101,7 +118,9 @@ const finalizePayroll = async () => {
 
     if (isConfirmed) {
         router.put(route('payroll.approve', props.payroll.id), {}, {
-            onSuccess: () => showSuccess('Payroll finalized successfully.')
+            onSuccess: () => {
+                // Success handled by global flash listener
+            }
         });
     }
 };
@@ -112,6 +131,10 @@ const exportPdf = () => {
 
 const exportExcel = () => {
     window.location.href = route('payroll.export-excel', props.payroll.id);
+};
+
+const printPayslip = (slip) => {
+    window.open(route('payslips.export-pdf', slip.id), '_blank');
 };
 
 const formatCurrency = (amount) => {
@@ -146,6 +169,13 @@ const formatDate = (date) => {
                         class="bg-rose-600 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center hover:bg-rose-700 transition-all shadow-lg shadow-rose-600/20"
                     >
                         <PrinterIcon class="w-4 h-4 mr-2" /> Export PDF
+                    </button>
+                    <button 
+                        v-if="payroll.status === 'Draft' && can.approve"
+                        @click="regeneratePayroll"
+                        class="bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-xl font-bold text-sm flex items-center hover:bg-slate-50 transition-all shadow-sm"
+                    >
+                        <ArrowPathIcon class="w-4 h-4 mr-2" /> Regenerate
                     </button>
                     <button 
                         v-if="payroll.status === 'Draft' && can.approve"
@@ -249,7 +279,11 @@ const formatDate = (date) => {
                                         >
                                             <PencilSquareIcon class="w-4 h-4" />
                                         </button>
-                                        <button class="p-1.5 text-slate-400 hover:text-slate-600 transition-colors">
+                                        <button 
+                                            @click="printPayslip(slip)"
+                                            class="p-1.5 text-slate-400 hover:text-slate-600 transition-colors"
+                                            title="Print Payslip"
+                                        >
                                             <PrinterIcon class="w-4 h-4" />
                                         </button>
                                     </div>
@@ -305,41 +339,82 @@ const formatDate = (date) => {
                         
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Late</label>
-                                <input v-model="editForm.late_deduction" type="number" step="0.01" min="0" @keypress="preventNegative" class="w-full rounded-xl border-slate-200 text-sm focus:ring-rose-500 font-mono text-rose-600">
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Late / UT</label>
+                                <div class="flex gap-1">
+                                    <input v-model="editForm.late_deduction" type="number" step="0.01" class="w-1/2 rounded-xl border-slate-200 text-xs font-mono text-rose-600" placeholder="Late">
+                                    <input v-model="editForm.undertime_deduction" type="number" step="0.01" class="w-1/2 rounded-xl border-slate-200 text-xs font-mono text-rose-600" placeholder="UT">
+                                </div>
                             </div>
                             <div>
-                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Undertime</label>
-                                <input v-model="editForm.undertime_deduction" type="number" step="0.01" min="0" @keypress="preventNegative" class="w-full rounded-xl border-slate-200 text-sm focus:ring-rose-500 font-mono text-rose-600">
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Tax Withheld</label>
+                                <input v-model="editForm.tax_withheld" type="number" step="0.01" class="w-full rounded-xl border-slate-200 text-xs font-mono">
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-4 border-t border-slate-50 pt-4">
+                        <div class="grid grid-cols-3 gap-2">
                             <div>
                                 <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">SSS</label>
-                                <input v-model="editForm.sss_deduction" type="number" step="0.01" min="0" @keypress="preventNegative" class="w-full rounded-xl border-slate-200 text-sm focus:ring-rose-500 font-mono">
+                                <input v-model="editForm.sss_deduction" type="number" step="0.01" class="w-full rounded-xl border-slate-200 text-xs font-mono">
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">PhilHealth</label>
-                                <input v-model="editForm.philhealth_ded" type="number" step="0.01" min="0" @keypress="preventNegative" class="w-full rounded-xl border-slate-200 text-sm focus:ring-rose-500 font-mono">
+                                <input v-model="editForm.philhealth_ded" type="number" step="0.01" class="w-full rounded-xl border-slate-200 text-xs font-mono">
                             </div>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Pag-IBIG</label>
-                                <input v-model="editForm.pagibig_ded" type="number" step="0.01" min="0" @keypress="preventNegative" class="w-full rounded-xl border-slate-200 text-sm focus:ring-rose-500 font-mono">
-                            </div>
-                            <div>
-                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Withholding Tax</label>
-                                <input v-model="editForm.tax_withheld" type="number" step="0.01" min="0" @keypress="preventNegative" class="w-full rounded-xl border-slate-200 text-sm focus:ring-rose-500 font-mono">
+                                <input v-model="editForm.pagibig_ded" type="number" step="0.01" class="w-full rounded-xl border-slate-200 text-xs font-mono">
                             </div>
                         </div>
 
-                        <div>
-                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Other Deductions</label>
-                            <input v-model="editForm.other_deductions" type="number" step="0.01" min="0" @keypress="preventNegative" class="w-full rounded-xl border-slate-200 text-sm focus:ring-rose-500 font-mono">
+                        <!-- Itemized Breakdown (Read Only) -->
+                        <div class="bg-slate-50 rounded-xl p-3 space-y-2 border border-slate-100">
+                            <p class="text-[9px] font-bold text-slate-400 uppercase border-b border-slate-200 pb-1 mb-2">Calculated Breakdown</p>
+                            
+                            <div v-if="editingSlip?.details?.deductions?.length > 0" v-for="d in editingSlip.details.deductions" :key="d.id" class="flex justify-between text-[10px]">
+                                <span class="text-slate-600 font-medium">
+                                    {{ d.type }}
+                                    <span v-if="d.installment" class="text-slate-400">({{ d.installment }})</span>
+                                </span>
+                                <span class="font-mono text-slate-700">{{ formatCurrency(d.amount) }}</span>
+                            </div>
+
+                            <div v-if="editingSlip?.details?.absence_deduction > 0" class="flex justify-between text-[10px]">
+                                <span class="text-slate-600 font-medium">Absences ({{ editingSlip.details.absent_days }}d)</span>
+                                <span class="font-mono text-slate-700">{{ formatCurrency(editingSlip.details.absence_deduction) }}</span>
+                            </div>
+
+                            <div v-if="!(editingSlip?.details?.deductions?.length > 0) && !(editingSlip?.details?.absence_deduction > 0)" class="text-[10px] text-slate-400 italic py-1">
+                                No specific deductions calculated.
+                            </div>
+
+                            <div class="pt-2 mt-2 border-t border-slate-200">
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Adjustment / Total Other Deductions</label>
+                                <input v-model="editForm.other_deductions" type="number" step="0.01" min="0" @keypress="preventNegative" class="w-full rounded-xl border-slate-200 text-sm focus:ring-rose-500 font-mono text-rose-600 bg-white">
+                            </div>
                         </div>
+                    </div>
+
+                    <!-- Totals Row (Aligned Horizontally) -->
+                    <div class="pt-4 border-t border-slate-100 flex justify-between items-center font-bold">
+                        <span class="text-[10px] text-slate-500 uppercase tracking-wider">Total Gross Earnings</span>
+                        <span class="text-lg font-mono text-slate-800">
+                            {{ formatCurrency(parseFloat(editForm.basic_pay || 0) + parseFloat(editForm.allowances || 0) + parseFloat(editForm.ot_pay || 0)) }}
+                        </span>
+                    </div>
+
+                    <div class="pt-4 border-t border-slate-100 flex justify-between items-center font-bold">
+                        <span class="text-[10px] text-slate-500 uppercase tracking-wider">Total Deductions</span>
+                        <span class="text-lg font-mono text-rose-600">
+                            {{ formatCurrency(
+                                parseFloat(editForm.late_deduction || 0) + 
+                                parseFloat(editForm.undertime_deduction || 0) + 
+                                parseFloat(editForm.sss_deduction || 0) + 
+                                parseFloat(editForm.philhealth_ded || 0) + 
+                                parseFloat(editForm.pagibig_ded || 0) + 
+                                parseFloat(editForm.tax_withheld || 0) + 
+                                parseFloat(editForm.other_deductions || 0)
+                            ) }}
+                        </span>
                     </div>
                 </div>
 
@@ -347,7 +422,13 @@ const formatDate = (date) => {
                 <div class="mt-8 p-4 bg-slate-900 rounded-2xl flex justify-between items-center">
                     <div class="text-slate-400 text-xs font-bold uppercase tracking-widest">Calculated Net Pay</div>
                     <div class="text-2xl font-mono font-bold text-emerald-400">
-                        {{ formatCurrency(parseFloat(editForm.basic_pay) + parseFloat(editForm.allowances) + parseFloat(editForm.ot_pay) - (parseFloat(editForm.late_deduction) + parseFloat(editForm.undertime_deduction) + parseFloat(editForm.sss_deduction) + parseFloat(editForm.philhealth_ded) + parseFloat(editForm.pagibig_ded) + parseFloat(editForm.tax_withheld) + parseFloat(editForm.other_deductions))) }}
+                        {{ formatCurrency(
+                            (parseFloat(editForm.basic_pay || 0) + parseFloat(editForm.allowances || 0) + parseFloat(editForm.ot_pay || 0)) - 
+                            (parseFloat(editForm.late_deduction || 0) + parseFloat(editForm.undertime_deduction || 0) + 
+                             parseFloat(editForm.sss_deduction || 0) + parseFloat(editForm.philhealth_ded || 0) + 
+                             parseFloat(editForm.pagibig_ded || 0) + parseFloat(editForm.tax_withheld || 0) + 
+                             parseFloat(editForm.other_deductions || 0))
+                        ) }}
                     </div>
                 </div>
 

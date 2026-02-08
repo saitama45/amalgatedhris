@@ -238,7 +238,7 @@ const formatCurrency = (val) => {
                 
                 <!-- Header -->
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <h2 class="font-semibold text-xl text-gray-800 leading-tight">Other Deductions</h2>
+                    <h2 class="font-semibold text-xl text-gray-800 leading-tight">Other Deductions & Loans</h2>
                     <div class="flex gap-2">
                         <SecondaryButton 
                             v-if="hasPermission('deductions.create')"
@@ -252,7 +252,7 @@ const formatCurrency = (val) => {
                             @click="openDeductionModal()"
                         >
                             <PlusIcon class="w-4 h-4 mr-2" />
-                            Add Deduction
+                            Add Record
                         </PrimaryButton>
                     </div>
                 </div>
@@ -309,9 +309,14 @@ const formatCurrency = (val) => {
                                             <div class="text-xs text-gray-500">{{ d.employee?.employee_code }}</div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                {{ d.deduction_type?.name }}
-                                            </span>
+                                            <div class="flex flex-col gap-1">
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 w-fit">
+                                                    {{ d.deduction_type?.name }}
+                                                </span>
+                                                <span v-if="d.total_amount > 0" class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-700 uppercase tracking-wider w-fit">
+                                                    LOAN / AMORTIZED
+                                                </span>
+                                            </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             <div class="font-semibold text-gray-700">
@@ -324,8 +329,10 @@ const formatCurrency = (val) => {
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm">
                                             <div v-if="d.total_amount > 0">
-                                                <div class="font-medium text-gray-900">{{ formatCurrency(d.remaining_balance) }}</div>
-                                                <div class="text-xs text-gray-500">of {{ formatCurrency(d.total_amount) }}</div>
+                                                <div class="font-bold text-slate-900">{{ formatCurrency(d.remaining_balance) }}</div>
+                                                <div class="text-[10px] text-slate-500 uppercase font-medium mt-0.5">
+                                                    Progress: {{ d.amount > 0 ? Math.round((parseFloat(d.total_amount) - parseFloat(d.remaining_balance)) / parseFloat(d.amount)) : 0 }} / {{ d.terms || (d.amount > 0 ? Math.round(d.total_amount / d.amount) : 0) }} Payouts
+                                                </div>
                                             </div>
                                             <div v-else class="text-gray-400">-</div>
                                         </td>
@@ -590,7 +597,7 @@ const formatCurrency = (val) => {
 
                     <!-- Terms / Installments (Helper) -->
                     <div class="col-span-2 md:col-span-1" v-if="deductionForm.total_amount > 0">
-                         <InputLabel value="Terms (Installments)" />
+                         <InputLabel value="Terms (Total No. of Payouts)" />
                          <TextInput 
                             type="number" 
                             step="1" 
@@ -600,7 +607,7 @@ const formatCurrency = (val) => {
                             class="w-full mt-1" 
                             placeholder="e.g. 12" 
                         />
-                         <p class="text-xs text-gray-500 mt-1">Auto-calculates the deduction amount.</p>
+                         <p class="text-xs text-gray-500 mt-1">Number of payout cycles to fully pay the amount.</p>
                     </div>
 
                     <!-- Remaining Balance (Edit Only) -->

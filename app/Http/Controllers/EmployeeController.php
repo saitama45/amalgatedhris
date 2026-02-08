@@ -17,7 +17,7 @@ class EmployeeController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Employee::with(['user', 'activeEmploymentRecord.position', 'activeEmploymentRecord.department', 'documents']);
+        $query = Employee::with(['user', 'activeEmploymentRecord.position', 'activeEmploymentRecord.department', 'activeEmploymentRecord.company', 'documents']);
 
         if ($request->filled('search')) {
             $query->whereHas('user', function($q) use ($request) {
@@ -26,11 +26,32 @@ class EmployeeController extends Controller
             })->orWhere('employee_code', 'like', "%{$request->search}%");
         }
 
+        // Apply company filter
+        if ($request->filled('company_id')) {
+            $query->whereHas('activeEmploymentRecord', function ($q) use ($request) {
+                $q->where('company_id', $request->company_id);
+            });
+        }
+
+        // Apply department filter
+        if ($request->filled('department_id')) {
+            $query->whereHas('activeEmploymentRecord', function ($q) use ($request) {
+                $q->where('department_id', $request->department_id);
+            });
+        }
+
+        // Apply position filter
+        if ($request->filled('position_id')) {
+            $query->whereHas('activeEmploymentRecord', function ($q) use ($request) {
+                $q->where('position_id', $request->position_id);
+            });
+        }
+
         $employees = $query->paginate(10)->withQueryString();
 
         return Inertia::render('Employees/Index', [
             'employees' => $employees,
-            'filters' => $request->only(['search']),
+            'filters' => $request->only(['search', 'company_id', 'department_id', 'position_id']),
             'options' => [
                 'document_types' => \App\Models\DocumentType::all(),
                 'positions' => \App\Models\Position::select('id', 'name')->orderBy('name')->get(),
@@ -64,6 +85,9 @@ class EmployeeController extends Controller
             'birthday' => 'nullable|date',
             'department_id' => 'nullable|exists:departments,id',
             'employment_status' => 'nullable|string|in:Consultant,Probationary,Regular,Project-Based,Casual',
+            'sss_deduction_schedule' => 'nullable|in:first_half,second_half,both,none',
+            'philhealth_deduction_schedule' => 'nullable|in:first_half,second_half,both,none',
+            'pagibig_deduction_schedule' => 'nullable|in:first_half,second_half,both,none',
             'face_data' => 'nullable|string', // Base64
             'face_descriptor' => 'nullable|array', // New descriptor
         ]);
@@ -143,6 +167,16 @@ class EmployeeController extends Controller
                 }
                 if ($request->has('department_id')) {
                     $employmentData['department_id'] = $request->department_id;
+                }
+                
+                if ($request->has('sss_deduction_schedule')) {
+                    $employmentData['sss_deduction_schedule'] = $request->sss_deduction_schedule;
+                }
+                if ($request->has('philhealth_deduction_schedule')) {
+                    $employmentData['philhealth_deduction_schedule'] = $request->philhealth_deduction_schedule;
+                }
+                if ($request->has('pagibig_deduction_schedule')) {
+                    $employmentData['pagibig_deduction_schedule'] = $request->pagibig_deduction_schedule;
                 }
                 
                 if (!empty($employmentData)) {

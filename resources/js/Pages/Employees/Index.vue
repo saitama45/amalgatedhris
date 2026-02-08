@@ -9,9 +9,9 @@ import { useToast } from '@/Composables/useToast';
 import { usePermission } from '@/Composables/usePermission';
 import { useConfirm } from '@/Composables/useConfirm';
 import * as faceapi from 'face-api.js';
-import { 
-    UserIcon, 
-    IdentificationIcon, 
+import {
+    UserIcon,
+    IdentificationIcon,
     BuildingOffice2Icon,
     PencilSquareIcon,
     DocumentDuplicateIcon,
@@ -26,20 +26,40 @@ import {
     BanknotesIcon,
     TrashIcon,
     PlusIcon,
-    CameraIcon
+    CameraIcon,
+    FunnelIcon
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
     employees: Object,
-    filters: Object,
-    options: Object, // Contains document_types
+    filters: Object, // Expecting filters from backend
+    options: Object, // Contains document_types, companies, departments, positions
 });
 
 const { showSuccess, showError } = useToast();
 const { hasPermission } = usePermission();
 const { confirm } = useConfirm();
-const pagination = usePagination(props.employees, 'employees.index');
 
+// New: Filters
+const filterForm = ref({
+    company_id: props.filters.company_id || '',
+    department_id: props.filters.department_id || '',
+    position_id: props.filters.position_id || '',
+});
+
+const pagination = usePagination(props.employees, 'employees.index', () => ({
+    ...filterForm.value
+}));
+
+// New: Apply Filters method
+const applyFilters = () => {
+    const params = {
+        ...filterForm.value,
+        search: pagination.search.value,
+        per_page: pagination.perPage.value
+    };
+    pagination.performSearch(route('employees.index'), params);
+};
 // Load Face API Models
 const modelsLoaded = ref(false);
 onMounted(async () => {
@@ -314,6 +334,9 @@ const editForm = useForm({
     tin_no: '',
     department_id: '',
     employment_status: '',
+    sss_deduction_schedule: 'default',
+    philhealth_deduction_schedule: 'default',
+    pagibig_deduction_schedule: 'default',
     face_data: null, // For Biometrics
     face_descriptor: null, // New field for descriptor
 });
@@ -588,6 +611,9 @@ const openEditModal = (employee) => {
     editForm.tin_no = formatTIN(employee.tin_no || '');
     editForm.department_id = employee.active_employment_record?.department_id || '';
     editForm.employment_status = employee.active_employment_record?.employment_status || '';
+    editForm.sss_deduction_schedule = employee.active_employment_record?.sss_deduction_schedule || 'default';
+    editForm.philhealth_deduction_schedule = employee.active_employment_record?.philhealth_deduction_schedule || 'default';
+    editForm.pagibig_deduction_schedule = employee.active_employment_record?.pagibig_deduction_schedule || 'default';
         
         // Handle JSON face_data
         let faceFilename = null;
@@ -794,6 +820,39 @@ const submitResign = async () => {
         
         <div class="py-6">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+
+                <!-- Filters -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-4 mb-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-end">
+                        <div class="w-full">
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Company</label>
+                            <select v-model="filterForm.company_id" class="w-full rounded-lg border-slate-200 text-sm">
+                                <option value="">All Companies</option>
+                                <option v-for="comp in options.companies" :key="comp.id" :value="comp.id">{{ comp.name }}</option>
+                            </select>
+                        </div>
+                        <div class="w-full">
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Department</label>
+                            <select v-model="filterForm.department_id" class="w-full rounded-lg border-slate-200 text-sm">
+                                <option value="">All Departments</option>
+                                <option v-for="dept in options.departments" :key="dept.id" :value="dept.id">{{ dept.name }}</option>
+                            </select>
+                        </div>
+                        <div class="w-full">
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Position</label>
+                            <select v-model="filterForm.position_id" class="w-full rounded-lg border-slate-200 text-sm">
+                                <option value="">All Positions</option>
+                                <option v-for="pos in options.positions" :key="pos.id" :value="pos.id">{{ pos.name }}</option>
+                            </select>
+                        </div>
+                        <div class="w-full">
+                            <button @click="applyFilters" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
+                                <FunnelIcon class="w-4 h-4" /> Filter Employees
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                     <DataTable
                         title="Workforce 201"
@@ -855,9 +914,12 @@ const submitResign = async () => {
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="flex items-center text-sm text-slate-600">
-                                        <BuildingOffice2Icon class="w-4 h-4 mr-2 text-slate-400" />
-                                        {{ employee.active_employment_record?.department?.name || 'Unassigned' }}
+                                    <div class="flex flex-col">
+                                        <div class="flex items-center text-sm text-slate-600">
+                                            <BuildingOffice2Icon class="w-4 h-4 mr-2 text-slate-400" />
+                                            {{ employee.active_employment_record?.department?.name || 'Unassigned' }}
+                                        </div>
+                                        <div class="text-xs text-slate-500 ml-6">{{ employee.active_employment_record?.company?.name || '-' }}</div>
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -1048,6 +1110,43 @@ const submitResign = async () => {
                             >
                         </div>
                     </div>
+                </div>
+
+                <div class="border-t border-slate-100 pt-6 mt-6">
+                    <h4 class="font-bold text-slate-800 mb-4">Contribution Deduction Settings</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-1">SSS Schedule</label>
+                            <select v-model="editForm.sss_deduction_schedule" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold">
+                                <option value="default">Company Default</option>
+                                <option value="first_half">15th Payout</option>
+                                <option value="second_half">30th Payout</option>
+                                <option value="both">Both Payouts</option>
+                                <option value="none">No Deduction</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-1">PhilHealth Schedule</label>
+                            <select v-model="editForm.philhealth_deduction_schedule" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold">
+                                <option value="default">Company Default</option>
+                                <option value="first_half">15th Payout</option>
+                                <option value="second_half">30th Payout</option>
+                                <option value="both">Both Payouts</option>
+                                <option value="none">No Deduction</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-1">Pag-IBIG Schedule</label>
+                            <select v-model="editForm.pagibig_deduction_schedule" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold">
+                                <option value="default">Company Default</option>
+                                <option value="first_half">15th Payout</option>
+                                <option value="second_half">30th Payout</option>
+                                <option value="both">Both Payouts</option>
+                                <option value="none">No Deduction</option>
+                            </select>
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-slate-500 mt-3 italic">Defines which cut-off period these government contributions will be deducted.</p>
                 </div>
 
                 <div class="border-t border-slate-100 pt-6 mt-6">

@@ -471,22 +471,6 @@ const handleMouseLeave = () => {
                             <BanknotesIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
                             <span v-if="!isCollapsed" class="font-medium text-sm">Payroll</span>
                         </Link>
-
-                        <Link
-                            v-if="hasPermission('payroll.manage_loans')"
-                            :href="route('loans.index')"
-                             :class="[
-                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
-                                route().current('loans.*')
-                                    ? 'text-teal-400 bg-slate-800/50'
-                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
-                            ]"
-                            @mouseenter="handleMouseEnter($event, 'Employee Loans')"
-                            @mouseleave="handleMouseLeave"
-                        >
-                            <CreditCardIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
-                            <span v-if="!isCollapsed" class="font-medium text-sm">Loans</span>
-                        </Link>
                     </div>
                 </template>
                 

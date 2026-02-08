@@ -93,6 +93,7 @@ Route::middleware('auth')->group(function () {
     // Compensation & Payroll
     Route::middleware('permission:contributions.view')->group(function () {
         Route::resource('contributions', \App\Http\Controllers\ContributionController::class)->only(['index']);
+        Route::post('contributions/schedules', [\App\Http\Controllers\ContributionController::class, 'updateSchedules'])->name('contributions.schedules.update');
         Route::post('contributions/sss/generate', [\App\Http\Controllers\ContributionController::class, 'generateSSS'])->name('contributions.sss.generate');
         Route::post('contributions/philhealth/update', [\App\Http\Controllers\ContributionController::class, 'updatePhilHealth'])->name('contributions.philhealth.update');
         Route::post('contributions/pagibig/update', [\App\Http\Controllers\ContributionController::class, 'updatePagIBIG'])->name('contributions.pagibig.update');
@@ -107,12 +108,10 @@ Route::middleware('auth')->group(function () {
         Route::get('payroll/{payroll}/export-pdf', [\App\Http\Controllers\PayrollController::class, 'exportPdf'])->name('payroll.export-pdf');
         Route::get('payroll/{payroll}/export-excel', [\App\Http\Controllers\PayrollController::class, 'exportExcel'])->name('payroll.export-excel');
         Route::resource('payroll', \App\Http\Controllers\PayrollController::class)->except(['edit', 'update']);
+        Route::post('payroll/{payroll}/regenerate', [\App\Http\Controllers\PayrollController::class, 'regenerate'])->name('payroll.regenerate');
         Route::put('payroll/{payroll}/approve', [\App\Http\Controllers\PayrollController::class, 'approve'])->name('payroll.approve');
+        Route::get('payslips/{payslip}/export-pdf', [\App\Http\Controllers\PayrollController::class, 'exportPayslipPdf'])->name('payslips.export-pdf');
         Route::put('payslips/{payslip}', [\App\Http\Controllers\PayrollController::class, 'updatePayslip'])->name('payslips.update');
-    });
-
-    Route::middleware('permission:payroll.manage_loans')->group(function () {
-        Route::resource('loans', \App\Http\Controllers\LoanController::class)->except(['show', 'create', 'edit']);
     });
 
     // Leave & Overtime Requests

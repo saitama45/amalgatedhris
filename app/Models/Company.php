@@ -14,6 +14,9 @@ class Company extends Model
         'code',
         'description',
         'is_active',
+        'sss_payout_schedule',
+        'philhealth_payout_schedule',
+        'pagibig_payout_schedule',
     ];
 
     public function roles()

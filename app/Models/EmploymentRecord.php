@@ -23,6 +23,9 @@ class EmploymentRecord extends Model
         'start_date',
         'end_date',
         'is_active',
+        'sss_deduction_schedule',
+        'philhealth_deduction_schedule',
+        'pagibig_deduction_schedule',
     ];
 
     protected $casts = [

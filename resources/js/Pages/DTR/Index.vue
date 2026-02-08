@@ -437,6 +437,7 @@ const calculateUndertime = (log) => {
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm font-bold text-slate-900">{{ log.employee?.user?.name }}</div>
                                     <div class="text-xs text-slate-500">{{ log.employee?.active_employment_record?.department?.name || '-' }}</div>
+                                    <div class="text-xs text-slate-500">{{ log.employee?.active_employment_record?.company?.name || '-' }}</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-center font-mono text-sm text-slate-600">
                                     {{ log.time_in ? new Date(log.time_in).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '--:--' }}

@@ -9,7 +9,6 @@ use App\Models\AttendanceLog;
 use App\Models\OvertimeRequest;
 use App\Models\Company;
 use App\Models\EmployeeDeduction;
-use App\Models\Loan;
 use App\Models\LeaveRequest;
 use App\Services\AttendanceService;
 use App\Services\ContributionService;
@@ -84,166 +83,252 @@ class PayrollController extends Controller
                 'status' => 'Draft'
             ]);
 
-            // 1. Fetch eligible employees
-            $employees = Employee::whereHas('activeEmploymentRecord', function ($q) use ($validated) {
-                $q->where('company_id', $validated['company_id'])
-                  ->where('is_active', true);
-            })->with(['activeEmploymentRecord.salaryHistories' => function($q) {
-                $q->latest('effective_date');
-            }])->get();
-
-            $generatedCount = 0;
-
-            foreach ($employees as $employee) {
-                // Get Latest Salary
-                $salary = $employee->activeEmploymentRecord->salaryHistories->first();
-                if (!$salary) continue;
-
-                $basicRate = $salary->basic_rate; // Monthly
-                $dailyRate = $basicRate / 26; // Monthly / 26 days
-                $hourlyRate = $dailyRate / 8; // Daily / 8 hours
-                $minuteRate = $hourlyRate / 60;
-
-                // 1. Calculate Cut-off Multiplier (Semi-monthly vs Monthly)
-                $start = Carbon::parse($validated['cutoff_start']);
-                $end = Carbon::parse($validated['cutoff_end']);
-                $daysInPeriod = $start->diffInDays($end) + 1;
-                $periodFactor = $daysInPeriod >= 25 ? 1 : 0.5;
-                
-                $basicPay = $basicRate * $periodFactor;
-
-                // 2. Fetch Attendance Logs & Calculate Deductions/Absences
-                $totalLateMinutes = 0;
-                $totalUTMinutes = 0;
-                $daysPresent = 0;
-                $absentDays = 0;
-                $paidLeaveDays = 0;
-                
-                $periodStart = Carbon::parse($validated['cutoff_start']);
-                $periodEnd = Carbon::parse($validated['cutoff_end']);
-                
-                // Iterate through every day in the cut-off to check for work schedule
-                for ($d = $periodStart->copy(); $d <= $periodEnd; $d->addDay()) {
-                    $dayName = $d->format('D'); // Mon, Tue, etc.
-                    $record = $employee->activeEmploymentRecord;
-                    $isWorkDay = str_contains($record->work_days, $dayName);
-                    
-                    // Check for Holiday
-                    $holiday = \App\Models\Holiday::where('date', $d->format('Y-m-d'))->first();
-                    
-                    // Check for Approved Leave
-                    $onLeave = LeaveRequest::where('employee_id', $employee->id)
-                        ->where('status', 'Approved')
-                        ->where('start_date', '<=', $d->format('Y-m-d'))
-                        ->where('end_date', '>=', $d->format('Y-m-d'))
-                        ->first();
-
-                    $log = AttendanceLog::where('employee_id', $employee->id)
-                        ->where('date', $d->format('Y-m-d'))
-                        ->first();
-
-                    if ($log) {
-                        $daysPresent++;
-                        $totalLateMinutes += $log->late_minutes;
-                        
-                        if ($log->time_out && $record->defaultShift) {
-                            $scheduledEnd = Carbon::parse($d->format('Y-m-d') . ' ' . $record->defaultShift->end_time);
-                            if ($log->time_out->lt($scheduledEnd)) {
-                                $totalUTMinutes += $log->time_out->diffInMinutes($scheduledEnd);
-                            }
-                        }
-                    } elseif ($onLeave) {
-                        $paidLeaveDays++;
-                    } elseif ($isWorkDay && !$holiday) {
-                        // Supposed to work but no log, not on leave, and not a holiday = Absent
-                        $absentDays++;
-                    }
-                }
-
-                $lateDeduction = $totalLateMinutes * $minuteRate;
-                $utDeduction = $totalUTMinutes * $minuteRate;
-                $absenceDeduction = $absentDays * $dailyRate;
-
-                // 3. Fetch Approved Overtime
-                $approvedOT = OvertimeRequest::where('user_id', $employee->user_id)
-                    ->where('status', 'Approved')
-                    ->whereBetween('date', [$validated['cutoff_start'], $validated['cutoff_end']])
-                    ->sum('payable_amount');
-
-                // 4. Calculate Contributions (Only on 2nd cut-off / Full Month)
-                $sss = 0; $philhealth = 0; $pagibig = 0;
-                if ($periodFactor === 1 || $periodStart->day > 15) {
-                    $contributions = $this->contributionService->calculate($basicRate);
-                    $sss = $contributions['sss']['ee'];
-                    $philhealth = $contributions['philhealth']['ee'];
-                    $pagibig = $contributions['pagibig']['ee'];
-                }
-
-                // 5. Fetch Fixed Recurring Deductions
-                $otherDeductionsAmount = EmployeeDeduction::where('employee_id', $employee->id)
-                    ->where('status', 'Active')
-                    ->where('effective_date', '<=', $validated['cutoff_end'])
-                    ->sum('amount');
-
-                // 6. Fetch Active Loans
-                $loans = Loan::where('employee_id', $employee->id)
-                    ->where('status', 'Active')
-                    ->where('balance', '>', 0)
-                    ->get();
-                
-                $totalLoanDeduction = 0;
-                $loanBreakdown = [];
-
-                foreach ($loans as $loan) {
-                    $deduct = min($loan->amortization, $loan->balance);
-                    $totalLoanDeduction += $deduct;
-                    $loanBreakdown[] = [
-                        'id' => $loan->id,
-                        'type' => $loan->loan_type,
-                        'amount' => $deduct
-                    ];
-                }
-
-                $grossPay = ($basicPay + $salary->allowance + $approvedOT) - ($lateDeduction + $utDeduction + $absenceDeduction);
-                $netPay = $grossPay - ($sss + $philhealth + $pagibig + $otherDeductionsAmount + $totalLoanDeduction);
-
-                Payslip::create([
-                    'payroll_id' => $payroll->id,
-                    'employee_id' => $employee->id,
-                    'basic_pay' => $basicPay,
-                    'gross_pay' => $grossPay,
-                    'allowances' => $salary->allowance,
-                    'ot_pay' => $approvedOT,
-                    'late_deduction' => $lateDeduction,
-                    'undertime_deduction' => $utDeduction,
-                    'sss_deduction' => $sss,
-                    'philhealth_ded' => $philhealth,
-                    'pagibig_ded' => $pagibig,
-                    'tax_withheld' => 0, // Simplified tax
-                    'loan_deductions' => $totalLoanDeduction,
-                    'other_deductions' => $otherDeductionsAmount + $absenceDeduction, // Absence is grouped here for simplicity
-                    'net_pay' => $netPay,
-                    'details' => [
-                        'days_worked' => $daysPresent,
-                        'absent_days' => $absentDays,
-                        'leave_days' => $paidLeaveDays,
-                        'late_minutes' => $totalLateMinutes,
-                        'ut_minutes' => $totalUTMinutes,
-                        'period_factor' => $periodFactor,
-                        'loans' => $loanBreakdown
-                    ]
-                ]);
-                $generatedCount++;
-            }
+            $this->generatePayslips($payroll);
 
             DB::commit();
             return redirect()->route('payroll.show', $payroll->id)
-                ->with('success', "Payroll generated for $generatedCount employees.");
+                ->with('success', 'Payroll generated successfully.');
 
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', 'Failed to generate payroll: ' . $e->getMessage());
         }
+    }
+
+    public function regenerate(Payroll $payroll)
+    {
+        $this->authorize('payroll.create');
+
+        if ($payroll->status !== 'Draft') {
+            return back()->with('error', 'Only draft payrolls can be regenerated.');
+        }
+
+        DB::beginTransaction();
+        try {
+            // Remove existing payslips
+            $payroll->payslips()->delete();
+
+            $this->generatePayslips($payroll);
+
+            DB::commit();
+            return back()->with('success', 'Payroll successfully recalculated.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Failed to regenerate payroll: ' . $e->getMessage());
+        }
+    }
+
+    private function generatePayslips(Payroll $payroll)
+    {
+        // 1. Fetch eligible employees
+        $employees = Employee::whereHas('activeEmploymentRecord', function ($q) use ($payroll) {
+            $q->where('company_id', $payroll->company_id)
+              ->where('is_active', true);
+        })->with(['activeEmploymentRecord.salaryHistories' => function($q) {
+            $q->latest('effective_date');
+        }, 'activeEmploymentRecord.company', 'activeEmploymentRecord.defaultShift'])->get();
+
+        $generatedCount = 0;
+
+        foreach ($employees as $employee) {
+            // Get Latest Salary
+            $salary = $employee->activeEmploymentRecord->salaryHistories->first();
+            if (!$salary) continue;
+
+            $basicRate = $salary->basic_rate; // Monthly
+            $dailyRate = $basicRate / 26; // Monthly / 26 days
+            $hourlyRate = $dailyRate / 8; // Daily / 8 hours
+            $minuteRate = $hourlyRate / 60;
+
+            // 1. Calculate Cut-off Multiplier (Semi-monthly vs Monthly)
+            $start = Carbon::parse($payroll->cutoff_start);
+            $end = Carbon::parse($payroll->cutoff_end);
+            $daysInPeriod = $start->diffInDays($end) + 1;
+            $periodFactor = $daysInPeriod >= 25 ? 1 : 0.5;
+            
+            $basicPay = $basicRate * $periodFactor;
+
+            // 2. Fetch Attendance Logs & Calculate Deductions/Absences
+            $totalLateMinutes = 0;
+            $totalUTMinutes = 0;
+            $daysPresent = 0;
+            $absentDays = 0;
+            $paidLeaveDays = 0;
+            
+            $periodStart = Carbon::parse($payroll->cutoff_start);
+            $periodEnd = Carbon::parse($payroll->cutoff_end);
+            
+            // Iterate through every day in the cut-off to check for work schedule
+            for ($d = $periodStart->copy(); $d <= $periodEnd; $d->addDay()) {
+                $dayName = $d->format('D'); // Mon, Tue, etc.
+                $record = $employee->activeEmploymentRecord;
+                $isWorkDay = str_contains($record->work_days ?? '', $dayName);
+                
+                // Check for Holiday
+                $holiday = \App\Models\Holiday::where('date', $d->format('Y-m-d'))->first();
+                
+                // Check for Approved Leave
+                $onLeave = LeaveRequest::where('employee_id', $employee->id)
+                    ->where('status', 'Approved')
+                    ->where('start_date', '<=', $d->format('Y-m-d'))
+                    ->where('end_date', '>=', $d->format('Y-m-d'))
+                    ->first();
+
+                $log = AttendanceLog::where('employee_id', $employee->id)
+                    ->where('date', $d->format('Y-m-d'))
+                    ->first();
+
+                if ($log) {
+                    $daysPresent++;
+                    $totalLateMinutes += $log->late_minutes;
+                    
+                    if ($log->time_out && $record->defaultShift) {
+                        $scheduledEnd = Carbon::parse($d->format('Y-m-d') . ' ' . $record->defaultShift->end_time);
+                        $timeOut = Carbon::parse($log->time_out);
+                        if ($timeOut->lt($scheduledEnd)) {
+                            $totalUTMinutes += $timeOut->diffInMinutes($scheduledEnd);
+                        }
+                    }
+                } elseif ($onLeave) {
+                    $paidLeaveDays++;
+                } elseif ($isWorkDay && !$holiday) {
+                    $absentDays++;
+                }
+            }
+
+            $lateDeduction = $totalLateMinutes * $minuteRate;
+            $utDeduction = $totalUTMinutes * $minuteRate;
+            $absenceDeduction = $absentDays * $dailyRate;
+
+            // 3. Fetch Approved Overtime
+            $approvedOT = OvertimeRequest::where('user_id', $employee->user_id)
+                ->where('status', 'Approved')
+                ->whereBetween('date', [$payroll->cutoff_start, $payroll->cutoff_end])
+                ->sum('payable_amount');
+
+            // 4. Calculate Contributions based on Employee Schedule (with Company Fallback)
+            $payoutDay = Carbon::parse($payroll->payout_date)->day;
+            $isFirstHalfPayout = $payoutDay <= 15;
+            
+            $sss = 0; $philhealth = 0; $pagibig = 0;
+            $contributions = $this->contributionService->calculate($basicRate);
+            $sched = $employee->activeEmploymentRecord;
+            $company = $sched->company;
+
+            // Resolved Schedules
+            $sssSched = ($sched->sss_deduction_schedule === 'default') ? $company->sss_payout_schedule : $sched->sss_deduction_schedule;
+            $phSched = ($sched->philhealth_deduction_schedule === 'default') ? $company->philhealth_payout_schedule : $sched->philhealth_deduction_schedule;
+            $piSched = ($sched->pagibig_deduction_schedule === 'default') ? $company->pagibig_payout_schedule : $sched->pagibig_deduction_schedule;
+
+            // SSS Calculation
+            if (($sssSched === 'both') || 
+                ($sssSched === 'first_half' && $isFirstHalfPayout) ||
+                ($sssSched === 'second_half' && !$isFirstHalfPayout)) {
+                $sss = $contributions['sss']['ee'];
+                if ($sssSched === 'both') $sss /= 2;
+            }
+            
+            // PhilHealth Calculation
+            if (($phSched === 'both') || 
+                ($phSched === 'first_half' && $isFirstHalfPayout) ||
+                ($phSched === 'second_half' && !$isFirstHalfPayout)) {
+                $philhealth = $contributions['philhealth']['ee'];
+                if ($phSched === 'both') $philhealth /= 2;
+            }
+            
+            // Pag-IBIG Calculation
+            if (($piSched === 'both') || 
+                ($piSched === 'first_half' && $isFirstHalfPayout) ||
+                ($piSched === 'second_half' && !$isFirstHalfPayout)) {
+                $pagibig = $contributions['pagibig']['ee'];
+                if ($piSched === 'both') $pagibig /= 2;
+            }
+
+            // 5. Fetch Scheduled Deductions
+            $deductionQuery = EmployeeDeduction::where('employee_id', $employee->id)
+                ->where('status', 'active')
+                ->where('effective_date', '<=', $payroll->cutoff_end);
+
+            $activeDeductions = $deductionQuery->get();
+            $totalOtherDeductions = 0;
+            $deductionBreakdown = [];
+
+            foreach ($activeDeductions as $ded) {
+                $apply = false;
+                if ($ded->frequency === 'semimonthly') {
+                    if ($ded->schedule === 'both' || 
+                       ($ded->schedule === 'first_half' && $isFirstHalfPayout) || 
+                       ($ded->schedule === 'second_half' && !$isFirstHalfPayout)) {
+                        $apply = true;
+                    }
+                } else if ($ded->frequency === 'once_a_month') {
+                    if (!$isFirstHalfPayout) {
+                        $apply = true;
+                    }
+                }
+
+                if ($apply) {
+                    $amountToDeduct = $ded->amount;
+                    $isLoan = $ded->total_amount > 0;
+                    $installmentInfo = null;
+
+                    if ($isLoan) {
+                        $amountToDeduct = min($amountToDeduct, $ded->remaining_balance);
+                        
+                        // Calculate installment number
+                        $paidBefore = $ded->total_amount - $ded->remaining_balance;
+                        $installmentNo = round($paidBefore / $ded->amount) + 1;
+                        $totalTerms = $ded->terms ?: ($ded->amount > 0 ? round($ded->total_amount / $ded->amount) : 0);
+                        $installmentInfo = "{$installmentNo}/{$totalTerms}";
+                    }
+
+                    if ($amountToDeduct > 0) {
+                        $totalOtherDeductions += $amountToDeduct;
+                        $deductionBreakdown[] = [
+                            'id' => $ded->id,
+                            'type' => $ded->deductionType->name,
+                            'amount' => $amountToDeduct,
+                            'is_loan' => $isLoan,
+                            'installment' => $installmentInfo
+                        ];
+                    }
+                }
+            }
+
+            $grossPay = ($basicPay + $salary->allowance + $approvedOT) - ($lateDeduction + $utDeduction + $absenceDeduction);
+            $netPay = $grossPay - ($sss + $philhealth + $pagibig + $totalOtherDeductions);
+
+            Payslip::create([
+                'payroll_id' => $payroll->id,
+                'employee_id' => $employee->id,
+                'basic_pay' => $basicPay,
+                'gross_pay' => $grossPay,
+                'allowances' => $salary->allowance,
+                'ot_pay' => $approvedOT,
+                'late_deduction' => $lateDeduction,
+                'undertime_deduction' => $utDeduction,
+                'sss_deduction' => $sss,
+                'philhealth_ded' => $philhealth,
+                'pagibig_ded' => $pagibig,
+                'tax_withheld' => 0,
+                'loan_deductions' => 0,
+                'other_deductions' => $totalOtherDeductions + $absenceDeduction,
+                'net_pay' => $netPay,
+                'details' => [
+                    'days_worked' => $daysPresent,
+                    'absent_days' => $absentDays,
+                    'absence_deduction' => $absenceDeduction,
+                    'leave_days' => $paidLeaveDays,
+                    'late_minutes' => $totalLateMinutes,
+                    'ut_minutes' => $totalUTMinutes,
+                    'period_factor' => $periodFactor,
+                    'deductions' => $deductionBreakdown
+                ]
+            ]);
+            $generatedCount++;
+        }
+
+        return $generatedCount;
     }
 
     public function show(Payroll $payroll)
@@ -303,6 +388,24 @@ class PayrollController extends Controller
         return \Maatwebsite\Excel\Facades\Excel::download(new \App\Exports\PayrollExport($payroll), $filename);
     }
 
+    public function exportPayslipPdf(Payslip $payslip)
+    {
+        $this->authorize('payroll.view');
+        
+        $payslip->load(['employee.user', 'payroll.company', 'employee.activeEmploymentRecord.position', 'employee.activeEmploymentRecord.department']);
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.payslip', [
+            'slip' => $payslip,
+            'payroll' => $payslip->payroll
+        ]);
+
+        $dateString = $payslip->payroll->cutoff_end->format('Y-m-d');
+        $employeeName = str_replace(' ', '_', $payslip->employee->user->name);
+        $filename = "Payslip_{$employeeName}_{$dateString}.pdf";
+        
+        return $pdf->stream($filename);
+    }
+
     public function destroy(Payroll $payroll)
     {
         $this->authorize('payroll.delete');
@@ -323,17 +426,17 @@ class PayrollController extends Controller
         try {
             $payroll->update(['status' => 'Finalized']);
 
-            // Update Loan Balances
+            // Update Deduction Balances
             $payslips = Payslip::where('payroll_id', $payroll->id)->get();
             foreach ($payslips as $slip) {
-                if (isset($slip->details['loans']) && count($slip->details['loans']) > 0) {
-                    foreach ($slip->details['loans'] as $loanItem) {
-                        $loan = Loan::find($loanItem['id']);
-                        if ($loan) {
-                            $newBalance = max(0, $loan->balance - $loanItem['amount']);
-                            $loan->update([
-                                'balance' => $newBalance,
-                                'status' => $newBalance <= 0 ? 'Paid' : 'Active'
+                if (isset($slip->details['deductions']) && count($slip->details['deductions']) > 0) {
+                    foreach ($slip->details['deductions'] as $dedItem) {
+                        $deduction = EmployeeDeduction::find($dedItem['id']);
+                        if ($deduction && $deduction->total_amount > 0) {
+                            $newBalance = max(0, $deduction->remaining_balance - $dedItem['amount']);
+                            $deduction->update([
+                                'remaining_balance' => $newBalance,
+                                'status' => $newBalance <= 0 ? 'completed' : 'active'
                             ]);
                         }
                     }

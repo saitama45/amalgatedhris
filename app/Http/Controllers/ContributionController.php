@@ -13,7 +13,7 @@ class ContributionController extends Controller
     public function __construct()
     {
         $this->middleware('can:contributions.view')->only(['index']);
-        $this->middleware('can:contributions.edit')->only(['generateSSS', 'updatePhilHealth', 'updatePagIBIG']);
+        $this->middleware('can:contributions.edit')->only(['generateSSS', 'updatePhilHealth', 'updatePagIBIG', 'updateSchedules']);
     }
 
     /**
@@ -33,15 +33,39 @@ class ContributionController extends Controller
         $latestYear = $years[0] ?? date('Y');
         $selectedYear = $request->input('year', $latestYear);
 
+        $companies = \App\Models\Company::where('is_active', true)->get();
+        $selectedCompanyId = $request->input('company_id', $companies->first()?->id);
+
         return Inertia::render('Contributions/Index', [
             'sss' => SssContribution::where('effective_year', $selectedYear)->orderBy('min_salary')->get(),
             'philhealth' => PhilhealthContribution::where('effective_year', $selectedYear)->first(),
             'pagibig' => PagibigContribution::where('effective_year', $selectedYear)->orderBy('min_salary')->get(),
+            'companies' => $companies,
             'filters' => [
                 'year' => (int)$selectedYear,
-                'available_years' => $years
+                'available_years' => $years,
+                'company_id' => (int)$selectedCompanyId
             ]
         ]);
+    }
+
+    public function updateSchedules(Request $request)
+    {
+        $request->validate([
+            'company_id' => 'required|exists:companies,id',
+            'sss_payout_schedule' => 'required|in:first_half,second_half,both',
+            'philhealth_payout_schedule' => 'required|in:first_half,second_half,both',
+            'pagibig_payout_schedule' => 'required|in:first_half,second_half,both',
+        ]);
+
+        $company = \App\Models\Company::findOrFail($request->company_id);
+        $company->update([
+            'sss_payout_schedule' => $request->sss_payout_schedule,
+            'philhealth_payout_schedule' => $request->philhealth_payout_schedule,
+            'pagibig_payout_schedule' => $request->pagibig_payout_schedule,
+        ]);
+
+        return redirect()->back()->with('success', 'Deduction schedules updated for ' . $company->name);
     }
 
     public function generateSSS(Request $request)
