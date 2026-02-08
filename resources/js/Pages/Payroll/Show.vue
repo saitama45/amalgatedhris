@@ -197,7 +197,7 @@ const formatDate = (date) => {
                 <!-- Summary Cards -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Gross Pay</p>
+                        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Gross Earnings</p>
                         <p class="text-2xl font-bold text-slate-800 mt-1">{{ formatCurrency(summary.total_gross) }}</p>
                     </div>
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
@@ -241,8 +241,8 @@ const formatDate = (date) => {
                                 <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Basic</th>
                                 <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Allowances</th>
                                 <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">OT Pay</th>
-                                <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Gross</th>
-                                <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Deductions</th>
+                                <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Gross Earnings</th>
+                                <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Total Deductions</th>
                                 <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Net Pay</th>
                                 <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Actions</th>
                             </tr>
@@ -266,7 +266,15 @@ const formatDate = (date) => {
                                 <td class="px-6 py-4 text-right text-sm text-blue-600 font-mono font-medium">{{ formatCurrency(slip.ot_pay) }}</td>
                                 <td class="px-6 py-4 text-right text-sm text-slate-800 font-mono font-bold">{{ formatCurrency(slip.gross_pay) }}</td>
                                 <td class="px-6 py-4 text-right text-sm text-rose-600 font-mono">
-                                    {{ formatCurrency((parseFloat(slip.sss_deduction) + parseFloat(slip.philhealth_ded) + parseFloat(slip.pagibig_ded) + parseFloat(slip.tax_withheld) + parseFloat(slip.late_deduction) + parseFloat(slip.undertime_deduction) + parseFloat(slip.other_deductions))) }}
+                                    {{ formatCurrency(
+                                        (parseFloat(slip.sss_deduction || 0) + 
+                                         parseFloat(slip.philhealth_ded || 0) + 
+                                         parseFloat(slip.pagibig_ded || 0) + 
+                                         parseFloat(slip.tax_withheld || 0) + 
+                                         parseFloat(slip.late_deduction || 0) + 
+                                         parseFloat(slip.undertime_deduction || 0) + 
+                                         parseFloat(slip.other_deductions || 0))
+                                    ) }}
                                 </td>
                                 <td class="px-6 py-4 text-right text-sm text-emerald-600 font-mono font-bold text-lg">{{ formatCurrency(slip.net_pay) }}</td>
                                 <td class="px-6 py-4 text-right">

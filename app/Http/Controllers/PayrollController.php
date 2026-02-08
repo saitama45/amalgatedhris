@@ -295,8 +295,8 @@ class PayrollController extends Controller
                 }
             }
 
-            $grossPay = ($basicPay + $salary->allowance + $approvedOT) - ($lateDeduction + $utDeduction + $absenceDeduction);
-            $netPay = $grossPay - ($sss + $philhealth + $pagibig + $totalOtherDeductions);
+            $grossPay = $basicPay + $salary->allowance + $approvedOT;
+            $netPay = $grossPay - ($lateDeduction + $utDeduction + $absenceDeduction + $sss + $philhealth + $pagibig + $totalOtherDeductions);
 
             Payslip::create([
                 'payroll_id' => $payroll->id,

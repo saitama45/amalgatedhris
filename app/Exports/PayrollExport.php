@@ -37,7 +37,7 @@ class PayrollExport implements FromCollection, WithHeadings, WithMapping, WithSt
             'Basic Pay',
             'Allowances',
             'OT Pay',
-            'Gross Pay',
+            'Gross Earnings',
             'SSS',
             'PhilHealth',
             'Pag-IBIG',

@@ -94,7 +94,7 @@
     <div class="summary">
         <table>
             <tr>
-                <td class="label">Total Gross Pay</td>
+                <td class="label">Total Gross Earnings</td>
                 <td class="font-bold">PHP {{ number_format($summary['total_gross'], 2) }}</td>
                 <td class="label">Total Net Pay</td>
                 <td class="font-bold text-emerald">PHP {{ number_format($summary['total_net'], 2) }}</td>
@@ -115,8 +115,8 @@
                 <th class="text-right">Basic</th>
                 <th class="text-right">Allowances</th>
                 <th class="text-right">OT Pay</th>
-                <th class="text-right">Gross</th>
-                <th class="text-right">Deductions</th>
+                <th class="text-right">Gross Earnings</th>
+                <th class="text-right">Total Deductions</th>
                 <th class="text-right">Net Pay</th>
             </tr>
         </thead>
