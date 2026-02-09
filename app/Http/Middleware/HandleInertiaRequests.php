@@ -41,24 +41,19 @@ class HandleInertiaRequests extends Middleware
         $permissions = [];
         
         if ($user) {
-            // Fetch permissions directly to ensure immediate updates when roles change
-            $user->loadMissing(['roles.companies']);
-            $perms = [];
-            // Get permissions through roles
-            foreach ($user->roles as $role) {
-                $rolePermissions = $role->permissions()->pluck('name')->toArray();
-                $perms = array_merge($perms, $rolePermissions);
-            }
-            $permissions = array_unique($perms);
+            // Load roles with permissions to avoid N+1 queries in the loop
+            $user->loadMissing(['roles.permissions', 'roles.companies']);
             
-            // Ensure necessary relations are loaded for the user object in the frontend
-            $user->loadMissing(['roles.companies']);
+            // Get permissions through roles efficiently
+            $permissions = $user->roles->flatMap(function ($role) {
+                return $role->permissions->pluck('name');
+            })->unique()->values()->toArray();
         }
         
         return array_merge(parent::share($request), [
             'auth' => [
                 'user' => $user,
-                'permissions' => array_values($permissions),
+                'permissions' => $permissions,
             ],
             'flash' => [
                 'success' => $request->session()->get('success'),

@@ -218,33 +218,37 @@ class PayrollController extends Controller
             $sched = $employee->activeEmploymentRecord;
             $company = $sched->company;
 
-            // Resolved Schedules
-            $sssSched = ($sched->sss_deduction_schedule === 'default') ? $company->sss_payout_schedule : $sched->sss_deduction_schedule;
-            $phSched = ($sched->philhealth_deduction_schedule === 'default') ? $company->philhealth_payout_schedule : $sched->philhealth_deduction_schedule;
-            $piSched = ($sched->pagibig_deduction_schedule === 'default') ? $company->pagibig_payout_schedule : $sched->pagibig_deduction_schedule;
-
             // SSS Calculation
-            if (($sssSched === 'both') || 
-                ($sssSched === 'first_half' && $isFirstHalfPayout) ||
-                ($sssSched === 'second_half' && !$isFirstHalfPayout)) {
-                $sss = $contributions['sss']['ee'];
-                if ($sssSched === 'both') $sss /= 2;
+            if ($sched->is_sss_deducted) {
+                $sssSched = $company->sss_payout_schedule;
+                if (($sssSched === 'both') || 
+                    ($sssSched === 'first_half' && $isFirstHalfPayout) ||
+                    ($sssSched === 'second_half' && !$isFirstHalfPayout)) {
+                    $sss = $contributions['sss']['ee'];
+                    if ($sssSched === 'both') $sss /= 2;
+                }
             }
             
             // PhilHealth Calculation
-            if (($phSched === 'both') || 
-                ($phSched === 'first_half' && $isFirstHalfPayout) ||
-                ($phSched === 'second_half' && !$isFirstHalfPayout)) {
-                $philhealth = $contributions['philhealth']['ee'];
-                if ($phSched === 'both') $philhealth /= 2;
+            if ($sched->is_philhealth_deducted) {
+                $phSched = $company->philhealth_payout_schedule;
+                if (($phSched === 'both') || 
+                    ($phSched === 'first_half' && $isFirstHalfPayout) ||
+                    ($phSched === 'second_half' && !$isFirstHalfPayout)) {
+                    $philhealth = $contributions['philhealth']['ee'];
+                    if ($phSched === 'both') $philhealth /= 2;
+                }
             }
             
             // Pag-IBIG Calculation
-            if (($piSched === 'both') || 
-                ($piSched === 'first_half' && $isFirstHalfPayout) ||
-                ($piSched === 'second_half' && !$isFirstHalfPayout)) {
-                $pagibig = $contributions['pagibig']['ee'];
-                if ($piSched === 'both') $pagibig /= 2;
+            if ($sched->is_pagibig_deducted) {
+                $piSched = $company->pagibig_payout_schedule;
+                if (($piSched === 'both') || 
+                    ($piSched === 'first_half' && $isFirstHalfPayout) ||
+                    ($piSched === 'second_half' && !$isFirstHalfPayout)) {
+                    $pagibig = $contributions['pagibig']['ee'];
+                    if ($piSched === 'both') $pagibig /= 2;
+                }
             }
 
             // 5. Fetch Scheduled Deductions
@@ -304,24 +308,26 @@ class PayrollController extends Controller
             $taxableIncome = $grossPay - ($sss + $philhealth + $pagibig);
             
             // Calculate Withholding Tax based on Company Cycle
-            $taxSched = $company->withholding_tax_payout_schedule ?: 'both';
             $withholdingTax = 0;
+            if ($sched->is_withholding_tax_deducted) {
+                $taxSched = $company->withholding_tax_payout_schedule ?: 'both';
 
-            if ($periodFactor < 1) {
-                // Semi-monthly: Estimate monthly tax then apply schedule
-                $monthlyEstimate = $taxableIncome * 2;
-                $monthlyTax = $this->taxService->calculateMonthlyTax($monthlyEstimate);
+                if ($periodFactor < 1) {
+                    // Semi-monthly: Estimate monthly tax then apply schedule
+                    $monthlyEstimate = $taxableIncome * 2;
+                    $monthlyTax = $this->taxService->calculateMonthlyTax($monthlyEstimate);
 
-                if ($taxSched === 'both') {
-                    $withholdingTax = $monthlyTax / 2;
-                } elseif ($taxSched === 'first_half' && $isFirstHalfPayout) {
-                    $withholdingTax = $monthlyTax;
-                } elseif ($taxSched === 'second_half' && !$isFirstHalfPayout) {
-                    $withholdingTax = $monthlyTax;
+                    if ($taxSched === 'both') {
+                        $withholdingTax = $monthlyTax / 2;
+                    } elseif ($taxSched === 'first_half' && $isFirstHalfPayout) {
+                        $withholdingTax = $monthlyTax;
+                    } elseif ($taxSched === 'second_half' && !$isFirstHalfPayout) {
+                        $withholdingTax = $monthlyTax;
+                    }
+                } else {
+                    // Monthly: Calculate directly
+                    $withholdingTax = $this->taxService->calculateMonthlyTax($taxableIncome);
                 }
-            } else {
-                // Monthly: Calculate directly
-                $withholdingTax = $this->taxService->calculateMonthlyTax($taxableIncome);
             }
 
             $totalDeductions = $lateDeduction + $utDeduction + $absenceDeduction + $sss + $philhealth + $pagibig + $totalOtherDeductions + $withholdingTax;

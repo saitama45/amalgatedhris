@@ -2,7 +2,7 @@
 import { Head, useForm } from '@inertiajs/vue3';
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import Toast from '@/Components/Toast.vue';
-import * as faceapi from 'face-api.js';
+import { Human } from '@vladmandic/human';
 import { 
     CameraIcon, 
     ClockIcon, 
@@ -12,7 +12,6 @@ import {
     ArrowPathIcon,
     QrCodeIcon
 } from '@heroicons/vue/24/outline';
-
 const props = defineProps({
     employees: Array,
 });
@@ -29,7 +28,28 @@ const isLoading = ref(false);
 const lastLog = ref(null);
 const errorMsg = ref(null);
 const modelsLoaded = ref(false);
-const faceMatcher = ref(null);
+const humanConfig = {
+    debug: false,
+    userConsole: false,
+    modelBasePath: 'https://cdn.jsdelivr.net/npm/@vladmandic/human/models/',
+    filter: { enabled: true, equalization: true, flip: false },
+    face: {
+        enabled: true,
+        detector: { return: true, rotation: true, mask: false, minConfidence: 0.4 },
+        mesh: { enabled: true },
+        iris: { enabled: true },
+        description: { enabled: true },
+        emotion: { enabled: false },
+        antispoof: { enabled: true },
+        liveness: { enabled: true },
+    },
+    body: { enabled: false },
+    hand: { enabled: false },
+    object: { enabled: false },
+    segmentation: { enabled: false },
+};
+
+const human = new Human(humanConfig);
 
 // High-Speed 3D Liveness Engine
 const livenessStatus = ref('waiting'); 
@@ -37,6 +57,8 @@ const livenessHistory = [];
 const livenessScore = ref(0);
 const identifiedUser = ref(null);
 const livenessFeedback = ref('Ready for scan');
+const consecutiveMatches = ref(0);
+const lastIdentifiedCode = ref(null);
 
 // Verification Steps
 const stepHeadTurn = ref(false);
@@ -50,6 +72,8 @@ const resetLiveness = () => {
     livenessHistory.length = 0;
     stepHeadTurn.value = false;
     stepMouthMove.value = false;
+    consecutiveMatches.value = 0;
+    lastIdentifiedCode.value = null;
 };
 
 // Pre-load Success Sound
@@ -64,29 +88,15 @@ const timeInterval = setInterval(() => {
     currentTime.value = new Date();
 }, 1000);
 
-// Initialize Face Matcher
+// Initialize Face AI
 onMounted(async () => {
     try {
-        await Promise.all([
-            faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
-            faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
-            faceapi.nets.faceRecognitionNet.loadFromUri('/models')
-        ]);
+        await human.load();
+        await human.warmup();
         modelsLoaded.value = true;
-        
-        if (props.employees && props.employees.length > 0) {
-            const labeledDescriptors = props.employees.map(emp => {
-                const descriptor = new Float32Array(emp.descriptor);
-                return new faceapi.LabeledFaceDescriptors(emp.employee_code, [descriptor]);
-            });
-            // Tightened threshold from 0.6 to 0.45 for high accuracy (prevents false positives)
-            faceMatcher.value = new faceapi.FaceMatcher(labeledDescriptors, 0.45); 
-            console.log("Face Matcher initialized with " + props.employees.length + " profiles.");
-        }
-        
         startCamera();
     } catch (e) {
-        console.error("Failed to load models or initialize matcher", e);
+        console.error("Critical: Face Recognition unavailable.", e);
         errorMsg.value = "System Error: Face Recognition unavailable.";
     }
 });
@@ -104,71 +114,75 @@ const startAutoScan = () => {
     }, 150); 
 };
 
+// Robust Similarity Helper (Cosine Similarity)
+const getSimilarity = (embedding1, embedding2) => {
+    if (!embedding1 || !embedding2) return 0;
+    // Human similarity is usually under human.match.similarity
+    if (human.match && typeof human.match.similarity === 'function') {
+        return human.match.similarity(embedding1, embedding2);
+    }
+    // Fallback: Manual Dot Product (Human embeddings are usually normalized)
+    let dot = 0;
+    for (let i = 0; i < embedding1.length; i++) {
+        dot += embedding1[i] * embedding2[i];
+    }
+    return dot;
+};
+
 const performLocalScan = async () => {
-    if (!videoRef.value || videoRef.value.paused || videoRef.value.ended || isLoading.value || scanCooldown.value) return;
+    if (!videoRef.value || videoRef.value.paused || videoRef.value.ended || isLoading.value || scanCooldown.value || !modelsLoaded.value) return;
 
-    // Increased inputSize to 416 for better resolution/accuracy
-    const detection = await faceapi.detectSingleFace(videoRef.value, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 }))
-        .withFaceLandmarks()
-        .withFaceDescriptor();
-
-    if (!detection) {
+    // 1. Detection
+    const result = await human.detect(videoRef.value);
+    
+    if (!result.face || result.face.length === 0) {
         if (livenessStatus.value !== 'waiting') resetLiveness();
         return;
     }
 
-    const box = detection.detection.box;
+    const face = result.face[0];
+    const box = face.boxRaw; // [x, y, width, height] normalized
     
-    // --- SPATIAL FILTERING (Circle Constraint) ---
-    // Ensure face is centered within the 256px UI circle
-    const faceCenterX = box.x + (box.width / 2);
-    const faceCenterY = box.y + (box.height / 2);
-    const frameCenterX = videoRef.value.videoWidth / 2;
-    const frameCenterY = videoRef.value.videoHeight / 2;
+    // --- SPATIAL FILTERING ---
+    const faceCenterX = box[0] + (box[2] / 2);
+    const faceCenterY = box[1] + (box[3] / 2);
+    const distFromCenter = Math.sqrt(Math.pow(faceCenterX - 0.5, 2) + Math.pow(faceCenterY - 0.5, 2));
     
-    // Calculate distance from center (Euclidean distance)
-    const distFromCenter = Math.sqrt(Math.pow(faceCenterX - frameCenterX, 2) + Math.pow(faceCenterY - frameCenterY, 2));
-    
-    // 160px radius corresponds roughly to the UI circle on a 720p stream
-    if (distFromCenter > 160) {
+    if (distFromCenter > 0.18) {
         livenessFeedback.value = "Center your face in the circle";
         if (livenessStatus.value !== 'waiting') resetLiveness();
         return;
     }
 
-    const landmarks = detection.landmarks.positions;
-    
-    // 1. Distance & Face Quality Check
-    const faceArea = box.width * box.height;
-    if (faceArea < 55000) { // Increased minimum area for better descriptor quality
+    // Quality Check
+    if (box[2] < 0.22) {
         livenessFeedback.value = "Please come closer...";
         return;
     }
 
-    // 2. Calculate Key Points for 3D Verification
-    const leftEye = landmarks[36];
-    const rightEye = landmarks[45];
-    const noseBridge = landmarks[27];
-    const leftEdge = landmarks[0];
-    const rightEdge = landmarks[16];
-    const topLip = landmarks[62];
-    const bottomLip = landmarks[66];
-
-    // A. Roll Check (Prevents tilted photo spoofing)
-    const roll = Math.abs(rightEye.y - leftEye.y) / Math.abs(rightEye.x - leftEye.x);
+    // 2. Liveness Data Collection (Using Human's advanced mesh)
+    const landmarks = face.meshRaw; // 468 points
+    
+    // Roll check using iris/eyes
+    const leftEye = landmarks[33];
+    const rightEye = landmarks[263];
+    const roll = Math.abs(rightEye[1] - leftEye[1]) / Math.abs(rightEye[0] - leftEye[0]);
     if (roll > 0.12) {
         livenessFeedback.value = "Keep your head level...";
         return;
     }
 
-    // B. Parallax Meta-Ratio (The "3D Signature")
-    // In 3D, central features shift relative to edges at different rates than 2D scaling
-    const eyeDist = Math.abs(rightEye.x - leftEye.x);
-    const noseOffset = (noseBridge.x - leftEye.x) / eyeDist;
-    const edgeRatio = Math.abs(leftEye.x - leftEdge.x) / Math.abs(rightEdge.x - rightEye.x);
+    // Parallax & Action Meta-Data
+    const noseBridge = landmarks[1];
+    const leftEdge = landmarks[234];
+    const rightEdge = landmarks[454];
+    const topLip = landmarks[13];
+    const bottomLip = landmarks[14];
 
-    // C. Mouth Ratio (Action check)
-    const mouthOpenRatio = Math.abs(bottomLip.y - topLip.y) / eyeDist;
+    const eyeDist = Math.abs(rightEye[0] - leftEye[0]);
+    const noseOffset = (noseBridge[0] - leftEye[0]) / eyeDist;
+    const edgeRatio = Math.abs(leftEye[0] - leftEdge[0]) / Math.abs(rightEdge[0] - rightEye[0]);
+    const mouthOpenRatio = Math.abs(bottomLip[1] - topLip[1]) / eyeDist;
 
     livenessHistory.push({
         noseOffset,
@@ -178,16 +192,42 @@ const performLocalScan = async () => {
     });
     if (livenessHistory.length > 20) livenessHistory.shift();
 
-    // 3. Identification Phase
-    if (faceMatcher.value && livenessStatus.value === 'waiting') {
-        const bestMatch = faceMatcher.value.findBestMatch(detection.descriptor);
-        if (bestMatch.label !== 'unknown') {
-            const emp = props.employees.find(e => e.employee_code === bestMatch.label);
-            if (emp) {
-                identifiedUser.value = emp.name;
-                form.employee_code = emp.employee_code;
-                livenessStatus.value = 'verifying';
+    // 3. Identification Phase (with Human Similarity)
+    if (livenessStatus.value === 'waiting') {
+        let bestMatch = { label: 'unknown', distance: 1.0 };
+        
+        const currentEmbedding = face.embedding;
+        if (currentEmbedding) {
+            for (const emp of props.employees) {
+                const similarity = getSimilarity(currentEmbedding, emp.descriptor);
+                // Convert similarity (1.0 = match) to distance (0.0 = match)
+                const distance = 1.0 - similarity;
+                
+                if (distance < 0.35 && distance < bestMatch.distance) {
+                    bestMatch = { label: emp.employee_code, distance };
+                }
             }
+        }
+
+        if (bestMatch.label !== 'unknown') {
+            if (bestMatch.label === lastIdentifiedCode.value) {
+                consecutiveMatches.value++;
+            } else {
+                lastIdentifiedCode.value = bestMatch.label;
+                consecutiveMatches.value = 1;
+            }
+
+            if (consecutiveMatches.value >= 3) {
+                const emp = props.employees.find(e => e.employee_code === bestMatch.label);
+                if (emp) {
+                    identifiedUser.value = emp.name;
+                    form.employee_code = emp.employee_code;
+                    livenessStatus.value = 'verifying';
+                }
+            }
+        } else {
+            consecutiveMatches.value = 0;
+            lastIdentifiedCode.value = null;
         }
     }
 
@@ -199,36 +239,36 @@ const performLocalScan = async () => {
 
         if (!stepHeadTurn.value) {
             livenessFeedback.value = "Slowly turn head left & right";
-            
-            // Turn Detection: Look for non-linear parallax variance
             const yawVar = Math.max(...offsets) - Math.min(...offsets);
             const edgeVar = Math.max(...edgeRatios) - Math.min(...edgeRatios);
             
-            // In 3D, edgeVar changes much more drastically than yawVar (Parallax)
             if (yawVar > 0.04 && edgeVar > 0.15) {
                 stepHeadTurn.value = true;
-                livenessHistory.length = 0; // Clear history to ensure mouth check starts fresh
+                livenessHistory.length = 0; 
             }
         } else if (!stepMouthMove.value) {
             livenessFeedback.value = "Now Smile or Open Mouth";
-            
-            // Action Detection: Look for mouth movement (Smile or Open)
-            // Increased threshold to 0.07 to ensure intentional movement
             const mouthVar = Math.max(...mouthRatios) - Math.min(...mouthRatios);
             if (mouthVar > 0.07) {
                 stepMouthMove.value = true;
             }
         } else {
-            livenessScore.value = 100;
-            livenessStatus.value = 'verified';
-            livenessFeedback.value = "Access Granted";
-            submitAttendance(true);
-            
-            scanCooldown.value = true;
-            setTimeout(() => {
+            // Final check: Antispoofing probability (if model is ready)
+            if (face.real > 0.3) { // 0.3 is decent threshold for "Real"
+                livenessScore.value = 100;
+                livenessStatus.value = 'verified';
+                livenessFeedback.value = "Access Granted";
+                submitAttendance(true);
+                
+                scanCooldown.value = true;
+                setTimeout(() => {
+                    resetLiveness();
+                    scanCooldown.value = false;
+                }, 5000);
+            } else if (face.real !== undefined) {
+                livenessFeedback.value = "Liveness check failed. Try again.";
                 resetLiveness();
-                scanCooldown.value = false;
-            }, 5000);
+            }
         }
     }
 };

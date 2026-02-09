@@ -40,7 +40,11 @@ class ApplicantController extends Controller
             $query->where('status', '!=', 'hired');
         }
 
-        $applicants = $query->latest()->paginate(10)->withQueryString();
+        $applicants = $query->with(['documents' => function($q) {
+            $q->whereHas('documentType', function($dq) {
+                $dq->where('name', 'Resume / CV');
+            });
+        }])->latest()->paginate(10)->withQueryString();
 
         return Inertia::render('Applicants/Index', [
             'applicants' => $applicants,
@@ -262,6 +266,12 @@ class ApplicantController extends Controller
                 'document_type_id' => $request->document_type_id,
                 'file_path' => $relativePath,
             ]);
+        }
+
+        // Sync resume_path if document is Resume / CV
+        $docType = DocumentType::find($request->document_type_id);
+        if ($docType && $docType->name === 'Resume / CV') {
+            $applicant->update(['resume_path' => $relativePath]);
         }
 
         return redirect()->back()->with('success', 'Document uploaded successfully.');

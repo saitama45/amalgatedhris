@@ -85,9 +85,10 @@ class EmployeeController extends Controller
             'birthday' => 'nullable|date',
             'department_id' => 'nullable|exists:departments,id',
             'employment_status' => 'nullable|string|in:Consultant,Probationary,Regular,Project-Based,Casual',
-            'sss_deduction_schedule' => 'nullable|in:first_half,second_half,both,none',
-            'philhealth_deduction_schedule' => 'nullable|in:first_half,second_half,both,none',
-            'pagibig_deduction_schedule' => 'nullable|in:first_half,second_half,both,none',
+            'is_sss_deducted' => 'nullable|boolean',
+            'is_philhealth_deducted' => 'nullable|boolean',
+            'is_pagibig_deducted' => 'nullable|boolean',
+            'is_withholding_tax_deducted' => 'nullable|boolean',
             'face_data' => 'nullable|string', // Base64
             'face_descriptor' => 'nullable|array', // New descriptor
         ]);
@@ -169,14 +170,17 @@ class EmployeeController extends Controller
                     $employmentData['department_id'] = $request->department_id;
                 }
                 
-                if ($request->has('sss_deduction_schedule')) {
-                    $employmentData['sss_deduction_schedule'] = $request->sss_deduction_schedule;
+                if ($request->has('is_sss_deducted')) {
+                    $employmentData['is_sss_deducted'] = $request->is_sss_deducted;
                 }
-                if ($request->has('philhealth_deduction_schedule')) {
-                    $employmentData['philhealth_deduction_schedule'] = $request->philhealth_deduction_schedule;
+                if ($request->has('is_philhealth_deducted')) {
+                    $employmentData['is_philhealth_deducted'] = $request->is_philhealth_deducted;
                 }
-                if ($request->has('pagibig_deduction_schedule')) {
-                    $employmentData['pagibig_deduction_schedule'] = $request->pagibig_deduction_schedule;
+                if ($request->has('is_pagibig_deducted')) {
+                    $employmentData['is_pagibig_deducted'] = $request->is_pagibig_deducted;
+                }
+                if ($request->has('is_withholding_tax_deducted')) {
+                    $employmentData['is_withholding_tax_deducted'] = $request->is_withholding_tax_deducted;
                 }
                 
                 if (!empty($employmentData)) {

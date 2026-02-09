@@ -393,7 +393,9 @@ const statusColors = {
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <a v-if="applicant.resume_path" :href="'/' + applicant.resume_path" target="_blank" class="text-blue-600 hover:text-blue-800 flex items-center text-sm font-medium">
+                                    <a v-if="applicant.resume_path || (applicant.documents && applicant.documents.length > 0)" 
+                                       :href="'/' + (applicant.resume_path || applicant.documents[0].file_path)" 
+                                       target="_blank" class="text-blue-600 hover:text-blue-800 flex items-center text-sm font-medium">
                                         <DocumentTextIcon class="w-4 h-4 mr-1" /> View CV
                                     </a>
                                     <span v-else class="text-slate-400 text-xs italic">No resume</span>

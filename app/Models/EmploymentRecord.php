@@ -23,9 +23,10 @@ class EmploymentRecord extends Model
         'start_date',
         'end_date',
         'is_active',
-        'sss_deduction_schedule',
-        'philhealth_deduction_schedule',
-        'pagibig_deduction_schedule',
+        'is_sss_deducted',
+        'is_philhealth_deducted',
+        'is_pagibig_deducted',
+        'is_withholding_tax_deducted',
     ];
 
     protected $casts = [
@@ -33,6 +34,10 @@ class EmploymentRecord extends Model
         'end_date' => 'date',
         'is_active' => 'boolean',
         'is_ot_allowed' => 'boolean',
+        'is_sss_deducted' => 'boolean',
+        'is_philhealth_deducted' => 'boolean',
+        'is_pagibig_deducted' => 'boolean',
+        'is_withholding_tax_deducted' => 'boolean',
     ];
 
     public function defaultShift()

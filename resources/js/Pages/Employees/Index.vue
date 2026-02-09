@@ -8,7 +8,7 @@ import { usePagination } from '@/Composables/usePagination';
 import { useToast } from '@/Composables/useToast';
 import { usePermission } from '@/Composables/usePermission';
 import { useConfirm } from '@/Composables/useConfirm';
-import * as faceapi from 'face-api.js';
+import { Human } from '@vladmandic/human';
 import {
     UserIcon,
     IdentificationIcon,
@@ -60,20 +60,39 @@ const applyFilters = () => {
     };
     pagination.performSearch(route('employees.index'), params);
 };
-// Load Face API Models
+// Initialize Human library with high-accuracy settings
+const humanConfig = {
+    debug: false,
+    userConsole: false, // Strictest level of console silencing
+    modelBasePath: 'https://cdn.jsdelivr.net/npm/@vladmandic/human/models/',
+    filter: { enabled: true, equalization: true, flip: false },
+    face: {
+        enabled: true,
+        detector: { return: true, rotation: true, mask: false, minConfidence: 0.4 },
+        mesh: { enabled: true },
+        iris: { enabled: true },
+        description: { enabled: true },
+        emotion: { enabled: false },
+        antispoof: { enabled: true },
+        liveness: { enabled: true },
+    },
+    body: { enabled: false },
+    hand: { enabled: false },
+    object: { enabled: false },
+    segmentation: { enabled: false },
+};
+
+const human = new Human(humanConfig);
 const modelsLoaded = ref(false);
+
 onMounted(async () => {
     pagination.updateData(props.employees);
     try {
-        await Promise.all([
-            faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
-            faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
-            faceapi.nets.faceRecognitionNet.loadFromUri('/models')
-        ]);
+        await human.load();
+        await human.warmup();
         modelsLoaded.value = true;
-        console.log("Face API models loaded");
     } catch (e) {
-        console.error("Failed to load face models", e);
+        console.error("Critical: Face models failed to load", e);
     }
 });
 
@@ -334,9 +353,10 @@ const editForm = useForm({
     tin_no: '',
     department_id: '',
     employment_status: '',
-    sss_deduction_schedule: 'default',
-    philhealth_deduction_schedule: 'default',
-    pagibig_deduction_schedule: 'default',
+    is_sss_deducted: true,
+    is_philhealth_deducted: true,
+    is_pagibig_deducted: true,
+    is_withholding_tax_deducted: true,
     face_data: null, // For Biometrics
     face_descriptor: null, // New field for descriptor
 });
@@ -375,66 +395,78 @@ const stopBioCamera = () => {
 };
 
 const captureBio = async () => {
-    if (!bioVideoRef.value || !bioCanvasRef.value) return;
+    if (!bioVideoRef.value || !bioCanvasRef.value || !modelsLoaded.value) return;
     
     isBioProcessing.value = true;
-    const context = bioCanvasRef.value.getContext('2d');
     
-    // Capture at video resolution for max detail
-    const width = bioVideoRef.value.videoWidth;
-    const height = bioVideoRef.value.videoHeight;
-    
-    bioCanvasRef.value.width = width;
-    bioCanvasRef.value.height = height;
-
-    context.drawImage(bioVideoRef.value, 0, 0, width, height);
-    
-    // Generate Descriptor with high-accuracy settings
     try {
-        if (!modelsLoaded.value) throw new Error("Models not loaded yet");
+        // 1. Perform detection directly from video stream
+        const result = await human.detect(bioVideoRef.value);
         
-        // Use higher inputSize (416) for registration accuracy
-        const detection = await faceapi.detectSingleFace(bioCanvasRef.value, new faceapi.TinyFaceDetectorOptions({ inputSize: 416 }))
-            .withFaceLandmarks()
-            .withFaceDescriptor();
-            
-        if (!detection) {
-            showError("No face detected. Please ensure good lighting and face the camera.");
+        if (!result.face || result.face.length === 0) {
+            showError("No face detected. Ensure good lighting and face the camera directly.");
             return;
         }
 
-        // --- CENTER CONSTRAINT CHECK ---
-        const box = detection.detection.box;
-        const faceCenterX = box.x + (box.width / 2);
-        const faceCenterY = box.y + (box.height / 2);
-        const frameCenterX = width / 2;
-        const frameCenterY = height / 2;
+        // Get the primary face (closest/largest)
+        const face = result.face[0];
         
-        const distFromCenter = Math.sqrt(Math.pow(faceCenterX - frameCenterX, 2) + Math.pow(faceCenterY - frameCenterY, 2));
+        // 2. Strict Centering & Quality Constraint
+        // Human returns normalized coordinates (0-1)
+        const box = face.boxRaw; // [x, y, width, height]
+        const faceCenterX = box[0] + (box[2] / 2);
+        const faceCenterY = box[1] + (box[3] / 2);
         
-        // Enforce 140px radius constraint for 720p stream
-        if (distFromCenter > 140) {
+        // Distance from center of frame (0.5, 0.5)
+        const distFromCenter = Math.sqrt(Math.pow(faceCenterX - 0.5, 2) + Math.pow(faceCenterY - 0.5, 2));
+        
+        if (distFromCenter > 0.15) { // Threshold for being "centered"
             showError("Face is not centered. Please align with the circle.");
             return;
         }
 
-        // Enforce minimum size (face must be big enough)
-        if (box.width < 180) {
+        if (box[2] < 0.25) { // Face must take up at least 25% of the frame width
             showError("Face too far away. Please move closer.");
             return;
         }
 
-        // If all checks pass, save the data
-        bioImage.value = bioCanvasRef.value.toDataURL('image/jpeg', 0.8); 
-        editForm.face_data = bioImage.value;
-        editForm.face_descriptor = Array.from(detection.descriptor);
+        // 3. Circular Crop Logic for Preview/Display
+        const videoWidth = bioVideoRef.value.videoWidth;
+        const videoHeight = bioVideoRef.value.videoHeight;
+        const size = 400; 
         
-        showSuccess("Face registered successfully!");
+        const cropCanvas = document.createElement('canvas');
+        cropCanvas.width = size;
+        cropCanvas.height = size;
+        const cropCtx = cropCanvas.getContext('2d');
+
+        cropCtx.beginPath();
+        cropCtx.arc(size/2, size/2, size/2, 0, Math.PI * 2);
+        cropCtx.clip();
+
+        // Draw centered square from video to the circle
+        const sSize = Math.min(videoWidth, videoHeight);
+        const sx = (videoWidth - sSize) / 2;
+        const sy = (videoHeight - sSize) / 2;
+
+        cropCtx.drawImage(bioVideoRef.value, sx, sy, sSize, sSize, 0, 0, size, size);
+
+        // 4. Store Data
+        bioImage.value = cropCanvas.toDataURL('image/jpeg', 0.9); 
+        editForm.face_data = bioImage.value;
+        // Human's face.embedding is the descriptor
+        editForm.face_descriptor = Array.from(face.embedding || []);
+        
+        if (editForm.face_descriptor.length === 0) {
+            throw new Error("Failed to extract facial signature. Please try again.");
+        }
+
+        showSuccess("Face registered successfully with Human AI!");
         bioFeedback.value = "Registration Complete";
         stopBioCamera();
     } catch (err) {
         console.error(err);
-        showError("Failed to process face data: " + err.message);
+        showError("Registration failed: " + err.message);
     } finally {
         isBioProcessing.value = false;
     }
@@ -611,9 +643,10 @@ const openEditModal = (employee) => {
     editForm.tin_no = formatTIN(employee.tin_no || '');
     editForm.department_id = employee.active_employment_record?.department_id || '';
     editForm.employment_status = employee.active_employment_record?.employment_status || '';
-    editForm.sss_deduction_schedule = employee.active_employment_record?.sss_deduction_schedule || 'default';
-    editForm.philhealth_deduction_schedule = employee.active_employment_record?.philhealth_deduction_schedule || 'default';
-    editForm.pagibig_deduction_schedule = employee.active_employment_record?.pagibig_deduction_schedule || 'default';
+    editForm.is_sss_deducted = employee.active_employment_record?.is_sss_deducted ?? true;
+    editForm.is_philhealth_deducted = employee.active_employment_record?.is_philhealth_deducted ?? true;
+    editForm.is_pagibig_deducted = employee.active_employment_record?.is_pagibig_deducted ?? true;
+    editForm.is_withholding_tax_deducted = employee.active_employment_record?.is_withholding_tax_deducted ?? true;
         
         // Handle JSON face_data
         let faceFilename = null;
@@ -642,16 +675,14 @@ const openEditModal = (employee) => {
 };
 
 const submitEdit = () => {
-    console.log("Submitting edit form:", {
-        face_data_length: editForm.face_data ? editForm.face_data.length : 0,
-        face_descriptor: editForm.face_descriptor
-    });
-    
     editForm.put(route('employees.update', editingEmployee.value.id), {
         onSuccess: () => {
             closeEditModal();
         },
-        onError: () => showError('Failed to update profile. Please check inputs.')
+        onError: (errors) => {
+            const firstError = Object.values(errors)[0];
+            showError(firstError || 'Failed to update profile. Please check inputs.');
+        }
     });
 };
 
@@ -1113,40 +1144,26 @@ const submitResign = async () => {
                 </div>
 
                 <div class="border-t border-slate-100 pt-6 mt-6">
-                    <h4 class="font-bold text-slate-800 mb-4">Contribution Deduction Settings</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-1">SSS Schedule</label>
-                            <select v-model="editForm.sss_deduction_schedule" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold">
-                                <option value="default">Company Default</option>
-                                <option value="first_half">15th Payout</option>
-                                <option value="second_half">30th Payout</option>
-                                <option value="both">Both Payouts</option>
-                                <option value="none">No Deduction</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-1">PhilHealth Schedule</label>
-                            <select v-model="editForm.philhealth_deduction_schedule" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold">
-                                <option value="default">Company Default</option>
-                                <option value="first_half">15th Payout</option>
-                                <option value="second_half">30th Payout</option>
-                                <option value="both">Both Payouts</option>
-                                <option value="none">No Deduction</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-1">Pag-IBIG Schedule</label>
-                            <select v-model="editForm.pagibig_deduction_schedule" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold">
-                                <option value="default">Company Default</option>
-                                <option value="first_half">15th Payout</option>
-                                <option value="second_half">30th Payout</option>
-                                <option value="both">Both Payouts</option>
-                                <option value="none">No Deduction</option>
-                            </select>
-                        </div>
+                    <h4 class="font-bold text-slate-800 mb-4">Government Contribution Flags</h4>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <label class="flex items-center p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-all" :class="{'border-blue-500 bg-blue-50': editForm.is_sss_deducted}">
+                            <input type="checkbox" v-model="editForm.is_sss_deducted" class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500">
+                            <span class="ml-3 text-sm font-bold text-slate-700">SSS</span>
+                        </label>
+                        <label class="flex items-center p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-all" :class="{'border-emerald-500 bg-emerald-50': editForm.is_philhealth_deducted}">
+                            <input type="checkbox" v-model="editForm.is_philhealth_deducted" class="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500">
+                            <span class="ml-3 text-sm font-bold text-slate-700">PhilHealth</span>
+                        </label>
+                        <label class="flex items-center p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-all" :class="{'border-indigo-500 bg-indigo-50': editForm.is_pagibig_deducted}">
+                            <input type="checkbox" v-model="editForm.is_pagibig_deducted" class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500">
+                            <span class="ml-3 text-sm font-bold text-slate-700">Pag-IBIG</span>
+                        </label>
+                        <label class="flex items-center p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-all" :class="{'border-orange-500 bg-orange-50': editForm.is_withholding_tax_deducted}">
+                            <input type="checkbox" v-model="editForm.is_withholding_tax_deducted" class="w-4 h-4 text-orange-600 rounded border-slate-300 focus:ring-orange-500">
+                            <span class="ml-3 text-sm font-bold text-slate-700">Tax</span>
+                        </label>
                     </div>
-                    <p class="text-[10px] text-slate-500 mt-3 italic">Defines which cut-off period these government contributions will be deducted.</p>
+                    <p class="text-[10px] text-slate-500 mt-3 italic">Toggle whether this employee is subject to these mandatory government deductions. Payout cycles are managed at the company level.</p>
                 </div>
 
                 <div class="border-t border-slate-100 pt-6 mt-6">
@@ -1235,7 +1252,7 @@ const submitResign = async () => {
                             <button v-if="bioImage" type="button" @click="retakeBio" class="bg-white/20 backdrop-blur text-white px-4 py-2 rounded-full font-bold text-xs shadow-lg hover:bg-white/30 transition-all flex items-center border border-white/30">
                                 <ArrowPathIcon class="w-4 h-4 mr-2" /> Retake
                             </button>
-                            <button v-if="bioImage && !isBioCameraActive" type="button" @click="() => { bioImage = null; editForm.face_data = 'CLEAR'; }" class="bg-red-500/20 backdrop-blur text-red-200 px-4 py-2 rounded-full font-bold text-xs shadow-lg hover:bg-red-500/30 transition-all flex items-center border border-red-500/30">
+                            <button v-if="bioImage && !isBioCameraActive" type="button" @click="() => { bioImage = null; editForm.face_data = 'CLEAR'; editForm.face_descriptor = null; }" class="bg-red-500/20 backdrop-blur text-red-200 px-4 py-2 rounded-full font-bold text-xs shadow-lg hover:bg-red-500/30 transition-all flex items-center border border-red-500/30">
                                 <TrashIcon class="w-4 h-4 mr-2" /> Clear Biometrics
                             </button>
                         </div>
