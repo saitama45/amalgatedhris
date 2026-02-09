@@ -158,27 +158,18 @@ const editSalaryItem = (item) => {
     
     salaryForm.basic_rate = item.basic_rate;
     salaryForm.allowance = item.allowance;
-    // For editing existing history, we typically don't change the position linked to that record directly here easily without complex logic, 
-    // so we might disable position edit or just show it. 
-    // But user asked to edit salary rate specifically.
-    // The position is tied to the employment_record, not just the salary_history row directly (it's a relationship).
-    // So for this "Edit Rate" feature, we will focus on rate and date.
+    salaryForm.position_id = item.position_id; 
+    salaryForm.company_id = item.company_id;
     
-    // We'll set the position_id to the one in the record for display/consistency, 
-    // but we might disable changing it if it implies a different employment record logic.
-    // Let's allow simple rate updates.
-    salaryForm.position_id = item.employment_record?.position_id; 
-    salaryForm.company_id = item.employment_record?.company_id;
-    
-    // Backend now returns YYYY-MM-DD, so we can use it directly
-    salaryForm.effective_date = item.effective_date;
+    // For EmploymentRecord, we use start_date as the effective date
+    salaryForm.effective_date = item.start_date ? item.start_date.substring(0, 10) : '';
 };
 
 const fetchSalaryHistory = (employeeId) => {
     isLoadingSalary.value = true;
     axios.get(route('employees.salary.index', employeeId))
         .then(response => {
-            // New structure: { history: [], current_record: {} }
+            // New structure: history is now a list of EmploymentRecords
             const historyData = response.data.history;
             salaryHistory.value = historyData;
 
@@ -1537,11 +1528,11 @@ const submitResign = async () => {
                         <tbody class="bg-white divide-y divide-slate-50">
                             <tr v-for="item in salaryHistory" :key="item.id" class="hover:bg-slate-50 group">
                                 <td class="px-4 py-3 text-sm font-bold text-slate-700">
-                                    {{ item.effective_date.substring(0, 10) }}
+                                    {{ item.start_date.substring(0, 10) }}
                                 </td>
                                 <td class="px-4 py-3 text-sm text-slate-600">
-                                    <div class="font-bold text-slate-800">{{ item.employment_record?.company?.name || 'Unknown Company' }}</div>
-                                    <div class="text-xs">{{ item.employment_record?.position?.name || 'Unknown Position' }}</div>
+                                    <div class="font-bold text-slate-800">{{ item.company?.name || 'Unknown Company' }}</div>
+                                    <div class="text-xs">{{ item.position?.name || 'Unknown Position' }}</div>
                                 </td>
                                 <td class="px-4 py-3 text-sm text-right font-mono">
                                     {{ parseFloat(item.basic_rate).toLocaleString(undefined, {minimumFractionDigits: 2}) }}

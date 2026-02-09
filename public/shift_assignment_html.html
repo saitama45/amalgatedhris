@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Shift Assignment - Interactive Grid</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#3b82f6", // Blue-500 equivalent as seen in screenshot controls
+                        secondary: "#6366f1",
+                        "background-light": "#f3f4f6", // Gray-100
+                        "background-dark": "#0f172a", // Slate-900
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#1e293b", // Slate-800
+                        "border-light": "#e2e8f0",
+                        "border-dark": "#334155",
+                    },
+                    fontFamily: {
+                        display: ["Inter", "sans-serif"],
+                        body: ["Inter", "sans-serif"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.5rem",
+                    },
+                },
+            },
+        };
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .sidebar-icon {
+            @apply flex items-center justify-center w-10 h-10 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer;
+        }
+        .sidebar-icon.active {
+            @apply text-white bg-primary/20 border-l-4 border-primary rounded-none rounded-r-lg;
+        }.custom-scrollbar::-webkit-scrollbar {
+            height: 8px;
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 20px;
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #475569;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-800 dark:text-slate-200 transition-colors duration-200 h-screen overflow-hidden flex">
+<aside class="w-16 md:w-20 bg-[#0B1120] dark:bg-black flex flex-col items-center py-6 gap-6 z-20 flex-shrink-0">
+<div class="mb-2">
+<div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+<span class="material-icons text-white text-xl">change_history</span>
+</div>
+</div>
+<div class="flex flex-col gap-2 w-full px-2">
+<div class="sidebar-icon" title="Menu"><span class="material-icons-outlined">menu</span></div>
+<div class="sidebar-icon" title="Home"><span class="material-icons-outlined">home</span></div>
+<div class="sidebar-icon" title="Users"><span class="material-icons-outlined">person_add</span></div>
+<div class="sidebar-icon" title="Tasks"><span class="material-icons-outlined">assignment_turned_in</span></div>
+<div class="sidebar-icon" title="Team"><span class="material-icons-outlined">groups</span></div>
+<div class="sidebar-icon" title="Computer"><span class="material-icons-outlined">computer</span></div>
+<div class="sidebar-icon" title="Time"><span class="material-icons-outlined">schedule</span></div>
+<div class="sidebar-icon active" title="Calendar"><span class="material-icons-outlined text-primary">calendar_month</span></div>
+<div class="sidebar-icon" title="Settings"><span class="material-icons-outlined">settings</span></div>
+</div>
+<div class="mt-auto mb-4">
+<div class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-white font-bold border border-slate-700">K</div>
+</div>
+</aside>
+<main class="flex-1 flex flex-col h-full min-w-0">
+<header class="h-16 bg-surface-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark flex items-center justify-between px-6 flex-shrink-0">
+<div class="flex items-center gap-3 w-1/3">
+<span class="material-icons-outlined text-gray-400">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-full placeholder-gray-400 dark:placeholder-gray-500 text-slate-700 dark:text-slate-200" placeholder="Global Search (Ctrl+K)" type="text"/>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-gray-400 hover:text-primary transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-slate-700" onclick="document.documentElement.classList.toggle('dark')">
+<span class="material-icons-outlined dark:hidden">dark_mode</span>
+<span class="material-icons-outlined hidden dark:block">light_mode</span>
+</button>
+<button class="relative p-2 text-gray-400 hover:text-primary transition-colors">
+<span class="material-icons-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full"></span>
+</button>
+<div class="flex items-center gap-2 pl-2 border-l border-border-light dark:border-border-dark">
+<div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm font-semibold">K</div>
+<span class="text-sm font-medium hidden md:block">KURT MINOZA</span>
+<span class="material-icons-outlined text-gray-400 text-sm">expand_more</span>
+</div>
+</div>
+</header>
+<div class="flex-1 flex flex-col overflow-hidden bg-background-light dark:bg-background-dark p-6">
+<div class="flex flex-col md:flex-row md:items-end justify-between mb-6 gap-4 flex-shrink-0">
+<div>
+<h1 class="text-2xl font-bold text-slate-800 dark:text-white">Shift Assignment</h1>
+<p class="text-slate-500 dark:text-slate-400 mt-1">Configure standard weekly schedules via drag-and-drop grid.</p>
+</div>
+<div class="flex items-center gap-3 bg-surface-light dark:bg-surface-dark p-1.5 rounded-lg border border-border-light dark:border-border-dark shadow-sm">
+<button class="px-3 py-1.5 text-sm font-medium rounded-md text-gray-500 hover:text-slate-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700 transition-all">List View</button>
+<button class="px-3 py-1.5 text-sm font-medium rounded-md bg-primary text-white shadow-sm">Grid View</button>
+</div>
+</div>
+<div class="flex gap-6 h-full overflow-hidden">
+<div class="flex-1 flex flex-col bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark overflow-hidden">
+<div class="p-4 border-b border-border-light dark:border-border-dark flex flex-wrap items-center justify-between gap-4">
+<div class="flex items-center gap-3">
+<div class="flex items-center bg-gray-50 dark:bg-slate-800 rounded-lg border border-border-light dark:border-border-dark p-1">
+<button class="p-1 hover:bg-white dark:hover:bg-slate-700 rounded shadow-sm transition-all"><span class="material-icons-outlined text-sm">chevron_left</span></button>
+<span class="px-3 text-sm font-semibold">Oct 23 - Oct 29, 2023</span>
+<button class="p-1 hover:bg-white dark:hover:bg-slate-700 rounded shadow-sm transition-all"><span class="material-icons-outlined text-sm">chevron_right</span></button>
+</div>
+<span class="text-xs text-primary font-medium px-2 py-1 bg-primary/10 rounded border border-primary/20">Current Week</span>
+</div>
+<div class="flex items-center gap-3">
+<div class="relative">
+<span class="material-icons-outlined absolute left-2.5 top-2 text-gray-400 text-lg">search</span>
+<input class="pl-9 pr-4 py-1.5 text-sm rounded-lg border border-border-light dark:border-border-dark bg-transparent focus:ring-2 focus:ring-primary focus:border-primary w-64" placeholder="Filter employees..." type="text"/>
+</div>
+<select class="py-1.5 pl-3 pr-8 text-sm rounded-lg border border-border-light dark:border-border-dark bg-transparent focus:ring-primary">
+<option>All Departments</option>
+<option>Finance</option>
+<option>Engineering</option>
+</select>
+</div>
+</div>
+<div class="flex-1 overflow-auto custom-scrollbar relative">
+<table class="w-full text-left border-collapse">
+<thead class="bg-gray-50 dark:bg-slate-800 sticky top-0 z-10 shadow-sm">
+<tr>
+<th class="p-4 text-xs font-semibold text-gray-500 uppercase tracking-wider w-64 border-b border-r border-border-light dark:border-border-dark sticky left-0 bg-gray-50 dark:bg-slate-800 z-20">
+                                        Employee
+                                    </th>
+<th class="p-3 text-center border-b border-border-light dark:border-border-dark min-w-[100px]">
+<div class="text-xs font-bold text-gray-500">MON</div>
+<div class="text-lg font-bold">23</div>
+</th>
+<th class="p-3 text-center border-b border-border-light dark:border-border-dark min-w-[100px]">
+<div class="text-xs font-bold text-gray-500">TUE</div>
+<div class="text-lg font-bold">24</div>
+</th>
+<th class="p-3 text-center border-b border-border-light dark:border-border-dark min-w-[100px]">
+<div class="text-xs font-bold text-gray-500">WED</div>
+<div class="text-lg font-bold">25</div>
+</th>
+<th class="p-3 text-center border-b border-border-light dark:border-border-dark min-w-[100px]">
+<div class="text-xs font-bold text-gray-500">THU</div>
+<div class="text-lg font-bold">26</div>
+</th>
+<th class="p-3 text-center border-b border-border-light dark:border-border-dark min-w-[100px]">
+<div class="text-xs font-bold text-gray-500">FRI</div>
+<div class="text-lg font-bold text-primary">27</div> 
+</th>
+<th class="p-3 text-center border-b border-border-light dark:border-border-dark min-w-[100px] bg-gray-50/50 dark:bg-slate-800/50">
+<div class="text-xs font-bold text-gray-400">SAT</div>
+<div class="text-lg font-bold text-gray-400">28</div>
+</th>
+<th class="p-3 text-center border-b border-border-light dark:border-border-dark min-w-[100px] bg-gray-50/50 dark:bg-slate-800/50">
+<div class="text-xs font-bold text-gray-400">SUN</div>
+<div class="text-lg font-bold text-gray-400">29</div>
+</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-border-light dark:divide-border-dark text-sm">
+<tr class="group hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
+<td class="p-3 border-r border-border-light dark:border-border-dark sticky left-0 bg-surface-light dark:bg-surface-dark group-hover:bg-gray-50 dark:group-hover:bg-slate-800/50 z-10">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-gradient-to-tr from-pink-500 to-rose-500 text-white flex items-center justify-center font-bold text-xs">MG</div>
+<div>
+<div class="font-medium text-slate-800 dark:text-slate-200">Maria Gonzales</div>
+<div class="text-xs text-gray-400">Sr. Accountant</div>
+</div>
+</div>
+</td>
+<td class="p-1 border-r border-border-light dark:border-border-dark relative">
+<div class="w-full h-10 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-xs font-medium cursor-grab hover:shadow-md transition-shadow">
+                                            09:00 - 18:00
+                                        </div>
+</td>
+<td class="p-1 border-r border-border-light dark:border-border-dark relative">
+<div class="w-full h-10 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-xs font-medium cursor-grab hover:shadow-md transition-shadow">
+                                            09:00 - 18:00
+                                        </div>
+</td>
+<td class="p-1 border-r border-border-light dark:border-border-dark relative">
+<div class="w-full h-10 rounded border border-dashed border-gray-300 dark:border-gray-700 flex items-center justify-center text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-icons text-sm">add</span>
+</div>
+</td>
+<td class="p-1 border-r border-border-light dark:border-border-dark relative">
+<div class="w-full h-10 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-xs font-medium cursor-grab hover:shadow-md transition-shadow">
+                                            09:00 - 18:00
+                                        </div>
+</td>
+<td class="p-1 border-r border-border-light dark:border-border-dark relative bg-primary/5">
+<div class="w-full h-10 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-xs font-medium cursor-grab hover:shadow-md transition-shadow">
+                                            09:00 - 18:00
+                                        </div>
+</td>
+<td class="p-1 border-r border-border-light dark:border-border-dark bg-gray-50/50 dark:bg-slate-800/50"></td>
+<td class="p-1 bg-gray-50/50 dark:bg-slate-800/50"></td>
+</tr>
+<tr class="group hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
+<td class="p-3 border-r border-border-light dark:border-border-dark sticky left-0 bg-surface-light dark:bg-surface-dark group-hover:bg-gray-50 dark:group-hover:bg-slate-800/50 z-10">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-indigo-500 text-white flex items-center justify-center font-bold text-xs">RF</div>
+<div>
+<div class="font-medium text-slate-800 dark:text-slate-200">Rex Febra</div>
+<div class="text-xs text-gray-400">Developer</div>
+</div>
+</div>
+</td>
+<td class="p-1 border-r border-border-light dark:border-border-dark">
+<div class="w-full h-10 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 flex items-center justify-center text-xs font-medium cursor-grab hover:shadow-md transition-shadow">
+                                            08:00 - 17:00
+                                        </div>
+</td>
+<td class="p-1 border-r border-border-light dark:border-border-dark">
+<div class="w-full h-10 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 flex items-center justify-center text-xs font-medium cursor-grab hover:shadow-md transition-shadow">
+                                            08:00 - 17:00
+                                        </div>
+</td>
+<td class="p-1 border-r border-border-light dark:border-border-dark">
+<div class="w-full h-10 rounded bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800 flex items-center justify-center text-xs font-medium cursor-default">
+                                            LEAVE
+                                        </div>
+</td>
+<td class="p-1 border-r border-border-light dark:border-border-dark">
+<div class="w-full h-10 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 flex items-center justify-center text-xs font-medium cursor-grab hover:shadow-md transition-shadow">
+                                            08:00 - 17:00
+                                        </div>
+</td>
+<td class="p-1 border-r border-border-light dark:border-border-dark bg-primary/5">
+<div class="w-full h-10 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 flex items-center justify-center text-xs font-medium cursor-grab hover:shadow-md transition-shadow">
+                                            08:00 - 17:00
+                                        </div>
+</td>
+<td class="p-1 border-r border-border-light dark:border-border-dark bg-gray-50/50 dark:bg-slate-800/50"></td>
+<td class="p-1 bg-gray-50/50 dark:bg-slate-800/50"></td>
+</tr>
+<tr class="group hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
+<td class="p-3 border-r border-border-light dark:border-border-dark sticky left-0 bg-surface-light dark:bg-surface-dark group-hover:bg-gray-50 dark:group-hover:bg-slate-800/50 z-10">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center font-bold text-xs">JM</div>
+<div>
+<div class="font-medium text-slate-800 dark:text-slate-200">Jojie Molde</div>
+<div class="text-xs text-gray-400">Finance Lead</div>
+</div>
+</div>
+</td>
+<td class="p-1 border-r border-border-light dark:border-border-dark">
+<div class="w-full h-10 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 flex items-center justify-center text-xs font-medium cursor-grab hover:shadow-md transition-shadow">
+                                            10:00 - 19:00
+                                        </div>
+</td>
+<td class="p-1 border-r border-border-light dark:border-border-dark">
+<div class="w-full h-10 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 flex items-center justify-center text-xs font-medium cursor-grab hover:shadow-md transition-shadow">
+                                            10:00 - 19:00
+                                        </div>
+</td>
+<td class="p-1 border-r border-border-light dark:border-border-dark">
+<div class="w-full h-10 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 flex items-center justify-center text-xs font-medium cursor-grab hover:shadow-md transition-shadow">
+                                            10:00 - 19:00
+                                        </div>
+</td>
+<td class="p-1 border-r border-border-light dark:border-border-dark">
+<div class="w-full h-10 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 flex items-center justify-center text-xs font-medium cursor-grab hover:shadow-md transition-shadow">
+                                            10:00 - 19:00
+                                        </div>
+</td>
+<td class="p-1 border-r border-border-light dark:border-border-dark bg-primary/5">
+<div class="w-full h-10 rounded border border-dashed border-gray-300 dark:border-gray-700 flex items-center justify-center text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-icons text-sm">add</span>
+</div>
+</td>
+<td class="p-1 border-r border-border-light dark:border-border-dark bg-gray-50/50 dark:bg-slate-800/50"></td>
+<td class="p-1 bg-gray-50/50 dark:bg-slate-800/50"></td>
+</tr>
+<tr class="group hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
+<td class="p-3 border-r border-border-light dark:border-border-dark sticky left-0 bg-surface-light dark:bg-surface-dark group-hover:bg-gray-50 dark:group-hover:bg-slate-800/50 z-10">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300 flex items-center justify-center font-bold text-xs">JD</div>
+<div>
+<div class="font-medium text-slate-800 dark:text-slate-200">Jane Doe</div>
+<div class="text-xs text-gray-400">Intern</div>
+</div>
+</div>
+</td>
+<td class="p-1 border-r border-border-light dark:border-border-dark"></td>
+<td class="p-1 border-r border-border-light dark:border-border-dark">
+<div class="w-full h-10 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-xs font-medium cursor-grab hover:shadow-md transition-shadow">
+                                            09:00 - 18:00
+                                        </div>
+</td>
+<td class="p-1 border-r border-border-light dark:border-border-dark"></td>
+<td class="p-1 border-r border-border-light dark:border-border-dark">
+<div class="w-full h-10 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-xs font-medium cursor-grab hover:shadow-md transition-shadow">
+                                            09:00 - 18:00
+                                        </div>
+</td>
+<td class="p-1 border-r border-border-light dark:border-border-dark bg-primary/5">
+<div class="w-full h-10 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-xs font-medium cursor-grab hover:shadow-md transition-shadow">
+                                            09:00 - 18:00
+                                        </div>
+</td>
+<td class="p-1 border-r border-border-light dark:border-border-dark bg-gray-50/50 dark:bg-slate-800/50"></td>
+<td class="p-1 bg-gray-50/50 dark:bg-slate-800/50"></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-3 border-t border-border-light dark:border-border-dark text-xs text-gray-500 bg-gray-50 dark:bg-slate-800/50 flex justify-between items-center">
+<span>Showing 4 of 25 employees</span>
+<div class="flex gap-2">
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-500"></span> Regular</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500"></span> Morning</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-purple-500"></span> Mid</span>
+<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-orange-500"></span> Leave</span>
+</div>
+</div>
+</div>
+<aside class="w-80 flex flex-col gap-6 flex-shrink-0">
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark flex flex-col overflow-hidden h-1/2">
+<div class="p-4 border-b border-border-light dark:border-border-dark bg-gray-50 dark:bg-slate-800">
+<h3 class="font-semibold text-slate-800 dark:text-white flex items-center gap-2">
+<span class="material-icons-outlined text-primary text-lg">event_note</span>
+                                Shift Templates
+                            </h3>
+<p class="text-xs text-gray-500 mt-1">Drag onto the calendar to assign.</p>
+</div>
+<div class="p-4 overflow-y-auto custom-scrollbar flex flex-col gap-3">
+<div class="p-3 bg-white dark:bg-slate-800 border border-border-light dark:border-border-dark rounded-lg hover:border-primary cursor-grab active:cursor-grabbing transition-all hover:shadow-md group">
+<div class="flex justify-between items-start mb-2">
+<div class="text-sm font-bold text-slate-800 dark:text-slate-200">Regular Day</div>
+<span class="material-icons-outlined text-gray-300 group-hover:text-primary text-lg">drag_indicator</span>
+</div>
+<div class="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded w-max mb-1">
+<span class="material-icons-outlined text-xs">schedule</span>
+                                    09:00 AM - 06:00 PM
+                                </div>
+<div class="text-xs text-gray-400">9h total • 1h break</div>
+</div>
+<div class="p-3 bg-white dark:bg-slate-800 border border-border-light dark:border-border-dark rounded-lg hover:border-green-500 cursor-grab active:cursor-grabbing transition-all hover:shadow-md group">
+<div class="flex justify-between items-start mb-2">
+<div class="text-sm font-bold text-slate-800 dark:text-slate-200">Morning Shift</div>
+<span class="material-icons-outlined text-gray-300 group-hover:text-green-500 text-lg">drag_indicator</span>
+</div>
+<div class="flex items-center gap-2 text-xs text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded w-max mb-1">
+<span class="material-icons-outlined text-xs">schedule</span>
+                                    08:00 AM - 05:00 PM
+                                </div>
+<div class="text-xs text-gray-400">9h total • 1h break</div>
+</div>
+<div class="p-3 bg-white dark:bg-slate-800 border border-border-light dark:border-border-dark rounded-lg hover:border-purple-500 cursor-grab active:cursor-grabbing transition-all hover:shadow-md group">
+<div class="flex justify-between items-start mb-2">
+<div class="text-sm font-bold text-slate-800 dark:text-slate-200">Mid Shift</div>
+<span class="material-icons-outlined text-gray-300 group-hover:text-purple-500 text-lg">drag_indicator</span>
+</div>
+<div class="flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 px-2 py-1 rounded w-max mb-1">
+<span class="material-icons-outlined text-xs">schedule</span>
+                                    10:00 AM - 07:00 PM
+                                </div>
+<div class="text-xs text-gray-400">9h total • 1h break</div>
+</div>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark flex flex-col flex-1 overflow-hidden">
+<div class="p-4 border-b border-border-light dark:border-border-dark bg-gray-50 dark:bg-slate-800">
+<h3 class="font-semibold text-slate-800 dark:text-white flex items-center gap-2">
+<span class="material-icons-outlined text-orange-500 text-lg">history</span>
+                                Quick Assign
+                            </h3>
+<p class="text-xs text-gray-500 mt-1">Apply frequent patterns instantly.</p>
+</div>
+<div class="p-4 overflow-y-auto custom-scrollbar flex flex-col gap-3">
+<button class="w-full text-left p-3 hover:bg-gray-50 dark:hover:bg-slate-700/50 border border-transparent hover:border-border-light dark:hover:border-border-dark rounded-lg transition-all group">
+<div class="flex items-center justify-between mb-1">
+<span class="text-sm font-medium text-slate-700 dark:text-slate-200">Standard M-F</span>
+<span class="material-icons-outlined text-gray-400 group-hover:text-primary text-sm">play_circle</span>
+</div>
+<div class="text-xs text-gray-400">Apply 9-6 Regular to all empty M-F slots.</div>
+</button>
+<button class="w-full text-left p-3 hover:bg-gray-50 dark:hover:bg-slate-700/50 border border-transparent hover:border-border-light dark:hover:border-border-dark rounded-lg transition-all group">
+<div class="flex items-center justify-between mb-1">
+<span class="text-sm font-medium text-slate-700 dark:text-slate-200">Copy Last Week</span>
+<span class="material-icons-outlined text-gray-400 group-hover:text-primary text-sm">content_copy</span>
+</div>
+<div class="text-xs text-gray-400">Duplicate schedule from Oct 16-22.</div>
+</button>
+<div class="mt-4 pt-4 border-t border-border-light dark:border-border-dark">
+<label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 cursor-pointer">
+<input class="rounded border-gray-300 text-primary focus:ring-primary" type="checkbox"/>
+<span>Allow Overtime</span>
+</label>
+<label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 cursor-pointer mt-2">
+<input checked="" class="rounded border-gray-300 text-primary focus:ring-primary" type="checkbox"/>
+<span>Notify Employees</span>
+</label>
+</div>
+</div>
+<div class="p-4 mt-auto border-t border-border-light dark:border-border-dark bg-gray-50 dark:bg-slate-800">
+<button class="w-full py-2.5 bg-primary hover:bg-blue-600 text-white font-medium rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2">
+<span class="material-icons-outlined">save</span>
+                                Save Changes
+                             </button>
+</div>
+</div>
+</aside>
+</div>
+</div>
+</main>
+
+</body></html>

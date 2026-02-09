@@ -14,6 +14,8 @@ class EmploymentRecord extends Model
         'company_id',
         'department_id',
         'position_id',
+        'basic_rate',
+        'allowance',
         'default_shift_id',
         'work_days',
         'grace_period_minutes',
@@ -38,6 +40,8 @@ class EmploymentRecord extends Model
         'is_philhealth_deducted' => 'boolean',
         'is_pagibig_deducted' => 'boolean',
         'is_withholding_tax_deducted' => 'boolean',
+        'basic_rate' => 'float',
+        'allowance' => 'float',
     ];
 
     public function defaultShift()
