@@ -11,6 +11,11 @@ class LeaveType extends Model
 
     protected $fillable = ['name', 'days_per_year', 'is_convertible', 'is_cumulative'];
 
+    protected $casts = [
+        'is_convertible' => 'boolean',
+        'is_cumulative' => 'boolean',
+    ];
+
     public function requests()
     {
         return $this->hasMany(LeaveRequest::class);

@@ -39,51 +39,125 @@ const page = usePage();
 const user = computed(() => page.props.auth?.user || {});
 const { hasPermission, hasAnyPermission } = usePermission();
 
+// Dynamic Menu Structure from Config
+const sidebarConfig = computed(() => page.props.config?.sidebar_structure || {});
+const moduleLabels = computed(() => page.props.config?.module_labels || {});
+
+// Helper to determine if a main group should be visible
+const canShowGroup = (groupCategories) => {
+    return groupCategories.some(category => {
+        const userPermissions = page.props.auth?.permissions || [];
+        // Show group if user has the base permission OR any sub-permission
+        return userPermissions.some(p => p === category || p.startsWith(category + '.'));
+    });
+};
+
+// Helper to check permission for a specific category link
+const hasModuleAccess = (category) => {
+    // Check for 'category.view' OR just 'category' (for standalone permissions)
+    return hasPermission(category + '.view') || hasPermission(category);
+};
+
+// Helper to get actual route name from category key
+const getRouteName = (category) => {
+    const customMappings = {
+        'dashboard': 'dashboard',
+        'attendance.kiosk': 'attendance.kiosk',
+        'exams': 'applicants.exams',
+        'government_deductions': 'contributions.index',
+        'overtime_rates': 'overtime-rates.index',
+        'document_types': 'document-types.index',
+        'leave_requests': 'leave-requests.index',
+        'portal.dashboard': 'portal.dashboard',
+        'portal.leaves': 'portal.leaves',
+        'portal.overtime': 'portal.overtime',
+        'portal.payslips': 'portal.payslips',
+        'portal.deductions': 'portal.deductions',
+    };
+
+    return customMappings[category] || (category + '.index');
+};
+
 const toggleSidebar = () => {
     emit('toggle');
 };
 
-// Menu State
-const menuState = ref({
-    recruitment: false,
-    workforce: false,
-    timekeeping: false,
-    compensation: false,
-    portal: false,
-    system: false
-});
+// Mapping slugs to Heroicons
+const iconMap = {
+    dashboard: HomeIcon,
+    applicants: UserPlusIcon,
+    exams: ClipboardDocumentCheckIcon,
+    employees: UserGroupIcon,
+    'attendance.kiosk': ComputerDesktopIcon,
+    dtr: ClockIcon,
+    shifts: CalendarDaysIcon,
+    schedules: ClipboardDocumentCheckIcon,
+    holidays: CalendarDaysIcon,
+    overtime: ClockIcon,
+    overtime_rates: TableCellsIcon,
+    leave_requests: DocumentDuplicateIcon,
+    payroll: BanknotesIcon,
+    government_deductions: TableCellsIcon,
+    deductions: CreditCardIcon,
+    'portal.dashboard': HomeIcon,
+    'portal.leaves': DocumentDuplicateIcon,
+    'portal.overtime': ClockIcon,
+    'portal.payslips': BanknotesIcon,
+    'portal.deductions': CreditCardIcon,
+    users: UserGroupIcon,
+    companies: BuildingOfficeIcon,
+    departments: BuildingOfficeIcon,
+    positions: BriefcaseIcon,
+    document_types: DocumentDuplicateIcon,
+    roles: ShieldCheckIcon
+};
+
+// Mapping group names to their main icons
+const groupIconMap = {
+    'Recruitment': BriefcaseIcon,
+    'Workforce': UsersIcon,
+    'Time & Attendance': ClockIcon,
+    'Compensation': BanknotesIcon,
+    'My Portal': ComputerDesktopIcon,
+    'System Administration': Cog6ToothIcon,
+    'Overview': HomeIcon
+};
+
+// Menu State (Keyed by Group Name)
+const menuState = ref({});
 
 const toggleMenu = (key) => {
     menuState.value[key] = !menuState.value[key];
 };
 
-const checkActiveRoutes = () => {
-    const currentUrl = page.url;
-
-    // Recruitment
-    if (route().current('applicants.*')) menuState.value.recruitment = true;
+const isRouteActive = (category) => {
+    const routeName = getRouteName(category);
+    // Get the base prefix (e.g., 'leave-requests' from 'leave-requests.index')
+    const routeParts = routeName.split('.');
+    const routePrefix = routeParts[0];
     
-    // Workforce
-    if (route().current('employees.*')) menuState.value.workforce = true;
-
-    // Timekeeping
-    if (route().current('dtr.*') || route().current('shifts.*') || route().current('schedules.*') || route().current('holidays.*') || route().current('attendance.kiosk') || route().current('overtime.*') || route().current('overtime-rates.*') || route().current('leave-requests.*')) menuState.value.timekeeping = true;
-
-    // Compensation
-    if (route().current('contributions.*') || route().current('deductions.*') || route().current('payroll.*')) menuState.value.compensation = true;
-
-    // Workforce vs System (Users)
-    if (route().current('users.*')) {
-        if (currentUrl.includes('view=system')) {
-            menuState.value.system = true;
-        } else {
-            // Default fallback
-            menuState.value.system = true;
-        }
+    // Check for exact matches or children of the specific module
+    if (route().current(category) || route().current(category + '.*') || route().current(routeName + '.*')) {
+        return true;
     }
 
-    // System
-    if (route().current('companies.*') || route().current('roles.*') || route().current('departments.*') || route().current('positions.*') || route().current('document-types.*')) menuState.value.system = true;
+    // Handle prefixed routes (like leave-requests.*) but skip the generic 'portal' prefix 
+    // to avoid highlighting every portal module at once.
+    if (routePrefix !== 'portal' && route().current(routePrefix + '.*')) {
+        return true;
+    }
+    
+    return (category === 'leave_requests' && route().current('leave-types.*')) ||
+           (category === 'government_deductions' && route().current('contributions.*')) || 
+           (category === 'attendance.kiosk' && route().current('attendance.kiosk'));
+};
+
+const checkActiveRoutes = () => {
+    // Automatically open menus containing active routes
+    Object.entries(sidebarConfig.value).forEach(([groupName, categories]) => {
+        const isActive = categories.some(cat => isRouteActive(cat));
+        if (isActive) menuState.value[groupName] = true;
+    });
 };
 
 onMounted(() => {
@@ -160,473 +234,64 @@ const handleMouseLeave = () => {
 
             <!-- Navigation -->
             <nav class="flex-1 overflow-y-auto py-6 px-3 space-y-1 custom-scrollbar z-10">
-                <!-- Dashboard -->
-                <Link
-                    v-if="hasPermission('dashboard.view')"
-                    :href="route('dashboard')"
-                    :class="[
-                        'flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 group relative mb-2',
-                        route().current('dashboard')
-                            ? 'bg-gradient-to-r from-[#161F32] to-transparent border-l-2 border-teal-500 text-teal-400'
-                            : 'text-slate-400 hover:bg-[#161F32] hover:text-white border-l-2 border-transparent'
-                    ]"
-                    @mouseenter="handleMouseEnter($event, 'Dashboard')"
-                    @mouseleave="handleMouseLeave"
-                >
-                    <HomeIcon
-                        :class="[
-                            'w-5 h-5 flex-shrink-0 transition-colors',
-                            route().current('dashboard') ? 'text-teal-400' : 'text-slate-500 group-hover:text-teal-400',
-                            isCollapsed ? 'mx-auto' : 'mr-3'
-                        ]"
-                    />
-                    <span v-if="!isCollapsed" class="font-medium text-sm">Dashboard</span>
-                </Link>
+                <div v-for="(categories, groupName) in sidebarConfig" :key="groupName">
+                    <!-- Dashboard Special Case (If in its own group) -->
+                    <template v-if="groupName === 'Overview' && hasPermission('dashboard.view')">
+                        <Link
+                            :href="route('dashboard')"
+                            :class="[
+                                'flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 group relative mb-2',
+                                route().current('dashboard')
+                                    ? 'bg-gradient-to-r from-[#161F32] to-transparent border-l-2 border-teal-500 text-teal-400'
+                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white border-l-2 border-transparent'
+                            ]"
+                            @mouseenter="handleMouseEnter($event, 'Dashboard')"
+                            @mouseleave="handleMouseLeave"
+                        >
+                            <HomeIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', route().current('dashboard') ? 'text-teal-400' : 'text-slate-500 group-hover:text-teal-400', isCollapsed ? 'mx-auto' : 'mr-3']" />
+                            <span v-if="!isCollapsed" class="font-medium text-sm">Dashboard</span>
+                        </Link>
+                    </template>
 
-                <!-- MODULE: RECRUITMENT -->
-                <template v-if="hasAnyPermission(['applicants.view', 'exams.view'])">
-                    <!-- Main Menu Item -->
-                    <div 
-                        v-if="!isCollapsed"
-                        @click="toggleMenu('recruitment')"
-                        class="flex items-center justify-between px-3 py-2.5 rounded-lg text-slate-400 hover:bg-[#161F32] hover:text-white cursor-pointer transition-all duration-200 mt-2"
-                    >
-                        <div class="flex items-center">
-                            <BriefcaseIcon class="w-5 h-5 mr-3 flex-shrink-0" />
-                            <span class="font-bold text-xs uppercase tracking-wider">Recruitment</span>
+                    <!-- Dynamic Groups -->
+                    <template v-else-if="canShowGroup(categories)">
+                        <!-- Main Menu Item -->
+                        <div 
+                            v-if="!isCollapsed"
+                            @click="toggleMenu(groupName)"
+                            class="flex items-center justify-between px-3 py-2.5 rounded-lg text-slate-400 hover:bg-[#161F32] hover:text-white cursor-pointer transition-all duration-200 mt-2"
+                        >
+                            <div class="flex items-center">
+                                <component :is="groupIconMap[groupName] || Cog6ToothIcon" class="w-5 h-5 mr-3 flex-shrink-0" />
+                                <span class="font-bold text-xs uppercase tracking-wider">{{ groupName }}</span>
+                            </div>
+                            <component :is="menuState[groupName] ? ChevronDownIcon : ChevronRightIcon" class="w-4 h-4" />
                         </div>
-                        <component :is="menuState.recruitment ? ChevronDownIcon : ChevronRightIcon" class="w-4 h-4" />
-                    </div>
-                    <!-- Collapsed Divider -->
-                    <div v-else class="my-4 border-t border-[#1E293B]"></div>
+                        <!-- Collapsed Divider -->
+                        <div v-else class="my-4 border-t border-[#1E293B]"></div>
 
-                    <!-- Submenu Items -->
-                    <div v-show="(menuState.recruitment && !isCollapsed) || isCollapsed" :class="{'ml-4 border-l border-[#1E293B] pl-2 space-y-1': !isCollapsed}">
-                        <Link
-                            v-if="hasPermission('applicants.view')"
-                            :href="route('applicants.index')"
-                            :class="[
-                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
-                                route().current('applicants.index')
-                                    ? 'text-teal-400 bg-slate-800/50'
-                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
-                            ]"
-                            @mouseenter="handleMouseEnter($event, 'Applicants')"
-                            @mouseleave="handleMouseLeave"
-                        >
-                            <UserPlusIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
-                            <span v-if="!isCollapsed" class="font-medium text-sm">Applicants</span>
-                        </Link>
-
-                        <Link
-                            v-if="hasPermission('exams.view')"
-                            :href="route('applicants.exams')"
-                            :class="[
-                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
-                                route().current('applicants.exams')
-                                    ? 'text-teal-400 bg-slate-800/50'
-                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
-                            ]"
-                            @mouseenter="handleMouseEnter($event, 'Exam Results')"
-                            @mouseleave="handleMouseLeave"
-                        >
-                            <ClipboardDocumentCheckIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
-                            <span v-if="!isCollapsed" class="font-medium text-sm">Exam Results</span>
-                        </Link>
-                    </div>
-                </template>
-
-                <!-- MODULE: WORKFORCE -->
-                <template v-if="hasAnyPermission(['employees.view', 'employees.edit'])">
-                    <div 
-                        v-if="!isCollapsed"
-                        @click="toggleMenu('workforce')"
-                        class="flex items-center justify-between px-3 py-2.5 rounded-lg text-slate-400 hover:bg-[#161F32] hover:text-white cursor-pointer transition-all duration-200 mt-2"
-                    >
-                        <div class="flex items-center">
-                            <UsersIcon class="w-5 h-5 mr-3 flex-shrink-0" />
-                            <span class="font-bold text-xs uppercase tracking-wider">Workforce</span>
+                        <!-- Submenu Items -->
+                        <div v-show="(menuState[groupName] && !isCollapsed) || isCollapsed" :class="{'ml-4 border-l border-[#1E293B] pl-2 space-y-1': !isCollapsed}">
+                            <div v-for="category in categories" :key="category">
+                                <Link
+                                    v-if="hasModuleAccess(category)"
+                                    :href="route().has(getRouteName(category)) ? route(getRouteName(category)) : '#'"
+                                    :class="[
+                                        'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
+                                        isRouteActive(category)
+                                            ? 'text-teal-400 bg-slate-800/50'
+                                            : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
+                                    ]"
+                                    @mouseenter="handleMouseEnter($event, moduleLabels[category] || category)"
+                                    @mouseleave="handleMouseLeave"
+                                >
+                                    <component :is="iconMap[category] || ShieldCheckIcon" :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
+                                    <span v-if="!isCollapsed" class="font-medium text-sm">{{ moduleLabels[category] || category }}</span>
+                                </Link>
+                            </div>
                         </div>
-                        <component :is="menuState.workforce ? ChevronDownIcon : ChevronRightIcon" class="w-4 h-4" />
-                    </div>
-                    <div v-else class="my-4 border-t border-[#1E293B]"></div>
-
-                    <div v-show="(menuState.workforce && !isCollapsed) || isCollapsed" :class="{'ml-4 border-l border-[#1E293B] pl-2 space-y-1': !isCollapsed}">
-                        <Link
-                            v-if="hasPermission('employees.view')"
-                            :href="route('employees.index')" 
-                            :class="[
-                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
-                                route().current('employees.*')
-                                    ? 'text-teal-400 bg-slate-800/50'
-                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
-                            ]"
-                             @mouseenter="handleMouseEnter($event, 'Employee Directory')"
-                            @mouseleave="handleMouseLeave"
-                        >
-                            <UserGroupIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
-                            <span v-if="!isCollapsed" class="font-medium text-sm">Employees (201)</span>
-                        </Link>
-                    </div>
-                </template>
-
-                 <!-- MODULE: TIMEKEEPING -->
-                <template v-if="hasAnyPermission(['dtr.view', 'shifts.view', 'attendance.kiosk'])">
-                     <div 
-                        v-if="!isCollapsed"
-                        @click="toggleMenu('timekeeping')"
-                        class="flex items-center justify-between px-3 py-2.5 rounded-lg text-slate-400 hover:bg-[#161F32] hover:text-white cursor-pointer transition-all duration-200 mt-2"
-                    >
-                        <div class="flex items-center">
-                            <ClockIcon class="w-5 h-5 mr-3 flex-shrink-0" />
-                            <span class="font-bold text-xs uppercase tracking-wider">Time & Attendance</span>
-                        </div>
-                        <component :is="menuState.timekeeping ? ChevronDownIcon : ChevronRightIcon" class="w-4 h-4" />
-                    </div>
-                    <div v-else class="my-4 border-t border-[#1E293B]"></div>
-
-                    <div v-show="(menuState.timekeeping && !isCollapsed) || isCollapsed" :class="{'ml-4 border-l border-[#1E293B] pl-2 space-y-1': !isCollapsed}">
-                        <Link
-                            v-if="hasPermission('attendance.kiosk')"
-                            :href="route('attendance.kiosk')"
-                             :class="[
-                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
-                                route().current('attendance.kiosk')
-                                    ? 'text-teal-400 bg-slate-800/50'
-                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
-                            ]"
-                            @mouseenter="handleMouseEnter($event, 'Attendance Kiosk')"
-                            @mouseleave="handleMouseLeave"
-                        >
-                            <ComputerDesktopIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
-                            <span v-if="!isCollapsed" class="font-medium text-sm">Attendance Kiosk</span>
-                        </Link>
-                        <Link
-                            v-if="hasPermission('dtr.view')"
-                            :href="route('dtr.index')"
-                             :class="[
-                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
-                                route().current('dtr.*')
-                                    ? 'text-teal-400 bg-slate-800/50'
-                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
-                            ]"
-                            @mouseenter="handleMouseEnter($event, 'Daily Time Records')"
-                            @mouseleave="handleMouseLeave"
-                        >
-                            <ClockIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
-                            <span v-if="!isCollapsed" class="font-medium text-sm">DTR Logs</span>
-                        </Link>
-                         <Link
-                            v-if="hasAnyPermission(['overtime.view', 'overtime.create'])"
-                            :href="route('overtime.index')"
-                             :class="[
-                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
-                                route().current('overtime.*')
-                                    ? 'text-teal-400 bg-slate-800/50'
-                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
-                            ]"
-                            @mouseenter="handleMouseEnter($event, 'Overtime Requests')"
-                            @mouseleave="handleMouseLeave"
-                        >
-                            <ClockIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
-                            <span v-if="!isCollapsed" class="font-medium text-sm">Overtime Requests</span>
-                        </Link>
-                        <Link
-                            v-if="hasPermission('overtime_rates.view')"
-                            :href="route('overtime-rates.index')"
-                             :class="[
-                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
-                                route().current('overtime-rates.*')
-                                    ? 'text-teal-400 bg-slate-800/50'
-                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
-                            ]"
-                            @mouseenter="handleMouseEnter($event, 'OT Multipliers')"
-                            @mouseleave="handleMouseLeave"
-                        >
-                            <TableCellsIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
-                            <span v-if="!isCollapsed" class="font-medium text-sm">OT Multipliers</span>
-                        </Link>
-                        <Link
-                            v-if="hasPermission('shifts.view')"
-                            :href="route('shifts.index')"
-                             :class="[
-                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
-                                route().current('shifts.*')
-                                    ? 'text-teal-400 bg-slate-800/50'
-                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
-                            ]"
-                            @mouseenter="handleMouseEnter($event, 'Shift Templates')"
-                            @mouseleave="handleMouseLeave"
-                        >
-                            <CalendarDaysIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
-                            <span v-if="!isCollapsed" class="font-medium text-sm">Shift Templates</span>
-                        </Link>
-                         <Link
-                            v-if="hasPermission('schedules.manage')"
-                            :href="route('schedules.index')"
-                             :class="[
-                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
-                                route().current('schedules.*')
-                                    ? 'text-teal-400 bg-slate-800/50'
-                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
-                            ]"
-                            @mouseenter="handleMouseEnter($event, 'Shift Assignment')"
-                            @mouseleave="handleMouseLeave"
-                        >
-                            <ClipboardDocumentCheckIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
-                            <span v-if="!isCollapsed" class="font-medium text-sm">Shift Assignment</span>
-                        </Link>
-                         <Link
-                            v-if="hasPermission('holidays.view')"
-                            :href="route('holidays.index')"
-                             :class="[
-                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
-                                route().current('holidays.*')
-                                    ? 'text-teal-400 bg-slate-800/50'
-                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
-                            ]"
-                            @mouseenter="handleMouseEnter($event, 'Holiday Calendar')"
-                            @mouseleave="handleMouseLeave"
-                        >
-                            <CalendarDaysIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
-                            <span v-if="!isCollapsed" class="font-medium text-sm">Holiday Calendar</span>
-                        </Link>
-                        <Link
-                            v-if="hasPermission('portal.file_leave')"
-                            :href="route('leave-requests.index')"
-                             :class="[
-                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
-                                route().current('leave-requests.*')
-                                    ? 'text-teal-400 bg-slate-800/50'
-                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
-                            ]"
-                            @mouseenter="handleMouseEnter($event, 'Leave Management')"
-                            @mouseleave="handleMouseLeave"
-                        >
-                            <DocumentDuplicateIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
-                            <span v-if="!isCollapsed" class="font-medium text-sm">Leave Management</span>
-                        </Link>
-                    </div>
-                </template>
-
-                <!-- MODULE: PAYROLL -->
-                <template v-if="hasAnyPermission(['payroll.view', 'payroll.create', 'government_deductions.view'])">
-                     <div 
-                        v-if="!isCollapsed"
-                        @click="toggleMenu('compensation')"
-                        class="flex items-center justify-between px-3 py-2.5 rounded-lg text-slate-400 hover:bg-[#161F32] hover:text-white cursor-pointer transition-all duration-200 mt-2"
-                    >
-                        <div class="flex items-center">
-                            <BanknotesIcon class="w-5 h-5 mr-3 flex-shrink-0" />
-                            <span class="font-bold text-xs uppercase tracking-wider">Compensation</span>
-                        </div>
-                        <component :is="menuState.compensation ? ChevronDownIcon : ChevronRightIcon" class="w-4 h-4" />
-                    </div>
-                    <div v-else class="my-4 border-t border-[#1E293B]"></div>
-
-                    <div v-show="(menuState.compensation && !isCollapsed) || isCollapsed" :class="{'ml-4 border-l border-[#1E293B] pl-2 space-y-1': !isCollapsed}">
-                        <Link
-                            v-if="hasPermission('government_deductions.view')"
-                            :href="route('contributions.index')"
-                            :class="[
-                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
-                                route().current('contributions.*')
-                                    ? 'text-teal-400 bg-slate-800/50'
-                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
-                            ]"
-                            @mouseenter="handleMouseEnter($event, 'Government Deductions')"
-                            @mouseleave="handleMouseLeave"
-                        >
-                            <TableCellsIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
-                            <span v-if="!isCollapsed" class="font-medium text-sm">Government Deductions</span>
-                        </Link>
-
-                        <Link
-                            v-if="hasPermission('deductions.view')"
-                            :href="route('deductions.index')"
-                            :class="[
-                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
-                                route().current('deductions.*')
-                                    ? 'text-teal-400 bg-slate-800/50'
-                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
-                            ]"
-                            @mouseenter="handleMouseEnter($event, 'Other Deductions')"
-                            @mouseleave="handleMouseLeave"
-                        >
-                            <CreditCardIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
-                            <span v-if="!isCollapsed" class="font-medium text-sm">Other Deductions</span>
-                        </Link>
-
-                        <Link
-                            v-if="hasPermission('payroll.view')"
-                            :href="route('payroll.index')"
-                             :class="[
-                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
-                                route().current('payroll.*')
-                                    ? 'text-teal-400 bg-slate-800/50'
-                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
-                            ]"
-                            @mouseenter="handleMouseEnter($event, 'Payroll Processing')"
-                            @mouseleave="handleMouseLeave"
-                        >
-                            <BanknotesIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
-                            <span v-if="!isCollapsed" class="font-medium text-sm">Payroll</span>
-                        </Link>
-                    </div>
-                </template>
-                
-                 <!-- MODULE: EMPLOYEE SELF SERVICE (PORTAL) -->
-                 <template v-if="hasPermission('portal.view')">
-                     <div 
-                        v-if="!isCollapsed"
-                        @click="toggleMenu('portal')"
-                        class="flex items-center justify-between px-3 py-2.5 rounded-lg text-slate-400 hover:bg-[#161F32] hover:text-white cursor-pointer transition-all duration-200 mt-2"
-                    >
-                        <div class="flex items-center">
-                            <ComputerDesktopIcon class="w-5 h-5 mr-3 flex-shrink-0" />
-                            <span class="font-bold text-xs uppercase tracking-wider">My Portal</span>
-                        </div>
-                        <component :is="menuState.portal ? ChevronDownIcon : ChevronRightIcon" class="w-4 h-4" />
-                    </div>
-                    <div v-else class="my-4 border-t border-[#1E293B]"></div>
-
-                    <div v-show="(menuState.portal && !isCollapsed) || isCollapsed" :class="{'ml-4 border-l border-[#1E293B] pl-2 space-y-1': !isCollapsed}">
-                         <Link
-                            v-if="hasPermission('portal.file_leave')"
-                            href="#"
-                             class="flex items-center px-3 py-2 rounded-lg text-slate-400 hover:bg-[#161F32] hover:text-white transition-all duration-200 group relative"
-                            @mouseenter="handleMouseEnter($event, 'File Leave')"
-                            @mouseleave="handleMouseLeave"
-                        >
-                            <DocumentDuplicateIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
-                            <span v-if="!isCollapsed" class="font-medium text-sm">File Leave / OT</span>
-                        </Link>
-                    </div>
-                 </template>
-
-
-                <!-- MODULE: ADMIN -->
-                <template v-if="hasAnyPermission(['roles.view', 'companies.view', 'users.view'])">
-                     <div 
-                        v-if="!isCollapsed"
-                        @click="toggleMenu('system')"
-                        class="flex items-center justify-between px-3 py-2.5 rounded-lg text-slate-400 hover:bg-[#161F32] hover:text-white cursor-pointer transition-all duration-200 mt-2"
-                    >
-                        <div class="flex items-center">
-                            <Cog6ToothIcon class="w-5 h-5 mr-3 flex-shrink-0" />
-                            <span class="font-bold text-xs uppercase tracking-wider">System</span>
-                        </div>
-                        <component :is="menuState.system ? ChevronDownIcon : ChevronRightIcon" class="w-4 h-4" />
-                    </div>
-                    <div v-else class="my-4 border-t border-[#1E293B]"></div>
-
-                    <div v-show="(menuState.system && !isCollapsed) || isCollapsed" :class="{'ml-4 border-l border-[#1E293B] pl-2 space-y-1': !isCollapsed}">
-                        <!-- Users -->
-                        <Link
-                            v-if="hasPermission('users.view')"
-                            :href="route('users.index', { view: 'system' })"
-                            :class="[
-                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
-                                route().current('users.*') && page.url.includes('view=system')
-                                    ? 'text-teal-400 bg-slate-800/50'
-                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
-                            ]"
-                            @mouseenter="handleMouseEnter($event, 'Users')"
-                            @mouseleave="handleMouseLeave"
-                        >
-                            <UserGroupIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
-                            <span v-if="!isCollapsed" class="font-medium text-sm">Users</span>
-                        </Link>
-
-                        <!-- Companies -->
-                        <Link
-                            v-if="hasPermission('companies.view')"
-                            :href="route('companies.index')"
-                            :class="[
-                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
-                                route().current('companies.*')
-                                    ? 'text-teal-400 bg-slate-800/50'
-                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
-                            ]"
-                            @mouseenter="handleMouseEnter($event, 'Companies')"
-                            @mouseleave="handleMouseLeave"
-                        >
-                            <BuildingOfficeIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
-                            <span v-if="!isCollapsed" class="font-medium text-sm">Companies</span>
-                        </Link>
-
-                        <!-- Departments -->
-                        <Link
-                            v-if="hasPermission('departments.view')"
-                            :href="route('departments.index')"
-                            :class="[
-                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
-                                route().current('departments.*')
-                                    ? 'text-teal-400 bg-slate-800/50'
-                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
-                            ]"
-                            @mouseenter="handleMouseEnter($event, 'Departments')"
-                            @mouseleave="handleMouseLeave"
-                        >
-                            <BuildingOfficeIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
-                            <span v-if="!isCollapsed" class="font-medium text-sm">Departments</span>
-                        </Link>
-
-                        <!-- Positions -->
-                        <Link
-                            v-if="hasPermission('positions.view')"
-                            :href="route('positions.index')"
-                            :class="[
-                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
-                                route().current('positions.*')
-                                    ? 'text-teal-400 bg-slate-800/50'
-                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
-                            ]"
-                            @mouseenter="handleMouseEnter($event, 'Positions')"
-                            @mouseleave="handleMouseLeave"
-                        >
-                            <BriefcaseIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
-                            <span v-if="!isCollapsed" class="font-medium text-sm">Positions</span>
-                        </Link>
-
-                        <!-- Document Requirements -->
-                        <Link
-                            v-if="hasPermission('document_types.view')"
-                            :href="route('document-types.index')"
-                            :class="[
-                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
-                                route().current('document-types.*')
-                                    ? 'text-teal-400 bg-slate-800/50'
-                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
-                            ]"
-                            @mouseenter="handleMouseEnter($event, 'Document Types')"
-                            @mouseleave="handleMouseLeave"
-                        >
-                            <DocumentDuplicateIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
-                            <span v-if="!isCollapsed" class="font-medium text-sm">Doc Requirements</span>
-                        </Link>
-
-                        <!-- Roles -->
-                        <Link
-                            v-if="hasPermission('roles.view')"
-                            :href="route('roles.index')"
-                            :class="[
-                                'flex items-center px-3 py-2 rounded-lg transition-all duration-200 group relative',
-                                 route().current('roles.*')
-                                    ? 'text-teal-400 bg-slate-800/50'
-                                    : 'text-slate-400 hover:bg-[#161F32] hover:text-white'
-                            ]"
-                            @mouseenter="handleMouseEnter($event, 'Roles & Permissions')"
-                            @mouseleave="handleMouseLeave"
-                        >
-                            <ShieldCheckIcon :class="['w-5 h-5 flex-shrink-0 transition-colors', isCollapsed ? 'mx-auto' : 'mr-3']" />
-                            <span v-if="!isCollapsed" class="font-medium text-sm">Roles & Permissions</span>
-                        </Link>
-                    </div>
-                </template>
-
-
-
+                    </template>
+                </div>
             </nav>
 
             <!-- User Section -->

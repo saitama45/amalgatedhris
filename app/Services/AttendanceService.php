@@ -76,11 +76,27 @@ class AttendanceService
             return 0;
         }
 
-        $rawOT = $scheduledEnd->diffInMinutes($actualTimeOut);
+        $dateStr = $scheduledEnd->format('Y-m-d');
+        
+        // 1. Check for Approved OT request for this employee and date
+        // Note: EmploymentRecord belongs to Employee, which belongs to User
+        $approvedOTRequest = \App\Models\OvertimeRequest::where('user_id', $record->employee->user_id)
+            ->where('date', $dateStr)
+            ->where('status', 'Approved')
+            ->first();
 
-        // Optional: Could add a minimum OT duration here (e.g., must be > 30 mins to count)
-        // For now, we'll return raw minutes.
-        return $rawOT;
+        if (!$approvedOTRequest) {
+            return 0;
+        }
+
+        // 2. Calculate raw actual OT worked
+        $actualOTMinutes = $scheduledEnd->diffInMinutes($actualTimeOut);
+
+        // 3. Get approved OT minutes (from hours_requested or approved_hours)
+        $approvedOTMinutes = (int) ($approvedOTRequest->hours_requested * 60);
+
+        // Result is the minimum of what was worked and what was approved
+        return min($actualOTMinutes, $approvedOTMinutes);
     }
 
     /**

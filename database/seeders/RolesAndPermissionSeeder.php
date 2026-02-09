@@ -31,7 +31,12 @@ class RolesAndPermissionSeeder extends Seeder
 
         $employee = Role::firstOrCreate(['name' => 'Employee']);
         $employee->syncPermissions([
-            'dashboard.view', 'portal.view', 'portal.file_leave', 'portal.view_payslip'
+            'dashboard.view',
+            'portal.dashboard',
+            'portal.leaves',
+            'portal.overtime',
+            'portal.payslips',
+            'portal.deductions'
         ]);
 
         // Clear cache

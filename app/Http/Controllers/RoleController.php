@@ -19,9 +19,24 @@ class RoleController extends Controller
         }
         
         $roles = $query->paginate($request->get('per_page', 10))->withQueryString();
-        $permissions = Permission::select('id', 'name')->get()->groupBy(function($permission) {
-            return explode('.', $permission->name)[0];
+        
+        $allPermissions = Permission::select('id', 'name')->get();
+        $permissions = $allPermissions->groupBy(function($permission) {
+            $parts = explode('.', $permission->name);
+            // If it's something like portal.dashboard, and we have that in sidebar_structure
+            // we might want to group by the first two parts if it matches a category.
+            // But for now, let's just use the first part as default, 
+            // and we'll fix the frontend to handle the mapping.
+            return $parts[0];
         });
+
+        // Special handling for portal permissions to match sidebar structure keys
+        foreach ($allPermissions as $p) {
+            if (str_starts_with($p->name, 'portal.')) {
+                $permissions[$p->name] = [$p];
+            }
+        }
+
         $companies = Company::where('is_active', true)->select('id', 'name')->orderBy('name')->get();
 
         return Inertia::render('Roles/Index', [

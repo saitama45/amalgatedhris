@@ -5,9 +5,9 @@ return [
         'Overview' => ['dashboard'],
         'Recruitment' => ['applicants', 'exams'],
         'Workforce' => ['employees'],
-        'Time & Attendance' => ['dtr', 'shifts', 'schedules', 'holidays', 'overtime', 'overtime_rates', 'leave_requests'],
+        'Time & Attendance' => ['attendance.kiosk', 'dtr', 'shifts', 'schedules', 'holidays', 'overtime', 'overtime_rates', 'leave_requests'],
         'Compensation' => ['payroll', 'government_deductions', 'deductions'],
-        'My Portal (Self Service)' => ['portal'],
+        'My Portal' => ['portal.dashboard', 'portal.leaves', 'portal.overtime', 'portal.payslips', 'portal.deductions'],
         'System Administration' => ['users', 'companies', 'departments', 'positions', 'document_types', 'roles']
     ],
 
@@ -105,9 +105,11 @@ return [
         'deductions.delete' => 'Delete/Stop Deduction',
 
         // My Portal
-        'portal.view' => 'Access My Portal',
-        'portal.file_leave' => 'File Leave/OT',
-        'portal.view_payslip' => 'View Own Payslips',
+        'portal.dashboard' => 'Access My Portal Dashboard',
+        'portal.leaves' => 'File/View Own Leaves',
+        'portal.overtime' => 'Request/View Own Overtime',
+        'portal.payslips' => 'View Own Payslips',
+        'portal.deductions' => 'View Own Deductions Ledger',
 
         // System - Users
         'users.view' => 'View Users',
@@ -151,6 +153,7 @@ return [
         'applicants' => 'Applicants',
         'exams' => 'Exams',
         'employees' => 'Employees (201)',
+        'attendance.kiosk' => 'Attendance Kiosk',
         'dtr' => 'Attendance Logs',
         'shifts' => 'Shifts',
         'schedules' => 'Schedules',
@@ -161,7 +164,11 @@ return [
         'payroll' => 'Payroll',
         'government_deductions' => 'Government Deductions',
         'deductions' => 'Other Deductions',
-        'portal' => 'Self Service',
+        'portal.dashboard' => 'Overview',
+        'portal.leaves' => 'My Leaves',
+        'portal.overtime' => 'My Overtime',
+        'portal.payslips' => 'My Payslips',
+        'portal.deductions' => 'Deductions Ledger',
         'users' => 'User Management',
         'companies' => 'Companies',
         'departments' => 'Departments',
@@ -184,5 +191,10 @@ return [
         'contributions.index' => 'Government Contributions',
         'users.index' => 'User Management',
         'roles.index' => 'Roles & Permissions',
+        'portal.dashboard' => 'Portal: Overview',
+        'portal.leaves' => 'Portal: My Leaves',
+        'portal.overtime' => 'Portal: My Overtime',
+        'portal.payslips' => 'Portal: My Payslips',
+        'portal.deductions' => 'Portal: Deductions Ledger',
     ]
 ];

@@ -1,6 +1,6 @@
 <script setup>
 import { Head, Link } from '@inertiajs/vue3';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import AppLayout from '@/Layouts/AppLayout.vue';
 import { ArrowLeftIcon } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
@@ -28,11 +28,20 @@ const paidInstallments = (hasTotal && amountPerDeduction > 0) ? Math.floor(paid 
 </script>
 
 <template>
-    <AuthenticatedLayout>
+    <AppLayout>
         <Head :title="`Deduction Details - ${deduction.employee.user.name}`" />
 
-        <div class="py-12">
-            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+        <template #header>
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div>
+                    <h2 class="font-bold text-2xl text-slate-800 leading-tight">Deduction Record Details</h2>
+                    <p class="text-sm text-slate-500 mt-1">Detailed breakdown of loan or deduction assignment.</p>
+                </div>
+            </div>
+        </template>
+
+        <div class="py-6">
+            <div class="max-w-7xl mx-auto space-y-6">
                 <div class="mb-6">
                     <Link :href="route('deductions.index')" class="flex items-center text-indigo-600 hover:text-indigo-900">
                         <ArrowLeftIcon class="w-4 h-4 mr-2" />
@@ -142,5 +151,5 @@ const paidInstallments = (hasTotal && amountPerDeduction > 0) ? Math.floor(paid 
                 </div>
             </div>
         </div>
-    </AuthenticatedLayout>
+    </AppLayout>
 </template>

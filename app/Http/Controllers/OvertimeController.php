@@ -178,7 +178,6 @@ class OvertimeController extends Controller
             'status' => 'Approved',
             'approver_id' => Auth::id(),
             'approved_at' => now(),
-            'approved_hours' => $overtimeRequest->hours_requested, // Or allow modification
             'is_rest_day' => $isRestDay,
             'is_holiday' => $isHoliday,
             'holiday_type' => $holidayType,
@@ -187,7 +186,24 @@ class OvertimeController extends Controller
             'payable_amount' => $computation['total'],
         ]);
 
-        return back()->with('success', 'Overtime approved. Estimated Pay: ' . number_format($computation['total'], 2));
+        // Sync with AttendanceLog if exists
+        $log = \App\Models\AttendanceLog::where('employee_id', $employee->id)
+            ->where('date', $date->format('Y-m-d'))
+            ->first();
+
+        if ($log && $log->time_out && $record->defaultShift) {
+            $shiftEnd = Carbon::parse($log->date->format('Y-m-d') . ' ' . $record->defaultShift->end_time);
+            $shiftStart = Carbon::parse($log->date->format('Y-m-d') . ' ' . $record->defaultShift->start_time);
+            if ($shiftEnd->lt($shiftStart)) {
+                $shiftEnd->addDay();
+            }
+
+            $attendanceService = app(\App\Services\AttendanceService::class);
+            $otMinutes = $attendanceService->calculateOvertimeMinutes($shiftEnd, Carbon::parse($log->time_out), $record);
+            $log->update(['ot_minutes' => $otMinutes]);
+        }
+
+        return back()->with('success', 'Overtime approved and synced with DTR. Estimated Pay: ' . number_format($computation['total'], 2));
     }
 
     /**

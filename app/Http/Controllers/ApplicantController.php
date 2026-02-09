@@ -200,23 +200,17 @@ class ApplicantController extends Controller
                 'employee_code' => 'EMP-' . now()->year . '-' . str_pad($user->id, 4, '0', STR_PAD_LEFT),
             ]);
 
-            // Create Employment Record
+            // Create Employment Record (Consolidated Assignment & Pay)
             $record = EmploymentRecord::create([
                 'employee_id' => $employee->id,
                 'company_id' => $request->company_id,
                 'department_id' => $request->department_id,
                 'position_id' => $request->position_id,
+                'basic_rate' => $request->basic_rate,
+                'allowance' => $request->allowance ?? 0,
                 'employment_status' => 'Probationary',
                 'start_date' => $request->start_date,
                 'is_active' => true,
-            ]);
-
-            // Create Salary History
-            SalaryHistory::create([
-                'employment_record_id' => $record->id,
-                'basic_rate' => $request->basic_rate,
-                'allowance' => $request->allowance ?? 0,
-                'effective_date' => $request->start_date,
             ]);
 
             // Transfer uploaded documents to new employee

@@ -34,15 +34,24 @@ class AuthenticatedSessionController extends Controller
         $request->session()->regenerate();
 
         $user = Auth::user();
-        $defaultRoute = 'dashboard';
-
-        // Get the first role that has a landing page defined
+        
+        // 1. Determine the Role-Based Landing Page
+        $landingPage = 'dashboard';
         $role = $user->roles()->whereNotNull('landing_page')->first();
         if ($role) {
-            $defaultRoute = $role->landing_page;
+            $landingPage = $role->landing_page;
         }
 
-        return redirect()->intended(route($defaultRoute, absolute: false));
+        // 2. Priority Logic:
+        // If the user was trying to go to a specific page (intended), let them go there.
+        // UNLESS the intended page is dashboard and the assigned landing page is different.
+        $intended = $request->session()->get('url.intended');
+        
+        if ($intended && str_contains($intended, '/dashboard') && $landingPage !== 'dashboard') {
+            return redirect()->route($landingPage);
+        }
+
+        return redirect()->intended(route($landingPage, absolute: false));
     }
 
     /**

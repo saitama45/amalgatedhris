@@ -133,6 +133,36 @@ Route::middleware('auth')->group(function () {
         Route::resource('overtime-rates', \App\Http\Controllers\OvertimeRateController::class)->except(['show', 'create', 'edit']);
     });
 
+    // My Portal (Self Service)
+    Route::prefix('portal')->name('portal.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\PortalController::class, 'index'])->name('dashboard');
+        Route::get('/leaves', [\App\Http\Controllers\PortalController::class, 'leaves'])->name('leaves');
+        Route::get('/overtime', [\App\Http\Controllers\PortalController::class, 'overtime'])->name('overtime');
+        Route::get('/payslips', [\App\Http\Controllers\PortalController::class, 'payslips'])->name('payslips');
+        Route::get('/deductions', [\App\Http\Controllers\PortalController::class, 'deductions'])->name('deductions');
+
+        // Self-service actions (avoiding 403 from admin routes)
+        Route::post('/leaves', [\App\Http\Controllers\PortalController::class, 'storeLeave'])
+            ->middleware('permission:portal.leaves')
+            ->name('leaves.store');
+        Route::put('/leaves/{leaveRequest}', [\App\Http\Controllers\PortalController::class, 'updateLeave'])
+            ->middleware('permission:portal.leaves')
+            ->name('leaves.update');
+        Route::delete('/leaves/{leaveRequest}', [\App\Http\Controllers\PortalController::class, 'destroyLeave'])
+            ->middleware('permission:portal.leaves')
+            ->name('leaves.destroy');
+
+        Route::post('/overtime', [\App\Http\Controllers\PortalController::class, 'storeOvertime'])
+            ->middleware('permission:portal.overtime')
+            ->name('overtime.store');
+        Route::put('/overtime/{overtimeRequest}', [\App\Http\Controllers\PortalController::class, 'updateOvertime'])
+            ->middleware('permission:portal.overtime')
+            ->name('overtime.update');
+        Route::delete('/overtime/{overtimeRequest}', [\App\Http\Controllers\PortalController::class, 'destroyOvertime'])
+            ->middleware('permission:portal.overtime')
+            ->name('overtime.destroy');
+    });
+
     // Personal Profile (Accessible to all authenticated users)
     Route::get('profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('profile', [ProfileController::class, 'update'])->name('profile.update');

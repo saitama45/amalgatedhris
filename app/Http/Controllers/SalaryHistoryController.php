@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Employee;
 use App\Models\EmploymentRecord;
 use App\Models\Payslip;
+use App\Models\Department;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -17,22 +18,28 @@ class SalaryHistoryController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        // Simplified: Employment Records ARE the history now
+        // AUTO-REPAIR: Ensure at least one active record exists if any record exists
+        $hasActive = EmploymentRecord::where('employee_id', $employee->id)->where('is_active', true)->exists();
+        if (!$hasActive) {
+            $latest = EmploymentRecord::where('employee_id', $employee->id)->orderBy('start_date', 'desc')->orderBy('created_at', 'desc')->first();
+            if ($latest) {
+                $latest->update(['is_active' => true, 'end_date' => null]);
+            }
+        }
+
+        // Employment Records ARE the history now
         $history = EmploymentRecord::where('employee_id', $employee->id)
             ->with(['position', 'company', 'department'])
             ->orderBy('start_date', 'desc')
             ->orderBy('created_at', 'desc')
             ->get();
 
-        // Get the single active record
-        $activeRecord = $employee->activeEmploymentRecord;
-        if ($activeRecord) {
-            $activeRecord->load(['position', 'department', 'company']);
-        }
+        // Refresh the employee relation to get the latest active record
+        $employee->load(['activeEmploymentRecord.position', 'activeEmploymentRecord.department', 'activeEmploymentRecord.company']);
 
         return response()->json([
             'history' => $history,
-            'current_record' => $activeRecord
+            'current_record' => $employee->activeEmploymentRecord
         ]);
     }
 
@@ -62,11 +69,14 @@ class SalaryHistoryController extends Controller
                 ]);
             }
 
+            // Fallback department
+            $departmentId = $activeRecord ? $activeRecord->department_id : (Department::first()?->id);
+
             // Create New Employment Record (Consolidated state)
             EmploymentRecord::create([
                 'employee_id' => $employee->id,
                 'company_id' => $request->company_id,
-                'department_id' => $activeRecord ? $activeRecord->department_id : $employee->department_id,
+                'department_id' => $departmentId,
                 'position_id' => $request->position_id,
                 'basic_rate' => $request->basic_rate,
                 'allowance' => $request->allowance ?? 0,
@@ -100,7 +110,7 @@ class SalaryHistoryController extends Controller
             'company_id' => 'required|exists:companies,id',
         ]);
 
-        // Check for payroll transactions (Payslips) created after this record's effective date
+        // Check for payroll transactions
         $hasPayroll = Payslip::where('employee_id', $record->employee_id)
             ->where('created_at', '>=', $record->start_date)
             ->exists();
@@ -130,7 +140,6 @@ class SalaryHistoryController extends Controller
 
         $record = EmploymentRecord::findOrFail($employmentRecordId);
 
-        // Check for payroll transactions
         $hasPayroll = Payslip::where('employee_id', $record->employee_id)
             ->where('created_at', '>=', $record->start_date)
             ->exists();
@@ -140,7 +149,6 @@ class SalaryHistoryController extends Controller
         }
 
         DB::transaction(function () use ($record) {
-            // If deleting an active record, try to re-activate the previous one
             if ($record->is_active) {
                 $previousRecord = EmploymentRecord::where('employee_id', $record->employee_id)
                     ->where('id', '!=', $record->id)

@@ -55,6 +55,10 @@ class HandleInertiaRequests extends Middleware
                 'user' => $user,
                 'permissions' => $permissions,
             ],
+            'config' => [
+                'sidebar_structure' => config('hris.sidebar_structure'),
+                'module_labels' => config('hris.module_labels'),
+            ],
             'flash' => [
                 'success' => $request->session()->get('success'),
                 'error' => $request->session()->get('error'),

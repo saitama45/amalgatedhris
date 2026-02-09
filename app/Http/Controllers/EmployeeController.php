@@ -17,6 +17,18 @@ class EmployeeController extends Controller
 {
     public function index(Request $request)
     {
+        // AUTO-REPAIR: Ensure employees with records have at least one active record
+        $orphanedEmployees = Employee::whereDoesntHave('activeEmploymentRecord')
+            ->whereHas('employmentRecords')
+            ->get();
+
+        foreach ($orphanedEmployees as $emp) {
+            $latest = $emp->employmentRecords()->orderBy('start_date', 'desc')->orderBy('created_at', 'desc')->first();
+            if ($latest) {
+                $latest->update(['is_active' => true, 'end_date' => null]);
+            }
+        }
+
         $query = Employee::with(['user', 'activeEmploymentRecord.position', 'activeEmploymentRecord.department', 'activeEmploymentRecord.company', 'documents']);
 
         if ($request->filled('search')) {

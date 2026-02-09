@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch, computed } from 'vue';
 import { Head, useForm, router, usePage, Link } from '@inertiajs/vue3';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import AppLayout from '@/Layouts/AppLayout.vue';
 import Modal from '@/Components/Modal.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
@@ -230,33 +230,37 @@ const formatCurrency = (val) => {
 </script>
 
 <template>
-    <AuthenticatedLayout>
+    <AppLayout>
         <Head title="Other Deductions" />
 
-        <div class="py-6">
-            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
-                
-                <!-- Header -->
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <h2 class="font-semibold text-xl text-gray-800 leading-tight">Other Deductions & Loans</h2>
-                    <div class="flex gap-2">
-                        <SecondaryButton 
-                            v-if="hasPermission('deductions.create')"
-                            @click="openManageTypes"
-                        >
-                            <AdjustmentsHorizontalIcon class="w-4 h-4 mr-2" />
-                            Manage Types
-                        </SecondaryButton>
-                        <PrimaryButton 
-                            v-if="hasPermission('deductions.create')"
-                            @click="openDeductionModal()"
-                        >
-                            <PlusIcon class="w-4 h-4 mr-2" />
-                            Add Record
-                        </PrimaryButton>
-                    </div>
+        <template #header>
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h2 class="font-semibold text-2xl text-gray-800 leading-tight">Other Deductions & Loans</h2>
+                    <p class="text-sm text-slate-500 mt-1">Manage employee loans and recurring deductions.</p>
                 </div>
+                <div class="flex gap-2">
+                    <SecondaryButton 
+                        v-if="hasPermission('deductions.create')"
+                        @click="openManageTypes"
+                    >
+                        <AdjustmentsHorizontalIcon class="w-4 h-4 mr-2" />
+                        Manage Types
+                    </SecondaryButton>
+                    <PrimaryButton 
+                        v-if="hasPermission('deductions.create')"
+                        @click="openDeductionModal()"
+                    >
+                        <PlusIcon class="w-4 h-4 mr-2" />
+                        Add Record
+                    </PrimaryButton>
+                </div>
+            </div>
+        </template>
 
+        <div class="py-6">
+            <div class="max-w-7xl mx-auto space-y-6">
+                
                 <!-- Filters & Content -->
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                     <div class="p-6 text-gray-900">
@@ -655,5 +659,5 @@ const formatCurrency = (val) => {
             </div>
         </Modal>
 
-    </AuthenticatedLayout>
+    </AppLayout>
 </template>

@@ -1,5 +1,5 @@
 <script setup>
-import { Head, useForm, router } from '@inertiajs/vue3';
+import { Head, useForm, router, Link } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
@@ -13,7 +13,8 @@ import {
     PencilSquareIcon,
     XMarkIcon,
     CheckCircleIcon,
-    InformationCircleIcon
+    InformationCircleIcon,
+    ArrowLeftIcon
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
@@ -99,6 +100,14 @@ const deleteType = async (id) => {
         <div class="py-6">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 
+                <!-- Back Button -->
+                <div class="mb-6">
+                    <Link :href="route('leave-requests.index')" class="inline-flex items-center text-sm font-bold text-slate-500 hover:text-blue-600 transition-colors group">
+                        <ArrowLeftIcon class="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
+                        Back to Leave Management
+                    </Link>
+                </div>
+
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                     <DataTable
                         title="Available Leave Types"
@@ -132,11 +141,11 @@ const deleteType = async (id) => {
                                     <span class="text-lg font-bold text-blue-600 font-mono">{{ type.days_per_year }}</span>
                                 </td>
                                 <td class="px-6 py-4 text-center">
-                                    <CheckCircleIcon v-if="type.is_convertible" class="w-5 h-5 text-emerald-500 mx-auto" />
+                                    <CheckCircleIcon v-if="!!type.is_convertible" class="w-5 h-5 text-emerald-500 mx-auto" />
                                     <span v-else class="text-slate-300">-</span>
                                 </td>
                                 <td class="px-6 py-4 text-center">
-                                    <CheckCircleIcon v-if="type.is_cumulative" class="w-5 h-5 text-indigo-500 mx-auto" />
+                                    <CheckCircleIcon v-if="!!type.is_cumulative" class="w-5 h-5 text-indigo-500 mx-auto" />
                                     <span v-else class="text-slate-300">-</span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right">
