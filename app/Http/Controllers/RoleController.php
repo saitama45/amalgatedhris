@@ -31,7 +31,8 @@ class RoleController extends Controller
             'config' => [
                 'sidebar_structure' => config('hris.sidebar_structure'),
                 'permission_descriptions' => config('hris.permission_descriptions'),
-                'module_labels' => config('hris.module_labels')
+                'module_labels' => config('hris.module_labels'),
+                'landing_pages' => config('hris.landing_pages')
             ]
         ]);
     }
@@ -40,12 +41,16 @@ class RoleController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255|unique:roles',
+            'landing_page' => 'required|string',
             'permissions' => 'array',
             'company_ids' => 'array',
             'company_ids.*' => 'exists:companies,id',
         ]);
 
-        $role = Role::create(['name' => $request->name]);
+        $role = Role::create([
+            'name' => $request->name,
+            'landing_page' => $request->landing_page,
+        ]);
         
         if ($request->permissions) {
             $role->syncPermissions($request->permissions);
@@ -62,12 +67,14 @@ class RoleController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255|unique:roles,name,' . $role->id,
+            'landing_page' => 'required|string',
             'permissions' => 'array',
             'company_ids' => 'array',
             'company_ids.*' => 'exists:companies,id',
         ]);
 
         $role->name = $request->name;
+        $role->landing_page = $request->landing_page;
         $role->save();
         $role->syncPermissions($request->permissions ?? []);
         

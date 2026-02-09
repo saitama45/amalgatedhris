@@ -33,7 +33,16 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        $user = Auth::user();
+        $defaultRoute = 'dashboard';
+
+        // Get the first role that has a landing page defined
+        $role = $user->roles()->whereNotNull('landing_page')->first();
+        if ($role) {
+            $defaultRoute = $role->landing_page;
+        }
+
+        return redirect()->intended(route($defaultRoute, absolute: false));
     }
 
     /**

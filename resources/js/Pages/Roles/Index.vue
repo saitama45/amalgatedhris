@@ -45,6 +45,7 @@
                         <template #header>
                             <tr class="bg-slate-50">
                                 <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Role Designation</th>
+                                <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Default Landing</th>
                                 <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Permission Scope</th>
                                 <th class="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Actions</th>
                             </tr>
@@ -62,6 +63,11 @@
                                             <div class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">System Identifier: {{ role.name.toLowerCase().replace(' ', '_') }}</div>
                                         </div>
                                     </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                                        {{ props.config.landing_pages[role.landing_page] || role.landing_page }}
+                                    </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <button 
@@ -144,10 +150,21 @@
                 
                 <form @submit.prevent="submitForm">
                     <div class="p-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
-                        <div class="mb-8">
-                            <label class="block text-sm font-bold text-slate-700 mb-2">Role Designation (Display Name)</label>
-                            <input :value="form.name" @input="handleAlphaUpperInput(form, 'name', $event)" type="text" required placeholder="Ex. ACCOUNTING MANAGER"
-                                   class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold uppercase">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-2">Role Designation (Display Name)</label>
+                                <input :value="form.name" @input="handleAlphaUpperInput(form, 'name', $event)" type="text" required placeholder="Ex. ACCOUNTING MANAGER"
+                                    class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold uppercase">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-2">Default Landing Page (After Login)</label>
+                                <select v-model="form.landing_page" required
+                                    class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold">
+                                    <option v-for="(label, routeName) in props.config.landing_pages" :key="routeName" :value="routeName">
+                                        {{ label }}
+                                    </option>
+                                </select>
+                            </div>
                         </div>
 
                         <div class="mb-8">
@@ -285,6 +302,7 @@ const selectedRole = ref(null)
 
 const form = reactive({
     name: '',
+    landing_page: 'dashboard',
     permissions: [],
     company_ids: [],
 })
@@ -330,6 +348,7 @@ const openCreateModal = () => {
     isEditing.value = false
     currentRole.value = null
     form.name = ''
+    form.landing_page = 'dashboard'
     form.permissions = []
     
     // Default select "Community Creators Inc." if it exists
@@ -389,6 +408,7 @@ const editRole = (role) => {
     isEditing.value = true
     currentRole.value = role
     form.name = role.name
+    form.landing_page = role.landing_page || 'dashboard'
     form.permissions = role.permissions.map(p => p.name)
     form.company_ids = role.companies ? role.companies.map(c => c.id) : []
     showModal.value = true
@@ -397,6 +417,7 @@ const editRole = (role) => {
 const closeModal = () => {
     showModal.value = false
     form.name = ''
+    form.landing_page = 'dashboard'
     form.permissions = []
     form.company_ids = []
 }

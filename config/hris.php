@@ -2,6 +2,7 @@
 
 return [
     'sidebar_structure' => [
+        'Overview' => ['dashboard'],
         'Recruitment' => ['applicants', 'exams'],
         'Workforce' => ['employees'],
         'Time & Attendance' => ['dtr', 'shifts', 'schedules', 'holidays', 'overtime', 'overtime_rates', 'leave_requests'],
@@ -167,5 +168,21 @@ return [
         'positions' => 'Positions',
         'document_types' => 'Document Types',
         'roles' => 'Access Control'
+    ],
+
+    // Available Landing Pages after login
+    'landing_pages' => [
+        'dashboard' => 'Dashboard',
+        'applicants.index' => 'Applicants Pool',
+        'applicants.exams' => 'Exam Results',
+        'employees.index' => 'Employee Directory',
+        'attendance.kiosk' => 'Attendance Kiosk',
+        'dtr.index' => 'DTR Logs',
+        'overtime.index' => 'Overtime Requests',
+        'leave-requests.index' => 'Leave Management',
+        'payroll.index' => 'Payroll Processing',
+        'contributions.index' => 'Government Contributions',
+        'users.index' => 'User Management',
+        'roles.index' => 'Roles & Permissions',
     ]
 ];
