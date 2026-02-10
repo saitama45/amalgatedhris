@@ -212,6 +212,54 @@ class PortalController extends Controller
         ]);
     }
 
+    public function attendance(Request $request)
+    {
+        $employee = Auth::user()->employee;
+        
+        $startDate = $request->get('start_date', Carbon::now()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->get('end_date', Carbon::now()->endOfMonth()->format('Y-m-d'));
+
+        if (!$employee) {
+            return Inertia::render('Portal/Attendance', [
+                'logs' => new \Illuminate\Pagination\LengthAwarePaginator([], 0, 10),
+                'filters' => [
+                    'start_date' => $startDate,
+                    'end_date' => $endDate,
+                ]
+            ]);
+        }
+
+        $query = \App\Models\AttendanceLog::where('employee_id', $employee->id)
+            ->with(['employee.activeEmploymentRecord.department', 'employee.activeEmploymentRecord.company', 'employee.activeEmploymentRecord.defaultShift']);
+
+        $query->whereDate('date', '>=', $startDate);
+        $query->whereDate('date', '<=', $endDate);
+
+        $logs = $query->orderBy('date', 'desc')->paginate($request->get('per_page', 10));
+
+        // Mark locked logs (if they fall within finalized payroll)
+        $finalizedPayrolls = \App\Models\Payroll::whereIn('status', ['Finalized', 'Paid'])
+            ->whereHas('payslips', function($q) use ($employee) {
+                $q->where('employee_id', $employee->id);
+            })->get();
+
+        $logs->getCollection()->transform(function($log) use ($finalizedPayrolls) {
+            $logDate = is_string($log->date) ? $log->date : $log->date->format('Y-m-d');
+            $log->is_locked = $finalizedPayrolls->contains(function($p) use ($logDate) {
+                return $logDate >= $p->cutoff_start->format('Y-m-d') && $logDate <= $p->cutoff_end->format('Y-m-d');
+            });
+            return $log;
+        });
+
+        return Inertia::render('Portal/Attendance', [
+            'logs' => $logs,
+            'filters' => [
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+            ]
+        ]);
+    }
+
     public function storeOvertime(Request $request)
     {
         $validated = $request->validate([

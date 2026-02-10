@@ -71,6 +71,7 @@ const getRouteName = (category) => {
         'portal.dashboard': 'portal.dashboard',
         'portal.leaves': 'portal.leaves',
         'portal.overtime': 'portal.overtime',
+        'portal.attendance': 'portal.attendance',
         'portal.payslips': 'portal.payslips',
         'portal.deductions': 'portal.deductions',
     };
@@ -102,6 +103,7 @@ const iconMap = {
     'portal.dashboard': HomeIcon,
     'portal.leaves': DocumentDuplicateIcon,
     'portal.overtime': ClockIcon,
+    'portal.attendance': ClockIcon,
     'portal.payslips': BanknotesIcon,
     'portal.deductions': CreditCardIcon,
     users: UserGroupIcon,

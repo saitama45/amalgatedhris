@@ -7,7 +7,7 @@ return [
         'Workforce' => ['employees'],
         'Time & Attendance' => ['attendance.kiosk', 'dtr', 'shifts', 'schedules', 'holidays', 'overtime', 'overtime_rates', 'leave_requests'],
         'Compensation' => ['payroll', 'government_deductions', 'deductions'],
-        'My Portal' => ['portal.dashboard', 'portal.leaves', 'portal.overtime', 'portal.payslips', 'portal.deductions'],
+        'My Portal' => ['portal.dashboard', 'portal.leaves', 'portal.overtime', 'portal.attendance', 'portal.payslips', 'portal.deductions'],
         'System Administration' => ['users', 'companies', 'departments', 'positions', 'document_types', 'roles']
     ],
 
@@ -108,6 +108,7 @@ return [
         'portal.dashboard' => 'Access My Portal Dashboard',
         'portal.leaves' => 'File/View Own Leaves',
         'portal.overtime' => 'Request/View Own Overtime',
+        'portal.attendance' => 'View Own Attendance Logs',
         'portal.payslips' => 'View Own Payslips',
         'portal.deductions' => 'View Own Deductions Ledger',
 
@@ -167,6 +168,7 @@ return [
         'portal.dashboard' => 'Overview',
         'portal.leaves' => 'My Leaves',
         'portal.overtime' => 'My Overtime',
+        'portal.attendance' => 'My Attendance',
         'portal.payslips' => 'My Payslips',
         'portal.deductions' => 'Deductions Ledger',
         'users' => 'User Management',
@@ -194,6 +196,7 @@ return [
         'portal.dashboard' => 'Portal: Overview',
         'portal.leaves' => 'Portal: My Leaves',
         'portal.overtime' => 'Portal: My Overtime',
+        'portal.attendance' => 'Portal: My Attendance',
         'portal.payslips' => 'Portal: My Payslips',
         'portal.deductions' => 'Portal: Deductions Ledger',
     ]
