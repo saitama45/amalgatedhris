@@ -11,12 +11,12 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->web(append: [
-            \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
-            \App\Http\Middleware\HandleInertiaRequests::class,
-        ]);
-
+        ->withMiddleware(function (Middleware $middleware): void {
+            $middleware->web(append: [
+                \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
+                \App\Http\Middleware\HandleInertiaRequests::class,
+                \App\Http\Middleware\CheckUserAccess::class,
+            ]);
         $middleware->alias([
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,

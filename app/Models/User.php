@@ -20,6 +20,7 @@ class User extends Authenticatable
         'department',
         'position',
         'is_active',
+        'access_end_date',
         'last_login',
         'profile_photo',
     ];
@@ -46,6 +47,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'last_login' => 'datetime',
             'is_active' => 'boolean',
+            'access_end_date' => 'date',
         ];
     }
 

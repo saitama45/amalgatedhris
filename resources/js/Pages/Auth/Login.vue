@@ -5,8 +5,8 @@ import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { ref, computed } from 'vue';
 
 defineProps({
     canResetPassword: {
@@ -16,6 +16,9 @@ defineProps({
         type: String,
     },
 });
+
+const page = usePage();
+const flashError = computed(() => page.props.flash?.error);
 
 const form = useForm({
     email: '',
@@ -41,6 +44,13 @@ const submit = () => {
 
         <div v-if="status" class="mb-6 text-sm font-medium text-emerald-600 bg-emerald-50 p-4 rounded-md border border-emerald-100">
             {{ status }}
+        </div>
+
+        <div v-if="flashError" class="mb-6 text-sm font-medium text-rose-600 bg-rose-50 p-4 rounded-md border border-rose-100 flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+            </svg>
+            {{ flashError }}
         </div>
 
         <!-- Header Section -->

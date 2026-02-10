@@ -85,6 +85,7 @@ class UserController extends Controller
             'role' => 'required|string|exists:roles,name',
             'applicant_id' => 'nullable|exists:applicants,id',
             'employee_id' => 'nullable|exists:employees,id',
+            'access_end_date' => 'nullable|date',
         ]);
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($request, $userId) {
@@ -94,6 +95,7 @@ class UserController extends Controller
                     'name' => $request->name,
                     'email' => $request->email,
                     'password' => Hash::make($request->password),
+                    'access_end_date' => $request->access_end_date,
                 ]);
             } else {
                 $user = User::create([
@@ -101,6 +103,7 @@ class UserController extends Controller
                     'email' => $request->email,
                     'password' => Hash::make($request->password),
                     'email_verified_at' => now(),
+                    'access_end_date' => $request->access_end_date,
                 ]);
             }
 
@@ -134,23 +137,19 @@ class UserController extends Controller
             'role' => 'required|string|exists:roles,name',
             'department' => 'nullable|string|max:255',
             'position' => 'nullable|string|max:255',
+            'access_end_date' => 'nullable|date',
         ]);
 
         $user->name = $request->name;
         $user->email = $request->email;
         $user->department = $request->department;
         $user->position = $request->position;
+        $user->access_end_date = $request->access_end_date;
         $user->save();
 
         $user->syncRoles([$request->role]);
 
         return redirect()->back()->with('success', 'User updated successfully.');
-    }
-
-    public function destroy(User $user)
-    {
-        $user->delete();
-        return redirect()->back()->with('success', 'User deleted successfully.');
     }
 
     public function resetPassword(Request $request, User $user)

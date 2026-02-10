@@ -17,7 +17,8 @@ import {
     BuildingOfficeIcon,
     UserCircleIcon,
     CheckCircleIcon,
-    XCircleIcon
+    XCircleIcon,
+    ClockIcon
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
@@ -32,7 +33,7 @@ const showPasswordModal = ref(false);
 const editingUser = ref(null);
 const resetPasswordUser = ref(null);
 const { confirm } = useConfirm();
-const { post, put, destroy } = useErrorHandler();
+const { post, put } = useErrorHandler();
 const { showSuccess, showError } = useToast();
 const { hasPermission } = usePermission();
 
@@ -164,6 +165,7 @@ const createForm = useForm({
     position: '',
     applicant_id: null,
     employee_id: null,
+    access_end_date: '',
 });
 
 const editForm = useForm({
@@ -173,6 +175,7 @@ const editForm = useForm({
     department: '',
     position: '',
     employee_id: null,
+    access_end_date: '',
 });
 
 const passwordForm = useForm({
@@ -204,6 +207,7 @@ const editUser = (user) => {
     editForm.department = user.department || '';
     editForm.position = user.position || '';
     editForm.employee_id = user.employee?.id || null;
+    editForm.access_end_date = user.access_end_date ? user.access_end_date.substring(0, 10) : '';
     employeeSearch.value = user.name;
     showEditModal.value = true;
 };
@@ -223,22 +227,6 @@ const updateUser = () => {
             showError(errorMessage)
         }
     });
-};
-
-const deleteUser = async (user) => {
-    const confirmed = await confirm({
-        title: 'Delete User',
-        message: `Are you sure you want to delete "${user.name}"? This will permanently remove their access to HRIS.`
-    })
-    
-    if (confirmed) {
-        destroy(route('users.destroy', user.id), {
-            onError: (errors) => {
-                const errorMessage = Object.values(errors).flat().join(', ') || 'Cannot delete user'
-                showError(errorMessage)
-            }
-        });
-    }
 };
 
 const resetPassword = (user) => {
@@ -341,9 +329,22 @@ const updatePassword = () => {
                                     {{ user.position }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                    <div v-if="user.access_end_date" class="flex flex-col">
+                                        <span 
+                                            :class="[
+                                                'inline-flex items-center px-2.5 py-1 text-xs font-bold rounded-lg border mb-1',
+                                                new Date(user.access_end_date) <= new Date() 
+                                                    ? 'bg-rose-50 text-rose-700 border-rose-100' 
+                                                    : 'bg-amber-50 text-amber-700 border-amber-100'
+                                            ]"
+                                        >
+                                            <ClockIcon class="w-3.5 h-3.5 mr-1" />
+                                            {{ new Date(user.access_end_date) <= new Date() ? 'Access Expired' : 'Ends ' + new Date(user.access_end_date).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'}) }}
+                                        </span>
+                                    </div>
+                                    <span v-else class="inline-flex items-center px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100">
                                         <CheckCircleIcon class="w-3.5 h-3.5 mr-1" />
-                                        Authorized
+                                        Permanent
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -363,14 +364,6 @@ const updatePassword = () => {
                                             title="Reset Security Key"
                                         >
                                             <KeyIcon class="w-5 h-5" />
-                                        </button>
-                                        <button
-                                            v-if="hasPermission('users.delete')"
-                                            @click="deleteUser(user)"
-                                            class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                                            title="Revoke Access"
-                                        >
-                                            <TrashIcon class="w-5 h-5" />
                                         </button>
                                     </div>
                                 </td>
@@ -475,6 +468,18 @@ const updatePassword = () => {
                                     class="block w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                                 >
                             </div>
+                        </div>
+
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-bold text-rose-600 mb-1 flex items-center gap-1">
+                                <ClockIcon class="w-4 h-4" /> Access End Date (Optional)
+                            </label>
+                            <input 
+                                v-model="createForm.access_end_date"
+                                type="date" 
+                                class="block w-full px-4 py-2.5 bg-rose-50/30 border border-rose-100 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-bold text-rose-700"
+                            >
+                            <p class="text-[10px] text-slate-400 mt-1">If set, user will be blocked starting from this date.</p>
                         </div>
 
                         <div>
@@ -582,6 +587,18 @@ const updatePassword = () => {
                             <select v-model="editForm.role" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
                                 <option v-for="role in roles" :key="role.id" :value="role.name">{{ role.name }}</option>
                             </select>
+                        </div>
+
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-bold text-rose-600 mb-1 flex items-center gap-1">
+                                <ClockIcon class="w-4 h-4" /> Access End Date (Optional)
+                            </label>
+                            <input 
+                                v-model="editForm.access_end_date"
+                                type="date" 
+                                class="block w-full px-4 py-2.5 bg-rose-50/30 border border-rose-100 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-bold text-rose-700"
+                            >
+                            <p class="text-[10px] text-slate-400 mt-1">If set, user will be blocked starting from this date.</p>
                         </div>
                         
                         <div>
