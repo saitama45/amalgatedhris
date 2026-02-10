@@ -35,26 +35,16 @@
                         <!-- Actions -->
                         <div class="flex space-x-3">
                             <button 
-                                @click="cancel"
-                                :class="[
-                                    'flex-1 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2',
-                                    variant === 'success' 
-                                        ? 'text-white bg-rose-600 hover:bg-rose-700 focus:ring-rose-500' 
-                                        : 'text-gray-700 bg-gray-100 hover:bg-gray-200 focus:ring-gray-300'
-                                ]"
-                            >
-                                Cancel
-                            </button>
-                            <button 
                                 @click="confirm"
-                                :class="[
-                                    'flex-1 px-4 py-2.5 text-sm font-medium text-white rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2',
-                                    variant === 'success'
-                                        ? 'bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500'
-                                        : 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
-                                ]"
+                                class="flex-1 px-4 py-2.5 text-sm font-medium text-white rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500"
                             >
                                 {{ confirmButtonText }}
+                            </button>
+                            <button 
+                                @click="cancel"
+                                class="flex-1 px-4 py-2.5 text-sm font-medium text-white rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 bg-rose-600 hover:bg-rose-700 focus:ring-rose-500"
+                            >
+                                Cancel
                             </button>
                         </div>
                     </div>
