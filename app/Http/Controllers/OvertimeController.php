@@ -29,7 +29,7 @@ class OvertimeController extends Controller
             $query->where('status', $request->status);
         }
 
-        $requests = $query->latest()->paginate(10);
+        $requests = $query->latest()->paginate($request->get('per_page', 10));
 
         return Inertia::render('Overtime/Index', [
             'requests' => $requests,
@@ -129,14 +129,22 @@ class OvertimeController extends Controller
 
         // --- COMPUTATION LOGIC START ---
         $employee = $overtimeRequest->user->employee;
-        $record = $employee->activeEmploymentRecord;
-        $salary = $record->salaryHistories()->latest('effective_date')->first();
-
-        if (!$salary) {
-            return back()->with('error', 'Employee has no salary record. Cannot calculate OT.');
+        
+        if (!$employee) {
+            return back()->with('error', 'User has no associated employee record.');
         }
 
-        $basicSalary = $salary->basic_rate;
+        $record = $employee->activeEmploymentRecord;
+
+        if (!$record) {
+            return back()->with('error', 'Employee has no active employment record.');
+        }
+
+        $basicSalary = $record->basic_rate;
+
+        if ($basicSalary <= 0) {
+            return back()->with('error', 'Employee basic rate is not set. Cannot calculate OT.');
+        }
         
         // Determine Rates based on logic provided
         // Logic: 

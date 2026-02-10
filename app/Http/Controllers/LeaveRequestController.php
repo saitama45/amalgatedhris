@@ -23,7 +23,7 @@ class LeaveRequestController extends Controller
             });
         }
 
-        $requests = $query->latest()->paginate(10);
+        $requests = $query->latest()->paginate($request->get('per_page', 10));
 
         return Inertia::render('Leave/Index', [
             'requests' => $requests,

@@ -23,7 +23,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Gate::policy(Company::class, CompanyPolicy::class);
+        Gate::policy(\App\Models\Company::class, CompanyPolicy::class);
+        Gate::policy(\App\Models\Payslip::class, \App\Policies\PayslipPolicy::class);
         Vite::prefetch(concurrency: 3);
     }
 }

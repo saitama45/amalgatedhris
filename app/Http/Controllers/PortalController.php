@@ -292,19 +292,72 @@ class PortalController extends Controller
         return back()->with('success', 'Overtime request cancelled.');
     }
 
-    public function payslips()
+    public function payslips(Request $request)
     {
         $employee = Auth::user()->employee;
+        
+        $query = Payslip::where('employee_id', $employee?->id)
+            ->whereHas('payroll', function($q) {
+                $q->whereIn('status', ['Finalized', 'Paid']);
+            })
+            ->with('payroll');
+
+        if ($request->filled('payout_date')) {
+            $query->whereHas('payroll', function($q) use ($request) {
+                $q->whereDate('payout_date', $request->payout_date);
+            });
+        }
+
+        $payslips = $query->latest()->paginate($request->get('per_page', 10));
+
+        // Fetch unique payout dates for the filter
+        $payoutDates = Payslip::where('employee_id', $employee?->id)
+            ->whereHas('payroll', function($q) {
+                $q->whereIn('status', ['Finalized', 'Paid']);
+            })
+            ->join('payrolls', 'payslips.payroll_id', '=', 'payrolls.id')
+            ->select('payrolls.payout_date')
+            ->distinct()
+            ->orderBy('payrolls.payout_date', 'desc')
+            ->pluck('payout_date');
 
         return Inertia::render('Portal/Payslips', [
-            'payslips' => $employee ? Payslip::where('employee_id', $employee->id)
-                ->whereHas('payroll', function($q) {
-                    $q->whereIn('status', ['Finalized', 'Paid']);
-                })
-                ->with('payroll')
-                ->latest()
-                ->paginate(12) : [],
+            'payslips' => $payslips,
+            'payoutDates' => $payoutDates,
+            'filters' => $request->only(['payout_date'])
         ]);
+    }
+
+    public function exportPayslipPdf($id)
+    {
+        $payslip = Payslip::findOrFail($id);
+        $user = Auth::user();
+        $employee = $user->employee;
+        
+        $isHROrAdmin = $user->can('payroll.view');
+        $isOwner = $employee && $payslip->employee_id == $employee->id;
+
+        if (!$isHROrAdmin && !$isOwner) {
+            $userEmpId = $employee ? $employee->id : 'NONE';
+            abort(403, "Access Denied. User: {$user->id}, Your Emp ID: {$userEmpId}, Slip Emp ID: {$payslip->employee_id}");
+        }
+
+        $payslip->load(['employee.user', 'payroll.company', 'employee.activeEmploymentRecord.position', 'employee.activeEmploymentRecord.department']);
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.payslip', [
+            'slip' => $payslip,
+            'payroll' => $payslip->payroll
+        ]);
+
+        $dateString = $payslip->payroll->cutoff_end->format('Y-m-d');
+        $employeeName = str_replace(' ', '_', $payslip->employee->user->name);
+        $filename = "Payslip_{$employeeName}_{$dateString}.pdf";
+        
+        if (request()->has('download')) {
+            return $pdf->download($filename);
+        }
+
+        return $pdf->stream($filename);
     }
 
     public function deductions()

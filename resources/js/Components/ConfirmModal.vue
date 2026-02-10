@@ -15,8 +15,14 @@
                     :class="show ? 'scale-100 opacity-100' : 'scale-95 opacity-0'"
                 >
                     <!-- Icon -->
-                    <div class="flex items-center justify-center w-16 h-16 mx-auto mt-8 bg-red-100 rounded-full">
-                        <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div 
+                        class="flex items-center justify-center w-16 h-16 mx-auto mt-8 rounded-full"
+                        :class="variant === 'success' ? 'bg-emerald-100' : 'bg-red-100'"
+                    >
+                        <svg v-if="variant === 'success'" class="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <svg v-else class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                         </svg>
                     </div>
@@ -30,13 +36,23 @@
                         <div class="flex space-x-3">
                             <button 
                                 @click="cancel"
-                                class="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                                :class="[
+                                    'flex-1 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2',
+                                    variant === 'success' 
+                                        ? 'text-white bg-rose-600 hover:bg-rose-700 focus:ring-rose-500' 
+                                        : 'text-gray-700 bg-gray-100 hover:bg-gray-200 focus:ring-gray-300'
+                                ]"
                             >
                                 Cancel
                             </button>
                             <button 
                                 @click="confirm"
-                                class="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500"
+                                :class="[
+                                    'flex-1 px-4 py-2.5 text-sm font-medium text-white rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2',
+                                    variant === 'success'
+                                        ? 'bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500'
+                                        : 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
+                                ]"
                             >
                                 {{ confirmButtonText }}
                             </button>
@@ -64,6 +80,10 @@ const props = defineProps({
     confirmButtonText: {
         type: String,
         default: 'Delete'
+    },
+    variant: {
+        type: String,
+        default: 'danger' // danger, success
     }
 })
 

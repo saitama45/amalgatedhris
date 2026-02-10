@@ -22,14 +22,17 @@ class RolesAndPermissionSeeder extends Seeder
         }
 
         $admin = Role::firstOrCreate(['name' => 'Admin']);
+        $admin->update(['landing_page' => 'dashboard']);
         $admin->syncPermissions(Permission::all());
         
         $hr = Role::firstOrCreate(['name' => 'HR Manager']);
+        $hr->update(['landing_page' => 'dashboard']);
         $hr->syncPermissions(Permission::whereNotIn('name', [
             'roles.delete', 'users.delete', 'payroll.delete'
         ])->get());
 
         $employee = Role::firstOrCreate(['name' => 'Employee']);
+        $employee->update(['landing_page' => 'portal.dashboard']);
         $employee->syncPermissions([
             'dashboard.view',
             'portal.dashboard',

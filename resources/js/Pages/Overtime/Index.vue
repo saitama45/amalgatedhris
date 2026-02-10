@@ -33,7 +33,7 @@ const props = defineProps({
 
 const { hasPermission } = usePermission();
 const { showSuccess, showError } = useToast();
-const { confirm, showConfirmModal, confirmTitle, confirmMessage, handleConfirm, handleCancel } = useConfirm();
+const { confirm, showConfirmModal, confirmTitle, confirmMessage, confirmButtonText, confirmVariant, handleConfirm, handleCancel } = useConfirm();
 
 const filterForm = ref({
     status: props.filters.status || '',
@@ -107,7 +107,8 @@ const approve = async (id) => {
     const isConfirmed = await confirm({
         title: 'Approve Overtime',
         message: 'Are you sure you want to approve this request?',
-        confirmButtonText: 'Approve'
+        confirmButtonText: 'Approve',
+        variant: 'success'
     });
 
     if (isConfirmed) {
@@ -333,6 +334,8 @@ const formatDate = (dateStr) => {
             :show="showConfirmModal" 
             :title="confirmTitle" 
             :message="confirmMessage" 
+            :confirm-button-text="confirmButtonText"
+            :variant="confirmVariant"
             @confirm="handleConfirm" 
             @cancel="handleCancel" 
         />

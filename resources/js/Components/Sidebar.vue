@@ -131,6 +131,14 @@ const toggleMenu = (key) => {
 };
 
 const isRouteActive = (category) => {
+    // Special Case: Applicants and Exams share the same 'applicants' prefix
+    if (category === 'applicants') {
+        return route().current('applicants.*') && !route().current('applicants.exams*');
+    }
+    if (category === 'exams') {
+        return route().current('applicants.exams*');
+    }
+
     const routeName = getRouteName(category);
     // Get the base prefix (e.g., 'leave-requests' from 'leave-requests.index')
     const routeParts = routeName.split('.');
@@ -197,19 +205,19 @@ const handleMouseLeave = () => {
         >
             <!-- Sidebar Header -->
             <div class="h-16 flex items-center justify-between px-5 border-b border-[#1E293B] bg-[#0B1120] z-20">
-                <div v-if="!isCollapsed" class="flex items-center gap-3 overflow-hidden">
-                    <div class="bg-gradient-to-br from-teal-500 to-indigo-600 p-1.5 rounded-lg shadow-lg shadow-teal-900/50">
+                <Link :href="route($page.props.auth.landing_page)" v-if="!isCollapsed" class="flex items-center gap-3 overflow-hidden group/logo">
+                    <div class="bg-gradient-to-br from-teal-500 to-indigo-600 p-1.5 rounded-lg shadow-lg shadow-teal-900/50 group-hover/logo:scale-110 transition-transform duration-200">
                         <ApplicationLogo class="w-5 h-5 text-white" />
                     </div>
                     <div class="flex flex-col">
-                        <span class="text-sm font-bold text-white tracking-wide">Amalgated</span>
+                        <span class="text-sm font-bold text-white tracking-wide group-hover/logo:text-teal-400 transition-colors">Amalgated</span>
                         <span class="text-[10px] text-teal-400 font-semibold tracking-wider uppercase">Enterprise HR</span>
                     </div>
-                </div>
+                </Link>
                  <div v-else class="mx-auto">
-                    <div class="bg-gradient-to-br from-teal-500 to-indigo-600 p-2 rounded-lg">
+                    <Link :href="route($page.props.auth.landing_page)" class="bg-gradient-to-br from-teal-500 to-indigo-600 p-2 rounded-lg block hover:scale-110 transition-transform duration-200">
                         <ApplicationLogo class="w-5 h-5 text-white" />
-                    </div>
+                    </Link>
                 </div>
 
                 <button
@@ -297,26 +305,28 @@ const handleMouseLeave = () => {
             <!-- User Section -->
             <div class="p-4 border-t border-[#1E293B] bg-[#0B1120] z-20">
                 <div class="flex items-center group relative p-2 rounded-xl hover:bg-[#161F32] transition-colors cursor-pointer">
-                    <div 
-                        class="relative"
-                         @mouseenter="handleMouseEnter($event, user.name)"
-                         @mouseleave="handleMouseLeave"
-                    >
-                        <div v-if="user.profile_photo" class="w-10 h-10 rounded-full overflow-hidden border-2 border-[#1E293B] ring-2 ring-transparent group-hover:ring-teal-500/30 transition-all">
-                            <img :src="'/storage/' + user.profile_photo" class="h-full w-full object-cover" :alt="user.name">
+                    <Link :href="route('profile.edit')" class="flex items-center flex-1 min-w-0">
+                        <div 
+                            class="relative flex-shrink-0"
+                            @mouseenter="handleMouseEnter($event, user.name)"
+                            @mouseleave="handleMouseLeave"
+                        >
+                            <div v-if="user.profile_photo" class="w-10 h-10 rounded-full overflow-hidden border-2 border-[#1E293B] ring-2 ring-transparent group-hover:ring-teal-500/30 transition-all">
+                                <img :src="'/storage/' + user.profile_photo" class="h-full w-full object-cover" :alt="user.name">
+                            </div>
+                            <div v-else class="w-10 h-10 bg-[#1E293B] rounded-full flex items-center justify-center border-2 border-[#1E293B] group-hover:bg-[#253248] transition-colors">
+                                <span class="text-sm font-bold text-teal-400">
+                                    {{ user.name?.charAt(0)?.toUpperCase() || 'U' }}
+                                </span>
+                            </div>
+                            <div class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-teal-500 border-2 border-[#0B1120] rounded-full"></div>
                         </div>
-                        <div v-else class="w-10 h-10 bg-[#1E293B] rounded-full flex items-center justify-center border-2 border-[#1E293B] group-hover:bg-[#253248] transition-colors">
-                            <span class="text-sm font-bold text-teal-400">
-                                {{ user.name?.charAt(0)?.toUpperCase() || 'U' }}
-                            </span>
+                        
+                        <div v-if="!isCollapsed" class="ml-3 flex-1 overflow-hidden">
+                            <p class="text-sm font-medium text-slate-200 truncate group-hover:text-white transition-colors">{{ user.name || 'User' }}</p>
+                            <p class="text-xs text-slate-500 truncate group-hover:text-slate-400 transition-colors">{{ user.email || 'user@example.com' }}</p>
                         </div>
-                        <div class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-teal-500 border-2 border-[#0B1120] rounded-full"></div>
-                    </div>
-                    
-                    <div v-if="!isCollapsed" class="ml-3 flex-1 overflow-hidden">
-                        <p class="text-sm font-medium text-slate-200 truncate group-hover:text-white transition-colors">{{ user.name || 'User' }}</p>
-                        <p class="text-xs text-slate-500 truncate group-hover:text-slate-400 transition-colors">{{ user.email || 'user@example.com' }}</p>
-                    </div>
+                    </Link>
 
                     
                     <Link 
@@ -324,7 +334,7 @@ const handleMouseLeave = () => {
                         :href="route('logout')" 
                         method="post" 
                         as="button" 
-                        class="ml-2 p-1.5 text-slate-500 hover:text-rose-400 hover:bg-[#1E293B] rounded-lg transition-colors"
+                        class="ml-2 p-1.5 text-slate-500 hover:text-rose-400 hover:bg-[#1E293B] rounded-lg transition-colors flex-shrink-0"
                         title="Logout"
                     >
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

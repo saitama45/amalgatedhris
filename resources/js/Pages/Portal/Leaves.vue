@@ -34,6 +34,16 @@ const { confirm, showConfirmModal, confirmTitle, confirmMessage, handleConfirm, 
 
 const pagination = usePagination(props.requests, 'portal.leaves');
 
+const filteredLeaveTypes = computed(() => {
+    const gender = employee.value?.gender;
+    return props.leaveTypes.filter(type => {
+        const name = type.name.toLowerCase();
+        if (gender === 'Male' && name.includes('maternity')) return false;
+        if (gender === 'Female' && name.includes('paternity')) return false;
+        return true;
+    });
+});
+
 watch(() => props.requests, (newData) => {
     pagination.updateData(newData);
 }, { deep: true });
@@ -215,7 +225,7 @@ const formatDate = (date) => {
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Leave Type</label>
                     <select v-model="form.leave_type_id" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
                         <option value="" disabled>Select Type</option>
-                        <option v-for="type in leaveTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
+                        <option v-for="type in filteredLeaveTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
                     </select>
                 </div>
 

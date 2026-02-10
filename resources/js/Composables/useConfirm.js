@@ -4,6 +4,7 @@ const showConfirmModal = ref(false)
 const confirmTitle = ref('')
 const confirmMessage = ref('')
 const confirmButtonText = ref('Delete')
+const confirmVariant = ref('danger')
 let confirmCallback = null
 let cancelCallback = null
 
@@ -13,6 +14,7 @@ export function useConfirm() {
             confirmTitle.value = options.title || 'Confirm Delete'
             confirmMessage.value = options.message || 'Are you sure you want to delete this item? This action cannot be undone.'
             confirmButtonText.value = options.confirmButtonText || 'Delete'
+            confirmVariant.value = options.variant || 'danger'
             
             confirmCallback = () => {
                 showConfirmModal.value = false
@@ -41,6 +43,7 @@ export function useConfirm() {
         confirmTitle,
         confirmMessage,
         confirmButtonText,
+        confirmVariant,
         confirm,
         handleConfirm,
         handleCancel

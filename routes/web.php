@@ -139,6 +139,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/leaves', [\App\Http\Controllers\PortalController::class, 'leaves'])->name('leaves');
         Route::get('/overtime', [\App\Http\Controllers\PortalController::class, 'overtime'])->name('overtime');
         Route::get('/payslips', [\App\Http\Controllers\PortalController::class, 'payslips'])->name('payslips');
+        Route::get('/my-payslip/{id}/pdf', [\App\Http\Controllers\PortalController::class, 'exportPayslipPdf'])->name('payslips.pdf');
         Route::get('/deductions', [\App\Http\Controllers\PortalController::class, 'deductions'])->name('deductions');
 
         // Self-service actions (avoiding 403 from admin routes)

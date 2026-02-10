@@ -172,6 +172,12 @@
                                 <td class="label">Payout Date:</td>
                                 <td class="value">{{ \Carbon\Carbon::parse($payroll->payout_date)->format('M d, Y') }}</td>
                             </tr>
+                            @if(isset($slip->details['leave_days']) && $slip->details['leave_days'] > 0)
+                            <tr>
+                                <td class="label">Paid Leave:</td>
+                                <td class="value">{{ $slip->details['leave_days'] }} day/s</td>
+                            </tr>
+                            @endif
                             <tr>
                                 <td class="label">Status:</td>
                                 <td class="value">{{ $payroll->status }}</td>

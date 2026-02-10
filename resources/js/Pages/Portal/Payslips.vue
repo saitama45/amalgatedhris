@@ -1,6 +1,6 @@
 <script setup>
 import { Head, Link } from '@inertiajs/vue3';
-import { watch } from 'vue';
+import { ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
 import { usePagination } from '@/Composables/usePagination.js';
@@ -8,18 +8,31 @@ import {
     BanknotesIcon, 
     ArrowDownTrayIcon,
     EyeIcon,
-    CalendarIcon
+    CalendarIcon,
+    FunnelIcon
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
     payslips: Object,
+    payoutDates: Array,
+    filters: Object,
 });
 
-const pagination = usePagination(props.payslips, 'portal.payslips');
+const filterForm = ref({
+    payout_date: props.filters.payout_date || '',
+});
+
+const pagination = usePagination(props.payslips, 'portal.payslips', () => ({
+    ...filterForm.value
+}));
 
 watch(() => props.payslips, (newData) => {
     pagination.updateData(newData);
 }, { deep: true });
+
+const applyFilters = () => {
+    pagination.performSearch(route('portal.payslips'), filterForm.value);
+};
 
 const formatCurrency = (val) => {
     return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(val);
@@ -29,10 +42,15 @@ const formatDate = (date) => {
     return new Date(date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 };
 
+const formatFullDate = (date) => {
+    if (!date) return 'N/A';
+    return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
 const formatPeriod = (payroll) => {
     if (!payroll) return 'N/A';
-    const start = new Date(payroll.period_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    const end = new Date(payroll.period_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const start = new Date(payroll.cutoff_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const end = new Date(payroll.cutoff_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     return `${start} - ${end}`;
 };
 </script>
@@ -49,6 +67,24 @@ const formatPeriod = (payroll) => {
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 
+                <!-- Filters -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-4 mb-6">
+                    <div class="flex flex-wrap items-end gap-4">
+                        <div class="w-full md:w-64">
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Filter by Payout Date</label>
+                            <select v-model="filterForm.payout_date" class="w-full rounded-lg border-slate-200 text-sm focus:ring-blue-500">
+                                <option value="">All Payout Dates</option>
+                                <option v-for="date in payoutDates" :key="date" :value="date">
+                                    {{ formatFullDate(date) }}
+                                </option>
+                            </select>
+                        </div>
+                        <button @click="applyFilters" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-2 px-6 rounded-lg transition-colors flex items-center gap-2">
+                            <FunnelIcon class="w-4 h-4" /> Filter
+                        </button>
+                    </div>
+                </div>
+
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                     <DataTable
                         title="Payroll History"
@@ -67,6 +103,7 @@ const formatPeriod = (payroll) => {
                         <template #header>
                             <tr class="bg-slate-50">
                                 <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Pay Period</th>
+                                <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Payout Date</th>
                                 <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Gross Pay</th>
                                 <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Deductions</th>
                                 <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Net Pay</th>
@@ -88,6 +125,9 @@ const formatPeriod = (payroll) => {
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm font-bold text-slate-700">{{ formatFullDate(slip.payroll?.payout_date) }}</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm font-medium text-slate-600">{{ formatCurrency(slip.gross_pay) }}</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
@@ -100,10 +140,10 @@ const formatPeriod = (payroll) => {
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right">
                                     <div class="flex justify-end gap-2">
-                                        <a :href="route('payslips.export-pdf', slip.id)" target="_blank" class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="View PDF">
+                                        <a :href="route('portal.payslips.pdf', slip.id)" target="_blank" class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="View PDF">
                                             <EyeIcon class="w-5 h-5" />
                                         </a>
-                                        <a :href="route('payslips.export-pdf', slip.id) + '?download=1'" class="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all" title="Download">
+                                        <a :href="route('portal.payslips.pdf', slip.id) + '?download=1'" class="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all" title="Download">
                                             <ArrowDownTrayIcon class="w-5 h-5" />
                                         </a>
                                     </div>

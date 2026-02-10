@@ -13,7 +13,7 @@ class UserController extends Controller
 {
     public function index(Request $request)
     {
-        $query = User::has('employee')->with([
+        $query = User::with([
             'roles:id,name',
             'employee.activeEmploymentRecord.department',
             'employee.activeEmploymentRecord.position'
@@ -70,24 +70,41 @@ class UserController extends Controller
 
     public function store(Request $request)
     {
+        $userId = null;
+        if ($request->filled('employee_id')) {
+            $employee = \App\Models\Employee::find($request->employee_id);
+            if ($employee) {
+                $userId = $employee->user_id;
+            }
+        }
+
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
+            'email' => 'required|string|email|max:255|unique:users,email,' . ($userId ?? 'NULL'),
             'password' => 'required|string|min:8',
             'role' => 'required|string|exists:roles,name',
             'applicant_id' => 'nullable|exists:applicants,id',
             'employee_id' => 'nullable|exists:employees,id',
         ]);
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($request) {
-            $user = User::create([
-                'name' => $request->name,
-                'email' => $request->email,
-                'password' => Hash::make($request->password),
-                'email_verified_at' => now(),
-            ]);
+        \Illuminate\Support\Facades\DB::transaction(function () use ($request, $userId) {
+            if ($userId) {
+                $user = User::find($userId);
+                $user->update([
+                    'name' => $request->name,
+                    'email' => $request->email,
+                    'password' => Hash::make($request->password),
+                ]);
+            } else {
+                $user = User::create([
+                    'name' => $request->name,
+                    'email' => $request->email,
+                    'password' => Hash::make($request->password),
+                    'email_verified_at' => now(),
+                ]);
+            }
 
-            $user->assignRole($request->role);
+            $user->syncRoles([$request->role]);
 
             if ($request->filled('applicant_id')) {
                 $applicant = \App\Models\Applicant::find($request->applicant_id);
@@ -103,10 +120,6 @@ class UserController extends Controller
                     ->update(['employee_id' => $employee->id, 'applicant_id' => null]);
 
                 $applicant->update(['status' => 'hired']);
-            } elseif ($request->filled('employee_id')) {
-                // Link existing employee to this new user? 
-                // Wait, Employee already has a user_id which is unique.
-                // This case should probably not happen if we filter the dropdown.
             }
         });
 

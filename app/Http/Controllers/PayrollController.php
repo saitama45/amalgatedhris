@@ -42,7 +42,7 @@ class PayrollController extends Controller
             $query->where('company_id', $request->company_id);
         }
 
-        $payrolls = $query->paginate(10);
+        $payrolls = $query->paginate($request->get('per_page', 10));
 
         return Inertia::render('Payroll/Index', [
             'payrolls' => $payrolls,
@@ -163,12 +163,20 @@ class PayrollController extends Controller
             
             // Iterate through every day in the cut-off to check for work schedule
             for ($d = $periodStart->copy(); $d <= $periodEnd; $d->addDay()) {
-                $dayName = $d->format('D'); // Mon, Tue, etc.
+                $dayOfWeek = $d->dayOfWeek; // 0 (Sun) to 6 (Sat)
                 $record = $employee->activeEmploymentRecord;
-                $isWorkDay = str_contains($record->work_days ?? '', $dayName);
+                $workDays = explode(',', $record->work_days ?? '1,2,3,4,5');
+                $isWorkDay = in_array((string)$dayOfWeek, $workDays);
                 
-                // Check for Holiday
-                $holiday = \App\Models\Holiday::where('date', $d->format('Y-m-d'))->first();
+                // Check for Holiday (Handle Recurring)
+                $holiday = \App\Models\Holiday::where(function($q) use ($d) {
+                    $q->where('date', $d->format('Y-m-d')) // Specific Date
+                      ->orWhere(function($sub) use ($d) {
+                          $sub->where('is_recurring', true)
+                              ->whereMonth('date', $d->month)
+                              ->whereDay('date', $d->day);
+                      });
+                })->first();
                 
                 // Check for Approved Leave
                 $onLeave = LeaveRequest::where('employee_id', $employee->id)
@@ -199,15 +207,27 @@ class PayrollController extends Controller
                 }
             }
 
-            $lateDeduction = $totalLateMinutes * $minuteRate;
-            $utDeduction = $totalUTMinutes * $minuteRate;
-            $absenceDeduction = $absentDays * $dailyRate;
+            $lateDeduction = round($totalLateMinutes * $minuteRate, 2);
+            $utDeduction = round($totalUTMinutes * $minuteRate, 2);
+            $absenceDeduction = round($absentDays * $dailyRate, 2);
 
-            // 3. Fetch Approved Overtime
-            $approvedOT = OvertimeRequest::where('user_id', $employee->user_id)
+            // 3. Fetch Approved Overtime - MUST have corresponding Attendance Log
+            $approvedOTRequests = OvertimeRequest::where('user_id', $employee->user_id)
                 ->where('status', 'Approved')
                 ->whereBetween('date', [$payroll->cutoff_start, $payroll->cutoff_end])
-                ->sum('payable_amount');
+                ->get();
+
+            $totalApprovedOT = 0;
+            foreach ($approvedOTRequests as $otReq) {
+                // Verify if there's an attendance log for this OT date
+                $hasLog = AttendanceLog::where('employee_id', $employee->id)
+                    ->where('date', $otReq->date->format('Y-m-d'))
+                    ->exists();
+                
+                if ($hasLog) {
+                    $totalApprovedOT += $otReq->payable_amount;
+                }
+            }
 
             // 4. Calculate Contributions based on Employee Schedule (with Company Fallback)
             $payoutDay = Carbon::parse($payroll->payout_date)->day;
@@ -302,7 +322,7 @@ class PayrollController extends Controller
                 }
             }
 
-            $grossPay = $basicPay + $salary->allowance + $approvedOT;
+            $grossPay = $basicPay + $salary->allowance + $totalApprovedOT;
             
             // Calculate Taxable Income
             $taxableIncome = $grossPay - ($sss + $philhealth + $pagibig);
@@ -339,7 +359,7 @@ class PayrollController extends Controller
                 'basic_pay' => $basicPay,
                 'gross_pay' => $grossPay,
                 'allowances' => $salary->allowance,
-                'ot_pay' => $approvedOT,
+                'ot_pay' => $totalApprovedOT,
                 'late_deduction' => $lateDeduction,
                 'undertime_deduction' => $utDeduction,
                 'sss_deduction' => $sss,
@@ -366,7 +386,7 @@ class PayrollController extends Controller
         return $generatedCount;
     }
 
-    public function show(Payroll $payroll)
+    public function show(Request $request, Payroll $payroll)
     {
         $this->authorize('payroll.view');
         
@@ -374,7 +394,7 @@ class PayrollController extends Controller
         
         $payslips = Payslip::where('payroll_id', $payroll->id)
             ->with('employee.user')
-            ->paginate(20);
+            ->paginate($request->get('per_page', 10));
 
         return Inertia::render('Payroll/Show', [
             'payroll' => $payroll,
@@ -508,6 +528,7 @@ class PayrollController extends Controller
             'pagibig_ded' => 'required|numeric',
             'tax_withheld' => 'required|numeric',
             'other_deductions' => 'required|numeric',
+            'details' => 'nullable|array',
         ]);
 
         $gross = $validated['basic_pay'] + $validated['allowances'] + $validated['ot_pay'];

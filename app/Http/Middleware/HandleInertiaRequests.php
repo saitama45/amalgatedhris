@@ -39,6 +39,7 @@ class HandleInertiaRequests extends Middleware
     {
         $user = $request->user();
         $permissions = [];
+        $landingPage = 'dashboard';
         
         if ($user) {
             // Load roles with permissions to avoid N+1 queries in the loop
@@ -48,12 +49,19 @@ class HandleInertiaRequests extends Middleware
             $permissions = $user->roles->flatMap(function ($role) {
                 return $role->permissions->pluck('name');
             })->unique()->values()->toArray();
+
+            // Determine landing page from the primary role
+            $primaryRole = $user->roles->first();
+            if ($primaryRole && $primaryRole->landing_page) {
+                $landingPage = $primaryRole->landing_page;
+            }
         }
         
         return array_merge(parent::share($request), [
             'auth' => [
                 'user' => $user,
                 'permissions' => $permissions,
+                'landing_page' => $landingPage,
             ],
             'config' => [
                 'sidebar_structure' => config('hris.sidebar_structure'),
