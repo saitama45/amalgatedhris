@@ -55,6 +55,16 @@ class AttendanceController extends Controller
             ->paginate($perPage)
             ->withQueryString();
 
+        // Check if logs are locked (Finalized Payroll)
+        $logs->getCollection()->transform(function($log) {
+            $isLocked = \App\Models\Payroll::whereIn('status', ['Finalized', 'Paid'])
+                ->where('cutoff_start', '<=', $log->date->format('Y-m-d'))
+                ->where('cutoff_end', '>=', $log->date->format('Y-m-d'))
+                ->exists();
+            $log->is_locked = $isLocked;
+            return $log;
+        });
+
         return Inertia::render('DTR/Index', [
             'logs' => $logs,
             'filters' => [
@@ -162,6 +172,16 @@ class AttendanceController extends Controller
 
     public function update(Request $request, AttendanceLog $attendanceLog, AttendanceService $attendanceService)
     {
+        // Check if locked by payroll
+        $isLocked = \App\Models\Payroll::whereIn('status', ['Finalized', 'Paid'])
+            ->where('cutoff_start', '<=', $attendanceLog->date->format('Y-m-d'))
+            ->where('cutoff_end', '>=', $attendanceLog->date->format('Y-m-d'))
+            ->exists();
+
+        if ($isLocked) {
+            return redirect()->back()->with('error', 'Cannot update. This attendance record is already part of a finalized payroll.');
+        }
+
         $request->validate([
             'time_in' => 'nullable|date_format:H:i',
             'time_out' => 'nullable|date_format:H:i',
@@ -219,6 +239,16 @@ class AttendanceController extends Controller
 
     public function destroy(AttendanceLog $attendanceLog)
     {
+        // Check if locked by payroll
+        $isLocked = \App\Models\Payroll::whereIn('status', ['Finalized', 'Paid'])
+            ->where('cutoff_start', '<=', $attendanceLog->date->format('Y-m-d'))
+            ->where('cutoff_end', '>=', $attendanceLog->date->format('Y-m-d'))
+            ->exists();
+
+        if ($isLocked) {
+            return redirect()->back()->with('error', 'Cannot delete. This attendance record is already part of a finalized payroll.');
+        }
+
         $attendanceLog->delete();
         return redirect()->back()->with('success', 'Attendance log deleted.');
     }

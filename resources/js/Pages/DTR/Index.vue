@@ -221,6 +221,7 @@ const submitImport = () => {
 const statusClass = (status) => {
     switch (status) {
         case 'Present': return 'bg-emerald-100 text-emerald-700';
+        case 'Half Day': return 'bg-indigo-100 text-indigo-700';
         case 'Late': return 'bg-amber-100 text-amber-700';
         case 'Absent': return 'bg-rose-100 text-rose-700';
         case 'Incomplete': return 'bg-slate-100 text-slate-700';
@@ -463,18 +464,25 @@ const calculateUndertime = (log) => {
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-center">
-                                    <span :class="['px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wide border border-transparent', statusClass(log.status)]">
-                                        {{ log.status }}
+                                    <span :class="['px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wide border border-transparent', statusClass(calculateWorkHours(log) === '4.00' ? 'Half Day' : log.status)]">
+                                        {{ calculateWorkHours(log) === '4.00' ? 'Half Day' : log.status }}
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right">
                                     <div class="flex justify-end gap-1">
-                                        <button @click="openEditModal(log)" class="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                                            <PencilSquareIcon class="w-4 h-4" />
-                                        </button>
-                                        <button @click="deleteLog(log)" class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                                            <TrashIcon class="w-4 h-4" />
-                                        </button>
+                                        <template v-if="!log.is_locked">
+                                            <button @click="openEditModal(log)" class="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                                <PencilSquareIcon class="w-4 h-4" />
+                                            </button>
+                                            <button @click="deleteLog(log)" class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                                <TrashIcon class="w-4 h-4" />
+                                            </button>
+                                        </template>
+                                        <div v-else class="p-1.5 text-slate-300" title="Locked by Finalized Payroll">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                            </svg>
+                                        </div>
                                     </div>
                                 </td>
                             </tr>
