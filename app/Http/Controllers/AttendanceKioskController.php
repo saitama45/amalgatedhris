@@ -74,6 +74,17 @@ class AttendanceKioskController extends Controller
         $now = Carbon::now();
         $dateStr = $now->format('Y-m-d');
 
+        // Check if employee has a filed leave for today (Pending or Approved)
+        $hasLeave = \App\Models\LeaveRequest::where('employee_id', $employee->id)
+            ->whereIn('status', ['Pending', 'Approved'])
+            ->where('start_date', '<=', $dateStr)
+            ->where('end_date', '>=', $dateStr)
+            ->exists();
+
+        if ($hasLeave) {
+            return response()->json(['message' => 'Attendance disabled. You have a filed leave request for today.'], 422);
+        }
+
         // Check if log exists for today
         $log = AttendanceLog::firstOrNew([
             'employee_id' => $employee->id,

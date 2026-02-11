@@ -114,19 +114,27 @@ const startAutoScan = () => {
     }, 150); 
 };
 
-// Robust Similarity Helper (Cosine Similarity)
+// Robust Similarity Helper with Normalization
 const getSimilarity = (embedding1, embedding2) => {
-    if (!embedding1 || !embedding2) return 0;
-    // Human similarity is usually under human.match.similarity
-    if (human.match && typeof human.match.similarity === 'function') {
-        return human.match.similarity(embedding1, embedding2);
-    }
-    // Fallback: Manual Dot Product (Human embeddings are usually normalized)
+    if (!embedding1 || !embedding2 || embedding1.length !== embedding2.length) return 0;
+    
+    // Normalize vectors first
+    const normalize = (vec) => {
+        const mag = Math.sqrt(vec.reduce((sum, val) => sum + val * val, 0));
+        return mag > 0 ? vec.map(v => v / mag) : vec;
+    };
+    
+    const norm1 = normalize(embedding1);
+    const norm2 = normalize(embedding2);
+    
+    // Cosine similarity via dot product of normalized vectors
     let dot = 0;
-    for (let i = 0; i < embedding1.length; i++) {
-        dot += embedding1[i] * embedding2[i];
+    for (let i = 0; i < norm1.length; i++) {
+        dot += norm1[i] * norm2[i];
     }
-    return dot;
+    
+    // Clamp to [0, 1] range
+    return Math.max(0, Math.min(1, dot));
 };
 
 const performLocalScan = async () => {
@@ -143,20 +151,28 @@ const performLocalScan = async () => {
     const face = result.face[0];
     const box = face.boxRaw; // [x, y, width, height] normalized
     
-    // --- SPATIAL FILTERING ---
+    // --- CRITICAL: STRICT SPATIAL FILTERING (ENTIRE FACE MUST BE INSIDE CIRCLE) ---
     const faceCenterX = box[0] + (box[2] / 2);
     const faceCenterY = box[1] + (box[3] / 2);
     const distFromCenter = Math.sqrt(Math.pow(faceCenterX - 0.5, 2) + Math.pow(faceCenterY - 0.5, 2));
     
+    // Face center must be well-centered
     if (distFromCenter > 0.18) {
         livenessFeedback.value = "Center your face in the circle";
         if (livenessStatus.value !== 'waiting') resetLiveness();
         return;
     }
 
-    // Quality Check
-    if (box[2] < 0.22) {
-        livenessFeedback.value = "Please come closer...";
+    // Quality & Size Check - face must be appropriate size
+    if (box[2] < 0.20 || box[2] > 0.65) {
+        livenessFeedback.value = box[2] < 0.20 ? "Come closer..." : "Move back slightly...";
+        if (livenessStatus.value !== 'waiting') resetLiveness();
+        return;
+    }
+    
+    // Confidence threshold
+    if (face.score < 0.75) {
+        livenessFeedback.value = "Improve lighting or face camera directly";
         return;
     }
 
@@ -192,24 +208,36 @@ const performLocalScan = async () => {
     });
     if (livenessHistory.length > 20) livenessHistory.shift();
 
-    // 3. Identification Phase (with Human Similarity)
+    // 3. CRITICAL: Identification Phase with Strict Matching
     if (livenessStatus.value === 'waiting') {
-        let bestMatch = { label: 'unknown', distance: 1.0 };
-        
         const currentEmbedding = face.embedding;
-        if (currentEmbedding) {
-            for (const emp of props.employees) {
-                const similarity = getSimilarity(currentEmbedding, emp.descriptor);
-                // Convert similarity (1.0 = match) to distance (0.0 = match)
-                const distance = 1.0 - similarity;
-                
-                if (distance < 0.35 && distance < bestMatch.distance) {
-                    bestMatch = { label: emp.employee_code, distance };
-                }
+        
+        if (!currentEmbedding || currentEmbedding.length < 128) {
+            return; // Invalid descriptor
+        }
+        
+        let bestMatch = { label: 'unknown', similarity: 0, distance: 1.0 };
+        
+        // Compare against all registered employees
+        for (const emp of props.employees) {
+            if (!emp.descriptor || emp.descriptor.length < 128) continue;
+            
+            const similarity = getSimilarity(currentEmbedding, emp.descriptor);
+            const distance = 1.0 - similarity;
+            
+            // STRICT THRESHOLD: Only accept very strong matches
+            if (similarity > 0.70 && similarity > bestMatch.similarity) {
+                bestMatch = { 
+                    label: emp.employee_code, 
+                    similarity,
+                    distance,
+                    name: emp.name
+                };
             }
         }
 
         if (bestMatch.label !== 'unknown') {
+            // Require 4 consecutive strong matches to prevent false positives
             if (bestMatch.label === lastIdentifiedCode.value) {
                 consecutiveMatches.value++;
             } else {
@@ -217,21 +245,22 @@ const performLocalScan = async () => {
                 consecutiveMatches.value = 1;
             }
 
-            if (consecutiveMatches.value >= 3) {
-                const emp = props.employees.find(e => e.employee_code === bestMatch.label);
-                if (emp) {
-                    identifiedUser.value = emp.name;
-                    form.employee_code = emp.employee_code;
-                    livenessStatus.value = 'verifying';
-                }
+            if (consecutiveMatches.value >= 4) {
+                identifiedUser.value = bestMatch.name;
+                form.employee_code = bestMatch.label.slice(-4); // Only last 4 digits
+                livenessStatus.value = 'verifying';
+                livenessFeedback.value = `Identified: ${bestMatch.name}`;
+            } else {
+                livenessFeedback.value = `Verifying... (${consecutiveMatches.value}/4)`;
             }
         } else {
             consecutiveMatches.value = 0;
             lastIdentifiedCode.value = null;
+            livenessFeedback.value = "Face not recognized";
         }
     }
 
-    // 4. Verification Phase (Anti-Spoofing)
+    // 4. Verification Phase (Enhanced Anti-Spoofing)
     if (livenessStatus.value === 'verifying') {
         const offsets = livenessHistory.map(h => h.noseOffset);
         const edgeRatios = livenessHistory.map(h => h.edgeRatio);
@@ -242,22 +271,24 @@ const performLocalScan = async () => {
             const yawVar = Math.max(...offsets) - Math.min(...offsets);
             const edgeVar = Math.max(...edgeRatios) - Math.min(...edgeRatios);
             
-            if (yawVar > 0.04 && edgeVar > 0.15) {
+            if (yawVar > 0.05 && edgeVar > 0.18) {
                 stepHeadTurn.value = true;
                 livenessHistory.length = 0; 
             }
         } else if (!stepMouthMove.value) {
             livenessFeedback.value = "Now Smile or Open Mouth";
             const mouthVar = Math.max(...mouthRatios) - Math.min(...mouthRatios);
-            if (mouthVar > 0.07) {
+            if (mouthVar > 0.08) {
                 stepMouthMove.value = true;
             }
         } else {
-            // Final check: Antispoofing probability (if model is ready)
-            if (face.real > 0.3) { // 0.3 is decent threshold for "Real"
+            // Final check: Antispoofing probability
+            const realScore = face.real !== undefined ? face.real : 0.5;
+            
+            if (realScore > 0.35) {
                 livenessScore.value = 100;
                 livenessStatus.value = 'verified';
-                livenessFeedback.value = "Access Granted";
+                livenessFeedback.value = "✓ Access Granted";
                 submitAttendance(true);
                 
                 scanCooldown.value = true;
@@ -265,9 +296,15 @@ const performLocalScan = async () => {
                     resetLiveness();
                     scanCooldown.value = false;
                 }, 5000);
-            } else if (face.real !== undefined) {
-                livenessFeedback.value = "Liveness check failed. Try again.";
+            } else {
+                livenessFeedback.value = "Liveness check failed. Not a real person detected.";
+                errorMsg.value = "Spoofing attempt detected. Please use your real face.";
                 resetLiveness();
+                scanCooldown.value = true;
+                setTimeout(() => {
+                    scanCooldown.value = false;
+                    errorMsg.value = null;
+                }, 3000);
             }
         }
     }
@@ -320,10 +357,23 @@ const resetCapture = () => {
 };
 
 const submitAttendance = (isAuto = false) => {
-    if (!form.employee_code) {
+    let inputCode = form.employee_code.trim();
+    
+    if (!inputCode) {
         if (!isAuto) errorMsg.value = "Please enter Employee ID.";
         return;
     }
+
+    // Always match by last 4 digits
+    const lastDigits = inputCode.slice(-4);
+    const match = props.employees.find(emp => emp.employee_code.slice(-4) === lastDigits);
+    
+    if (!match) {
+        errorMsg.value = "No employee found with ID ending in " + lastDigits;
+        return;
+    }
+    
+    const fullEmployeeCode = match.employee_code;
 
     if (isAuto) {
          isScanning.value = true;
@@ -343,8 +393,12 @@ const submitAttendance = (isAuto = false) => {
     isLoading.value = true;
     errorMsg.value = null;
 
-    // Use form.data() to send a plain object instead of the Inertia Form proxy
-    axios.post(route('attendance.kiosk.store'), form.data())
+    // Send with full employee code
+    axios.post(route('attendance.kiosk.store'), {
+        employee_code: fullEmployeeCode,
+        image: form.image,
+        type: form.type
+    })
         .then(response => {
             lastLog.value = response.data;
             form.employee_code = ''; 
@@ -516,12 +570,12 @@ const formattedDate = computed(() => {
                                 @keyup.enter="submitAttendance"
                                 type="text" 
                                 class="w-full bg-slate-900 border border-slate-600 rounded-xl py-4 pl-12 pr-4 text-lg font-mono text-white placeholder-slate-600 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-inner"
-                                placeholder="Scan or Enter ID"
+                                placeholder="Last 4 digits or Full ID"
                                 autofocus
                                 autocomplete="off"
                             >
                         </div>
-                        <p class="text-xs text-slate-500 text-right">Press Enter to Submit</p>
+                        <p class="text-xs text-slate-500 text-right">Enter at least last 4 digits • Press Enter</p>
                     </div>
 
                     <button 

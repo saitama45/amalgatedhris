@@ -402,30 +402,75 @@ const captureBio = async () => {
         // Get the primary face (closest/largest)
         const face = result.face[0];
         
-        // 2. Strict Centering & Quality Constraint
-        // Human returns normalized coordinates (0-1)
-        const box = face.boxRaw; // [x, y, width, height]
+        // 2. CRITICAL: Strict Centering & Quality Constraint
+        const box = face.boxRaw; // [x, y, width, height] normalized 0-1
         const faceCenterX = box[0] + (box[2] / 2);
         const faceCenterY = box[1] + (box[3] / 2);
         
         // Distance from center of frame (0.5, 0.5)
         const distFromCenter = Math.sqrt(Math.pow(faceCenterX - 0.5, 2) + Math.pow(faceCenterY - 0.5, 2));
         
-        if (distFromCenter > 0.15) { // Threshold for being "centered"
-            showError("Face is not centered. Please align with the circle.");
+        // MUST be centered within circle - stricter than Kiosk
+        if (distFromCenter > 0.12) {
+            showError("Face must be centered in the circle. Please align carefully.");
             return;
         }
 
-        if (box[2] < 0.25) { // Face must take up at least 25% of the frame width
-            showError("Face too far away. Please move closer.");
+        // Face size validation - must be close enough
+        if (box[2] < 0.28 || box[2] > 0.65) {
+            showError(box[2] < 0.28 ? "Face too far. Move closer." : "Face too close. Move back slightly.");
+            return;
+        }
+        
+        // Confidence check
+        if (face.score < 0.85) {
+            showError("Face detection confidence too low. Ensure good lighting.");
             return;
         }
 
-        // 3. Circular Crop Logic for Preview/Display
+        // 3. CRITICAL: Extract ONLY face region to eliminate background influence
         const videoWidth = bioVideoRef.value.videoWidth;
         const videoHeight = bioVideoRef.value.videoHeight;
-        const size = 400; 
         
+        // Create isolated face canvas
+        const faceCanvas = document.createElement('canvas');
+        const faceSize = 256; // Standard size for descriptor extraction
+        faceCanvas.width = faceSize;
+        faceCanvas.height = faceSize;
+        const faceCtx = faceCanvas.getContext('2d');
+        
+        // Extract face bounding box with small padding
+        const padding = 0.1;
+        const fx = Math.max(0, box[0] - padding) * videoWidth;
+        const fy = Math.max(0, box[1] - padding) * videoHeight;
+        const fw = Math.min(1, box[2] + padding * 2) * videoWidth;
+        const fh = Math.min(1, box[3] + padding * 2) * videoHeight;
+        
+        // Draw ONLY the face region
+        faceCtx.drawImage(bioVideoRef.value, fx, fy, fw, fh, 0, 0, faceSize, faceSize);
+        
+        // 4. Generate descriptor from isolated face ONLY
+        const faceOnlyResult = await human.detect(faceCanvas);
+        
+        if (!faceOnlyResult.face || faceOnlyResult.face.length === 0) {
+            showError("Failed to process isolated face. Please try again.");
+            return;
+        }
+        
+        const descriptor = Array.from(faceOnlyResult.face[0].embedding || []);
+        
+        if (descriptor.length === 0 || descriptor.length < 128) {
+            throw new Error("Failed to extract facial signature. Please try again.");
+        }
+        
+        // Validate descriptor quality (check for zero vectors)
+        const magnitude = Math.sqrt(descriptor.reduce((sum, val) => sum + val * val, 0));
+        if (magnitude < 0.1) {
+            throw new Error("Descriptor quality too low. Please ensure good lighting and try again.");
+        }
+
+        // 5. Create circular crop for display
+        const size = 400;
         const cropCanvas = document.createElement('canvas');
         cropCanvas.width = size;
         cropCanvas.height = size;
@@ -435,25 +480,19 @@ const captureBio = async () => {
         cropCtx.arc(size/2, size/2, size/2, 0, Math.PI * 2);
         cropCtx.clip();
 
-        // Draw centered square from video to the circle
         const sSize = Math.min(videoWidth, videoHeight);
         const sx = (videoWidth - sSize) / 2;
         const sy = (videoHeight - sSize) / 2;
 
         cropCtx.drawImage(bioVideoRef.value, sx, sy, sSize, sSize, 0, 0, size, size);
-
-        // 4. Store Data
-        bioImage.value = cropCanvas.toDataURL('image/jpeg', 0.9); 
-        editForm.face_data = bioImage.value;
-        // Human's face.embedding is the descriptor
-        editForm.face_descriptor = Array.from(face.embedding || []);
         
-        if (editForm.face_descriptor.length === 0) {
-            throw new Error("Failed to extract facial signature. Please try again.");
-        }
+        // Store data
+        bioImage.value = cropCanvas.toDataURL('image/jpeg', 0.92); 
+        editForm.face_data = bioImage.value;
+        editForm.face_descriptor = descriptor;
 
-        showSuccess("Face registered successfully with Human AI!");
-        bioFeedback.value = "Registration Complete";
+        showSuccess("Face registered successfully! Background-independent biometric captured.");
+        bioFeedback.value = "✓ Registration Complete";
         stopBioCamera();
     } catch (err) {
         console.error(err);

@@ -175,12 +175,22 @@ const submitForm = () => {
         return;
     }
 
+    // Schedule Check: Employee must have a schedule before manual entry
+    const selectedEmployee = props.options.employees.find(e => e.id == form.employee_id);
+    if (!selectedEmployee?.active_employment_record?.default_shift_id) {
+        showError('This employee does not have an assigned schedule yet. Please configure it in the Schedules module.');
+        return;
+    }
+
     if (isEditing.value) {
         form.put(route('dtr.update', editingLog.value.id), {
             onSuccess: () => {
                 showModal.value = false;
                 pagination.updateData(props.logs);
             },
+            onError: (errors) => {
+                showError(Object.values(errors)[0]);
+            }
         });
     } else {
         form.post(route('dtr.store'), {
@@ -188,6 +198,9 @@ const submitForm = () => {
                 showModal.value = false;
                 pagination.updateData(props.logs);
             },
+            onError: (errors) => {
+                showError(Object.values(errors)[0]);
+            }
         });
     }
 };

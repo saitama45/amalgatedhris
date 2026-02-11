@@ -75,7 +75,14 @@ class AttendanceController extends Controller
                 'company_id' => $request->company_id,
             ],
             'options' => [
-                'employees' => Employee::with('user')->get()->map(fn($e) => ['id' => $e->id, 'name' => $e->user->name]),
+                'employees' => Employee::with(['user', 'activeEmploymentRecord'])->get()->map(fn($e) => [
+                    'id' => $e->id, 
+                    'name' => $e->user->name,
+                    'active_employment_record' => $e->activeEmploymentRecord ? [
+                        'id' => $e->activeEmploymentRecord->id,
+                        'default_shift_id' => $e->activeEmploymentRecord->default_shift_id,
+                    ] : null
+                ]),
                 'departments' => Department::select('id', 'name')->orderBy('name')->get(),
                 'companies' => Company::select('id', 'name')->where('is_active', true)->orderBy('name')->get(),
             ]
@@ -93,6 +100,19 @@ class AttendanceController extends Controller
 
         $dateStr = Carbon::parse($request->date)->format('Y-m-d');
         
+        // Check if employee has a filed leave for this date (Pending or Approved)
+        $hasLeave = \App\Models\LeaveRequest::where('employee_id', $request->employee_id)
+            ->whereIn('status', ['Pending', 'Approved'])
+            ->where('start_date', '<=', $dateStr)
+            ->where('end_date', '>=', $dateStr)
+            ->exists();
+
+        if ($hasLeave) {
+            return redirect()->back()->withErrors([
+                'employee_id' => 'Cannot add attendance log. The employee has a filed leave request for this date.'
+            ]);
+        }
+
         // Check for existing record to prevent duplicates
         $exists = AttendanceLog::where('employee_id', $request->employee_id)
             ->where('date', $dateStr)
@@ -193,6 +213,20 @@ class AttendanceController extends Controller
         ]);
 
         $dateStr = $attendanceLog->date->format('Y-m-d');
+
+        // Check if employee has a filed leave for this date (Pending or Approved)
+        $hasLeave = \App\Models\LeaveRequest::where('employee_id', $attendanceLog->employee_id)
+            ->whereIn('status', ['Pending', 'Approved'])
+            ->where('start_date', '<=', $dateStr)
+            ->where('end_date', '>=', $dateStr)
+            ->exists();
+
+        if ($hasLeave) {
+            return redirect()->back()->withErrors([
+                'time_in' => 'Cannot update attendance log. The employee has a filed leave request for this date.'
+            ]);
+        }
+
         $timeIn = $request->time_in ? Carbon::parse($dateStr . ' ' . $request->time_in) : null;
         $timeOut = $request->time_out ? Carbon::parse($dateStr . ' ' . $request->time_out) : null;
         
