@@ -376,7 +376,12 @@ class PayrollController extends Controller
                     'late_minutes' => $totalLateMinutes,
                     'ut_minutes' => $totalUTMinutes,
                     'period_factor' => $periodFactor,
-                    'deductions' => $deductionBreakdown
+                    'deductions' => $deductionBreakdown,
+                    'contributions' => [
+                        'sss' => $contributions['sss'] ?? null,
+                        'philhealth' => $contributions['philhealth'] ?? null,
+                        'pagibig' => $contributions['pagibig'] ?? null,
+                    ]
                 ]
             ]);
             $generatedCount++;

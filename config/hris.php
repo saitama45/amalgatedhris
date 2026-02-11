@@ -7,6 +7,7 @@ return [
         'Workforce' => ['employees'],
         'Time & Attendance' => ['attendance.kiosk', 'dtr', 'shifts', 'schedules', 'holidays', 'overtime', 'overtime_rates', 'leave_requests'],
         'Compensation' => ['payroll', 'government_deductions', 'deductions'],
+        'Reports' => ['government_remittances'],
         'My Portal' => ['portal.dashboard', 'portal.leaves', 'portal.overtime', 'portal.attendance', 'portal.payslips', 'portal.deductions'],
         'System Administration' => ['users', 'companies', 'departments', 'positions', 'document_types', 'roles']
     ],
@@ -105,6 +106,9 @@ return [
         'deductions.edit' => 'Edit Deduction Details',
         'deductions.delete' => 'Delete/Stop Deduction',
 
+        // Reports
+        'government_remittances.view' => 'View Government Remittances',
+
         // My Portal
         'portal.dashboard' => 'Access My Portal Dashboard',
         'portal.leaves' => 'File/View Own Leaves',
@@ -166,6 +170,7 @@ return [
         'payroll' => 'Payroll',
         'government_deductions' => 'Government Deductions',
         'deductions' => 'Other Deductions',
+        'government_remittances' => 'Govt Remittances',
         'portal.dashboard' => 'Overview',
         'portal.leaves' => 'My Leaves',
         'portal.overtime' => 'My Overtime',

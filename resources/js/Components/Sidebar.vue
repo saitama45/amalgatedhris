@@ -68,6 +68,7 @@ const getRouteName = (category) => {
         'overtime_rates': 'overtime-rates.index',
         'document_types': 'document-types.index',
         'leave_requests': 'leave-requests.index',
+        'government_remittances': 'government-remittances.index',
         'portal.dashboard': 'portal.dashboard',
         'portal.leaves': 'portal.leaves',
         'portal.overtime': 'portal.overtime',
@@ -111,7 +112,8 @@ const iconMap = {
     departments: BuildingOfficeIcon,
     positions: BriefcaseIcon,
     document_types: DocumentDuplicateIcon,
-    roles: ShieldCheckIcon
+    roles: ShieldCheckIcon,
+    government_remittances: TableCellsIcon
 };
 
 // Mapping group names to their main icons
@@ -120,6 +122,7 @@ const groupIconMap = {
     'Workforce': UsersIcon,
     'Time & Attendance': ClockIcon,
     'Compensation': BanknotesIcon,
+    'Reports': DocumentDuplicateIcon,
     'My Portal': ComputerDesktopIcon,
     'System Administration': Cog6ToothIcon,
     'Overview': HomeIcon

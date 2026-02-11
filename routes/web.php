@@ -3,6 +3,7 @@
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RoleController;
+use App\Http\Controllers\GovernmentRemittanceController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -163,6 +164,11 @@ Route::middleware('auth')->group(function () {
         Route::delete('/overtime/{overtimeRequest}', [\App\Http\Controllers\PortalController::class, 'destroyOvertime'])
             ->middleware('permission:portal.overtime')
             ->name('overtime.destroy');
+    });
+
+    Route::middleware('permission:government_remittances.view')->group(function () {
+        Route::get('reports/government-remittances', [GovernmentRemittanceController::class, 'index'])->name('government-remittances.index');
+        Route::get('reports/government-remittances/export', [GovernmentRemittanceController::class, 'export'])->name('government-remittances.export');
     });
 
     // Personal Profile (Accessible to all authenticated users)
