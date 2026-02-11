@@ -141,7 +141,12 @@ class AttendanceController extends Controller
             // Calculate Late
             if ($timeIn) {
                 $lateMinutes = $attendanceService->calculateLateMinutes($shiftStart, $timeIn, $record);
-                if ($lateMinutes > 0) {
+                
+                // If late is in the afternoon amnesty window (10:01 AM - 1:00 PM), mark as Half Day
+                $rawLate = $shiftStart->diffInMinutes($timeIn);
+                if ($rawLate > 120 && $rawLate <= 300) {
+                    $status = 'Half Day';
+                } elseif ($lateMinutes > 0) {
                     $status = 'Late';
                 }
             }
@@ -218,7 +223,14 @@ class AttendanceController extends Controller
 
             if ($timeIn) {
                 $lateMinutes = $attendanceService->calculateLateMinutes($shiftStart, $timeIn, $record);
-                if ($lateMinutes > 0) $status = 'Late';
+
+                // If late is in the afternoon amnesty window (10:01 AM - 1:00 PM), mark as Half Day
+                $rawLate = $shiftStart->diffInMinutes($timeIn);
+                if ($rawLate > 120 && $rawLate <= 300) {
+                    $status = 'Half Day';
+                } elseif ($lateMinutes > 0) {
+                    $status = 'Late';
+                }
             }
 
             if ($timeOut) {
@@ -226,13 +238,20 @@ class AttendanceController extends Controller
             }
         }
 
-        $attendanceLog->update([
-            'time_in' => $timeIn,
-            'time_out' => $timeOut,
-            'status' => $status,
-            'late_minutes' => $lateMinutes,
-            'ot_minutes' => $otMinutes,
-        ]);
+        try {
+            $attendanceLog->update([
+                'time_in' => $timeIn,
+                'time_out' => $timeOut,
+                'status' => $status,
+                'late_minutes' => $lateMinutes,
+                'ot_minutes' => $otMinutes,
+            ]);
+        } catch (\Exception $e) {
+            $dbName = DB::getDatabaseName();
+            $constraints = DB::select("SELECT name, definition FROM sys.check_constraints WHERE parent_object_id = OBJECT_ID('attendance_logs')");
+            \Illuminate\Support\Facades\Log::error("DTR Update Failed in $dbName. Constraints: " . json_encode($constraints));
+            throw $e;
+        }
 
         return redirect()->back()->with('success', 'Attendance log updated.');
     }

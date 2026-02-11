@@ -89,6 +89,7 @@ return [
         'payroll.view' => 'View Payroll',
         'payroll.create' => 'Process Payroll (Create)',
         'payroll.approve' => 'Approve/Finalize Payroll',
+        'payroll.revert' => 'Unlock/Revert Finalized Payroll',
         'payroll.edit_payslip' => 'Edit Payslip Adjustments',
         'payroll.delete' => 'Rollback Payroll (Delete)',
         'payroll.manage_loans' => 'Manage Employee Loans',

@@ -111,6 +111,7 @@ Route::middleware('auth')->group(function () {
         Route::resource('payroll', \App\Http\Controllers\PayrollController::class)->except(['edit', 'update']);
         Route::post('payroll/{payroll}/regenerate', [\App\Http\Controllers\PayrollController::class, 'regenerate'])->name('payroll.regenerate');
         Route::put('payroll/{payroll}/approve', [\App\Http\Controllers\PayrollController::class, 'approve'])->name('payroll.approve');
+        Route::put('payroll/{payroll}/revert', [\App\Http\Controllers\PayrollController::class, 'revert'])->name('payroll.revert');
         Route::get('payslips/{payslip}/export-pdf', [\App\Http\Controllers\PayrollController::class, 'exportPayslipPdf'])->name('payslips.export-pdf');
         Route::put('payslips/{payslip}', [\App\Http\Controllers\PayrollController::class, 'updatePayslip'])->name('payslips.update');
     });

@@ -230,7 +230,7 @@ const statusClass = (status) => {
 };
 
 const calculateWorkHours = (log) => {
-    if (!log.time_in || !log.time_out) return '0.00';
+    if (!log.time_in || !log.time_out) return 0;
     let inTime = new Date(log.time_in);
     let outTime = new Date(log.time_out);
 
@@ -259,10 +259,10 @@ const calculateWorkHours = (log) => {
         const afternoonEnd = outTime > breakEnd ? outTime : breakEnd;
         const afternoonMs = Math.max(0, afternoonEnd - afternoonStart);
 
-        return ((morningMs + afternoonMs) / (1000 * 60 * 60)).toFixed(2);
+        return parseFloat(((morningMs + afternoonMs) / (1000 * 60 * 60)).toFixed(2));
     }
     
-    return ((outTime - inTime) / (1000 * 60 * 60)).toFixed(2);
+    return parseFloat(((outTime - inTime) / (1000 * 60 * 60)).toFixed(2));
 };
 
 const calculateLate = (log) => {
@@ -305,17 +305,18 @@ const calculateUndertime = (log) => {
     const timeIn = new Date(log.time_in);
     const outTime = new Date(log.time_out);
 
-    const workHours = parseFloat(calculateWorkHours(log));
+    const actualHours = calculateWorkHours(log);
     const lateMinutes = Math.floor((timeIn - shiftStart) / (1000 * 60));
+
+    // Afternoon Amnesty: If started during the afternoon window (10:01 AM - 1:00 PM)
+    // they are expected to work 4 hours. If they worked 4 hours, UT is 0.
+    if (lateMinutes > 120 && lateMinutes <= 300) {
+        return actualHours >= 4 ? 0 : Math.round((4 - actualHours) * 60);
+    }
 
     // Morning Half Day Amnesty: No UT if timed out at 1:00 PM or earlier and worked 4 hours
     const afternoonCutoff = new Date(`${logDate}T13:01:00`);
-    if (workHours >= 4 && outTime < afternoonCutoff) {
-        return 0;
-    }
-
-    // Afternoon Amnesty: No UT if started during the afternoon window
-    if (lateMinutes > 120 && lateMinutes <= 300) {
+    if (actualHours >= 4 && outTime < afternoonCutoff) {
         return 0;
     }
 
@@ -327,8 +328,6 @@ const calculateUndertime = (log) => {
 
     const expectedMs = (shiftEnd - shiftStart) - (shift.break_minutes * 60 * 1000);
     const expectedHours = expectedMs / (1000 * 60 * 60);
-    
-    const actualHours = parseFloat(calculateWorkHours(log));
     
     const undertime = expectedHours - actualHours;
     return undertime > 0.02 ? (undertime * 60).toFixed(0) : 0; // 0.02 tolerance for rounding
@@ -447,7 +446,7 @@ const calculateUndertime = (log) => {
                                     {{ log.time_out ? new Date(log.time_out).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '--:--' }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-center font-mono text-sm font-bold text-slate-700">
-                                    {{ calculateWorkHours(log) }}
+                                    {{ calculateWorkHours(log).toFixed(2) }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-center">
                                     <div class="flex flex-col items-center gap-1">
@@ -464,8 +463,8 @@ const calculateUndertime = (log) => {
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-center">
-                                    <span :class="['px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wide border border-transparent', statusClass(calculateWorkHours(log) === '4.00' ? 'Half Day' : log.status)]">
-                                        {{ calculateWorkHours(log) === '4.00' ? 'Half Day' : log.status }}
+                                    <span :class="['px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wide border border-transparent', statusClass(log.status)]">
+                                        {{ log.status }}
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right">

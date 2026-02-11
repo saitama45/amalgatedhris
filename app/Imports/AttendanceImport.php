@@ -98,7 +98,11 @@ class AttendanceImport implements ToCollection, WithHeadingRow
                     $shiftStart = Carbon::parse($dateOnly . ' ' . $employee->activeEmploymentRecord->defaultShift->start_time);
                     $lateMinutes = $this->attendanceService->calculateLateMinutes($shiftStart, $timeIn, $employee->activeEmploymentRecord);
                     
-                    if ($lateMinutes > 0) {
+                    // If late is in the afternoon amnesty window (10:01 AM - 1:00 PM), mark as Half Day
+                    $rawLate = $shiftStart->diffInMinutes($timeIn);
+                    if ($rawLate > 120 && $rawLate <= 300) {
+                        $status = 'Half Day';
+                    } elseif ($lateMinutes > 0) {
                         $status = 'Late';
                     }
                 }

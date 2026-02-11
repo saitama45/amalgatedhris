@@ -16,7 +16,8 @@ import {
     CalculatorIcon,
     UserCircleIcon,
     ArrowDownTrayIcon,
-    ArrowPathIcon
+    ArrowPathIcon,
+    LockClosedIcon
 } from '@heroicons/vue/24/outline';
 import { useToast } from '@/Composables/useToast.js';
 import { usePagination } from '@/Composables/usePagination.js';
@@ -147,6 +148,24 @@ const finalizePayroll = async () => {
     }
 };
 
+const revertPayroll = async () => {
+    if (!props.can.revert) return;
+    
+    const isConfirmed = await confirm({
+        title: 'Unlock Payroll',
+        message: 'This will revert the status to Draft and unlock all payslips for adjustment. It will also add back any deducted loan amounts to their respective balances. Continue?',
+        confirmButtonText: 'Yes, Revert to Draft'
+    });
+
+    if (isConfirmed) {
+        router.put(route('payroll.revert', props.payroll.id), {}, {
+            onSuccess: () => {
+                // Success handled by global flash listener
+            }
+        });
+    }
+};
+
 const exportPdf = () => {
     window.location.href = route('payroll.export-pdf', props.payroll.id);
 };
@@ -206,8 +225,17 @@ const formatDate = (date) => {
                     >
                         <ShieldCheckIcon class="w-4 h-4 mr-2" /> Finalize Payroll
                     </button>
-                    <div v-else-if="payroll.status === 'Finalized'" class="bg-emerald-100 text-emerald-700 px-6 py-2 rounded-xl font-bold text-sm flex items-center border border-emerald-200">
-                        <CheckBadgeIcon class="w-4 h-4 mr-2" /> FINALIZED
+                    <div v-else-if="payroll.status === 'Finalized'" class="flex gap-2">
+                        <button 
+                            v-if="can.revert"
+                            @click="revertPayroll"
+                            class="bg-white border border-slate-200 text-amber-600 px-4 py-2 rounded-xl font-bold text-sm flex items-center hover:bg-amber-50 transition-all shadow-sm"
+                        >
+                            <LockClosedIcon class="w-4 h-4 mr-2" /> Revert to Draft
+                        </button>
+                        <div class="bg-emerald-100 text-emerald-700 px-6 py-2 rounded-xl font-bold text-sm flex items-center border border-emerald-200">
+                            <CheckBadgeIcon class="w-4 h-4 mr-2" /> FINALIZED
+                        </div>
                     </div>
                 </div>
             </div>
@@ -237,6 +265,7 @@ const formatDate = (date) => {
                     <DataTable
                         title="Payslip Breakdown"
                         subtitle="Individual employee computation"
+                        v-model:search="pagination.search.value"
                         :data="pagination.data.value"
                         :current-page="pagination.currentPage.value"
                         :last-page="pagination.lastPage.value"

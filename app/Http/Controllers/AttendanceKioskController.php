@@ -90,7 +90,13 @@ class AttendanceKioskController extends Controller
             if ($employee->activeEmploymentRecord && $employee->activeEmploymentRecord->defaultShift) {
                 $shiftStart = Carbon::parse($dateStr . ' ' . $employee->activeEmploymentRecord->defaultShift->start_time);
                 $lateMinutes = $attendanceService->calculateLateMinutes($shiftStart, $now, $employee->activeEmploymentRecord);
-                if ($lateMinutes > 0) {
+                
+                // If late is in the afternoon amnesty window (10:01 AM - 1:00 PM), mark as Half Day
+                $rawLate = $shiftStart->diffInMinutes($now);
+                if ($rawLate > 120 && $rawLate <= 300) {
+                    $log->status = 'Half Day';
+                    $log->late_minutes = 0; // It's a half day, late doesn't apply
+                } elseif ($lateMinutes > 0) {
                     $log->status = 'Late';
                     $log->late_minutes = $lateMinutes;
                 } else {

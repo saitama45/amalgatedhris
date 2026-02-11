@@ -127,18 +127,18 @@ class PayrollController extends Controller
         $employees = Employee::whereHas('activeEmploymentRecord', function ($q) use ($payroll) {
             $q->where('company_id', $payroll->company_id)
               ->where('is_active', true);
-        })->with(['activeEmploymentRecord.salaryHistories' => function($q) {
-            $q->latest('effective_date');
-        }, 'activeEmploymentRecord.company', 'activeEmploymentRecord.defaultShift'])->get();
+        })->with(['activeEmploymentRecord.company', 'activeEmploymentRecord.defaultShift', 'user'])->get();
+        
+        if ($employees->isEmpty()) {
+            throw new \Exception('No active employees found for this company.');
+        }
 
         $generatedCount = 0;
 
         foreach ($employees as $employee) {
-            // Get Latest Salary
-            $salary = $employee->activeEmploymentRecord->salaryHistories->first();
-            if (!$salary) continue;
-
-            $basicRate = $salary->basic_rate; // Monthly
+            $record = $employee->activeEmploymentRecord;
+            
+            $basicRate = $record->basic_rate; // Monthly
             $dailyRate = $basicRate / 26; // Monthly / 26 days
             $hourlyRate = $dailyRate / 8; // Daily / 8 hours
             $minuteRate = $hourlyRate / 60;
@@ -164,7 +164,6 @@ class PayrollController extends Controller
             // Iterate through every day in the cut-off to check for work schedule
             for ($d = $periodStart->copy(); $d <= $periodEnd; $d->addDay()) {
                 $dayOfWeek = $d->dayOfWeek; // 0 (Sun) to 6 (Sat)
-                $record = $employee->activeEmploymentRecord;
                 $workDays = explode(',', $record->work_days ?? '1,2,3,4,5');
                 $isWorkDay = in_array((string)$dayOfWeek, $workDays);
                 
@@ -238,35 +237,35 @@ class PayrollController extends Controller
             $sched = $employee->activeEmploymentRecord;
             $company = $sched->company;
 
-            // SSS Calculation
+            // SSS Calculation - Default to 'both' if not set
             if ($sched->is_sss_deducted) {
-                $sssSched = $company->sss_payout_schedule;
+                $sssSched = $company->sss_payout_schedule ?? 'both';
                 if (($sssSched === 'both') || 
                     ($sssSched === 'first_half' && $isFirstHalfPayout) ||
                     ($sssSched === 'second_half' && !$isFirstHalfPayout)) {
-                    $sss = $contributions['sss']['ee'];
+                    $sss = $contributions['sss']['ee'] ?? 0;
                     if ($sssSched === 'both') $sss /= 2;
                 }
             }
             
-            // PhilHealth Calculation
+            // PhilHealth Calculation - Default to 'both' if not set
             if ($sched->is_philhealth_deducted) {
-                $phSched = $company->philhealth_payout_schedule;
+                $phSched = $company->philhealth_payout_schedule ?? 'both';
                 if (($phSched === 'both') || 
                     ($phSched === 'first_half' && $isFirstHalfPayout) ||
                     ($phSched === 'second_half' && !$isFirstHalfPayout)) {
-                    $philhealth = $contributions['philhealth']['ee'];
+                    $philhealth = $contributions['philhealth']['ee'] ?? 0;
                     if ($phSched === 'both') $philhealth /= 2;
                 }
             }
             
-            // Pag-IBIG Calculation
+            // Pag-IBIG Calculation - Default to 'both' if not set
             if ($sched->is_pagibig_deducted) {
-                $piSched = $company->pagibig_payout_schedule;
+                $piSched = $company->pagibig_payout_schedule ?? 'both';
                 if (($piSched === 'both') || 
                     ($piSched === 'first_half' && $isFirstHalfPayout) ||
                     ($piSched === 'second_half' && !$isFirstHalfPayout)) {
-                    $pagibig = $contributions['pagibig']['ee'];
+                    $pagibig = $contributions['pagibig']['ee'] ?? 0;
                     if ($piSched === 'both') $pagibig /= 2;
                 }
             }
@@ -322,7 +321,7 @@ class PayrollController extends Controller
                 }
             }
 
-            $grossPay = $basicPay + $salary->allowance + $totalApprovedOT;
+            $grossPay = $basicPay + $record->allowance + $totalApprovedOT;
             
             // Calculate Taxable Income
             $taxableIncome = $grossPay - ($sss + $philhealth + $pagibig);
@@ -358,7 +357,7 @@ class PayrollController extends Controller
                 'employee_id' => $employee->id,
                 'basic_pay' => $basicPay,
                 'gross_pay' => $grossPay,
-                'allowances' => $salary->allowance,
+                'allowances' => $record->allowance,
                 'ot_pay' => $totalApprovedOT,
                 'late_deduction' => $lateDeduction,
                 'undertime_deduction' => $utDeduction,
@@ -392,9 +391,21 @@ class PayrollController extends Controller
         
         $payroll->load(['company']);
         
-        $payslips = Payslip::where('payroll_id', $payroll->id)
-            ->with('employee.user')
-            ->paginate($request->get('per_page', 10));
+        $query = Payslip::where('payroll_id', $payroll->id)
+            ->with('employee.user');
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->whereHas('employee.user', function($sub) use ($search) {
+                    $sub->where('name', 'like', "%{$search}%");
+                })->orWhereHas('employee', function($sub) use ($search) {
+                    $sub->where('employee_code', 'like', "%{$search}%");
+                });
+            });
+        }
+        
+        $payslips = $query->paginate($request->get('per_page', 10));
 
         return Inertia::render('Payroll/Show', [
             'payroll' => $payroll,
@@ -406,9 +417,47 @@ class PayrollController extends Controller
             ],
             'can' => [
                 'approve' => auth()->user()->can('payroll.approve'),
+                'revert' => auth()->user()->can('payroll.revert'),
                 'edit_payslip' => auth()->user()->can('payroll.edit_payslip'),
             ]
         ]);
+    }
+
+    public function revert(Payroll $payroll)
+    {
+        $this->authorize('payroll.revert');
+
+        if ($payroll->status !== 'Finalized') {
+            return back()->with('error', 'Only finalized payrolls can be reverted.');
+        }
+
+        DB::beginTransaction();
+        try {
+            // Reverse Deduction Balances
+            $payslips = Payslip::where('payroll_id', $payroll->id)->get();
+            foreach ($payslips as $slip) {
+                if (isset($slip->details['deductions']) && count($slip->details['deductions']) > 0) {
+                    foreach ($slip->details['deductions'] as $dedItem) {
+                        $deduction = EmployeeDeduction::find($dedItem['id']);
+                        if ($deduction && $deduction->total_amount > 0) {
+                            $newBalance = $deduction->remaining_balance + $dedItem['amount'];
+                            $deduction->update([
+                                'remaining_balance' => $newBalance,
+                                'status' => 'active'
+                            ]);
+                        }
+                    }
+                }
+            }
+
+            $payroll->update(['status' => 'Draft']);
+
+            DB::commit();
+            return back()->with('success', 'Payroll has been unlocked and reverted to Draft status.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Failed to revert: ' . $e->getMessage());
+        }
     }
 
     public function exportPdf(Payroll $payroll)

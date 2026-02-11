@@ -64,9 +64,15 @@ class AttendanceLog extends Model
                 $service = new \App\Services\AttendanceService();
                 $scheduledStart = \Carbon\Carbon::parse($date . ' ' . $activeRecord->defaultShift->start_time);
                 
-                $log->late_minutes = $service->calculateLateMinutes($scheduledStart, $dateTime, $activeRecord);
-                if ($log->late_minutes > 0) {
-                    $log->status = 'Late';
+                $rawLate = $scheduledStart->diffInMinutes($dateTime);
+                if ($rawLate > 120 && $rawLate <= 300) {
+                    $log->status = 'Half Day';
+                    $log->late_minutes = 0;
+                } else {
+                    $log->late_minutes = $service->calculateLateMinutes($scheduledStart, $dateTime, $activeRecord);
+                    if ($log->late_minutes > 0) {
+                        $log->status = 'Late';
+                    }
                 }
             }
         } else {
