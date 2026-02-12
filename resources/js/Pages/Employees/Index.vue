@@ -1,6 +1,6 @@
 <script setup>
 import { Head, useForm, router } from '@inertiajs/vue3';
-import { ref, onMounted, watch, computed } from 'vue';
+import { ref, onMounted, watch, computed, shallowRef } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
 import Modal from '@/Components/Modal.vue';
@@ -8,7 +8,7 @@ import { usePagination } from '@/Composables/usePagination';
 import { useToast } from '@/Composables/useToast';
 import { usePermission } from '@/Composables/usePermission';
 import { useConfirm } from '@/Composables/useConfirm';
-import { Human } from '@vladmandic/human';
+import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import {
     UserIcon,
     IdentificationIcon,
@@ -60,39 +60,28 @@ const applyFilters = () => {
     };
     pagination.performSearch(route('employees.index'), params);
 };
-// Initialize Human library with high-accuracy settings
-const humanConfig = {
-    debug: false,
-    userConsole: false, // Strictest level of console silencing
-    modelBasePath: 'https://cdn.jsdelivr.net/npm/@vladmandic/human/models/',
-    filter: { enabled: true, equalization: true, flip: false },
-    face: {
-        enabled: true,
-        detector: { return: true, rotation: true, mask: false, minConfidence: 0.4 },
-        mesh: { enabled: true },
-        iris: { enabled: true },
-        description: { enabled: true },
-        emotion: { enabled: false },
-        antispoof: { enabled: true },
-        liveness: { enabled: true },
-    },
-    body: { enabled: false },
-    hand: { enabled: false },
-    object: { enabled: false },
-    segmentation: { enabled: false },
-};
 
-const human = new Human(humanConfig);
 const modelsLoaded = ref(false);
+const faceLandmarker = shallowRef(null);
 
 onMounted(async () => {
     pagination.updateData(props.employees);
     try {
-        await human.load();
-        await human.warmup();
+        const vision = await FilesetResolver.forVisionTasks(
+            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm"
+        );
+        faceLandmarker.value = await FaceLandmarker.createFromOptions(vision, {
+            baseOptions: {
+                modelAssetPath: `/models/face_landmarker.task`,
+                delegate: "CPU"
+            },
+            outputFaceBlendshapes: true,
+            runningMode: "IMAGE",
+            numFaces: 1
+        });
         modelsLoaded.value = true;
     } catch (e) {
-        console.error("Critical: Face models failed to load", e);
+        console.error("Critical: MediaPipe failed to load", e);
     }
 });
 
@@ -391,91 +380,55 @@ const captureBio = async () => {
     isBioProcessing.value = true;
     
     try {
-        // 1. Perform detection directly from video stream
-        const result = await human.detect(bioVideoRef.value);
+        const result = await faceLandmarker.value.detect(bioVideoRef.value);
         
-        if (!result.face || result.face.length === 0) {
+        if (!result.faceLandmarks || result.faceLandmarks.length === 0) {
             showError("No face detected. Ensure good lighting and face the camera directly.");
             return;
         }
 
-        // Get the primary face (closest/largest)
-        const face = result.face[0];
+        // Get the 478 landmarks (high density)
+        const landmarks = result.faceLandmarks[0];
         
-        // 2. CRITICAL: Strict Centering & Quality Constraint
-        const box = face.boxRaw; // [x, y, width, height] normalized 0-1
-        const faceCenterX = box[0] + (box[2] / 2);
-        const faceCenterY = box[1] + (box[3] / 2);
+        // --- High-Accuracy Geometric Signature ---
+        // 1. Center landmarks (Nose tip index 1 becomes 0,0,0)
+        const nose = landmarks[1];
+        const centered = landmarks.map(l => ({
+            x: l.x - nose.x,
+            y: l.y - nose.y,
+            z: l.z - nose.z
+        }));
+
+        // 2. Scale landmarks (Normalize by distance between inner eyes)
+        // Indices: Left Inner Eye (133), Right Inner Eye (362)
+        const eyeDist = Math.sqrt(
+            Math.pow(landmarks[133].x - landmarks[362].x, 2) + 
+            Math.pow(landmarks[133].y - landmarks[362].y, 2)
+        );
         
-        // Distance from center of frame (0.5, 0.5)
-        const distFromCenter = Math.sqrt(Math.pow(faceCenterX - 0.5, 2) + Math.pow(faceCenterY - 0.5, 2));
-        
-        // MUST be centered within circle - stricter than Kiosk
-        if (distFromCenter > 0.12) {
-            showError("Face must be centered in the circle. Please align carefully.");
+        const normalized = centered.flatMap(l => [
+            l.x / eyeDist,
+            l.y / eyeDist,
+            l.z / eyeDist
+        ]);
+
+        // Validation: Ensure capture quality
+        if (eyeDist < 0.05) {
+            showError("Face too far away. Please move closer.");
             return;
         }
 
-        // Face size validation - must be close enough
-        if (box[2] < 0.28 || box[2] > 0.65) {
-            showError(box[2] < 0.28 ? "Face too far. Move closer." : "Face too close. Move back slightly.");
-            return;
-        }
+        // Store geometric signature
+        editForm.face_descriptor = normalized;
         
-        // Confidence check
-        if (face.score < 0.85) {
-            showError("Face detection confidence too low. Ensure good lighting.");
-            return;
-        }
-
-        // 3. CRITICAL: Extract ONLY face region to eliminate background influence
+        // Circular Crop for display
         const videoWidth = bioVideoRef.value.videoWidth;
         const videoHeight = bioVideoRef.value.videoHeight;
-        
-        // Create isolated face canvas
-        const faceCanvas = document.createElement('canvas');
-        const faceSize = 256; // Standard size for descriptor extraction
-        faceCanvas.width = faceSize;
-        faceCanvas.height = faceSize;
-        const faceCtx = faceCanvas.getContext('2d');
-        
-        // Extract face bounding box with small padding
-        const padding = 0.1;
-        const fx = Math.max(0, box[0] - padding) * videoWidth;
-        const fy = Math.max(0, box[1] - padding) * videoHeight;
-        const fw = Math.min(1, box[2] + padding * 2) * videoWidth;
-        const fh = Math.min(1, box[3] + padding * 2) * videoHeight;
-        
-        // Draw ONLY the face region
-        faceCtx.drawImage(bioVideoRef.value, fx, fy, fw, fh, 0, 0, faceSize, faceSize);
-        
-        // 4. Generate descriptor from isolated face ONLY
-        const faceOnlyResult = await human.detect(faceCanvas);
-        
-        if (!faceOnlyResult.face || faceOnlyResult.face.length === 0) {
-            showError("Failed to process isolated face. Please try again.");
-            return;
-        }
-        
-        const descriptor = Array.from(faceOnlyResult.face[0].embedding || []);
-        
-        if (descriptor.length === 0 || descriptor.length < 128) {
-            throw new Error("Failed to extract facial signature. Please try again.");
-        }
-        
-        // Validate descriptor quality (check for zero vectors)
-        const magnitude = Math.sqrt(descriptor.reduce((sum, val) => sum + val * val, 0));
-        if (magnitude < 0.1) {
-            throw new Error("Descriptor quality too low. Please ensure good lighting and try again.");
-        }
-
-        // 5. Create circular crop for display
         const size = 400;
         const cropCanvas = document.createElement('canvas');
         cropCanvas.width = size;
         cropCanvas.height = size;
         const cropCtx = cropCanvas.getContext('2d');
-
         cropCtx.beginPath();
         cropCtx.arc(size/2, size/2, size/2, 0, Math.PI * 2);
         cropCtx.clip();
@@ -483,15 +436,13 @@ const captureBio = async () => {
         const sSize = Math.min(videoWidth, videoHeight);
         const sx = (videoWidth - sSize) / 2;
         const sy = (videoHeight - sSize) / 2;
-
         cropCtx.drawImage(bioVideoRef.value, sx, sy, sSize, sSize, 0, 0, size, size);
         
-        // Store data
         bioImage.value = cropCanvas.toDataURL('image/jpeg', 0.92); 
         editForm.face_data = bioImage.value;
-        editForm.face_descriptor = descriptor;
+        // face_descriptor is already set to 'normalized' above
 
-        showSuccess("Face registered successfully! Background-independent biometric captured.");
+        showSuccess("Face registered successfully with Google MediaPipe!");
         bioFeedback.value = "✓ Registration Complete";
         stopBioCamera();
     } catch (err) {
@@ -707,6 +658,7 @@ const openEditModal = (employee) => {
 const submitEdit = () => {
     editForm.put(route('employees.update', editingEmployee.value.id), {
         onSuccess: () => {
+            showSuccess('Employee profile updated successfully.');
             closeEditModal();
         },
         onError: (errors) => {

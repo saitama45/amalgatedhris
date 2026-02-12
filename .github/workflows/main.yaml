@@ -16,11 +16,17 @@ jobs:
           extensions: fileinfo, mbstring, xml, gd, zip
           ini-values: post_max_size=256M, max_execution_time=180
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
       - name: Install Dependencies
         shell: powershell
         run: |
           if (Test-Path "package.json") { npm install }
           if (Test-Path "composer.json") { composer install }
+          if (Test-Path "deepface/requirements.txt") { python -m pip install -r deepface/requirements.txt }
 
       - name: Build Project
         shell: powershell

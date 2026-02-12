@@ -1,8 +1,8 @@
 <script setup>
 import { Head, useForm } from '@inertiajs/vue3';
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch, shallowRef } from 'vue';
 import Toast from '@/Components/Toast.vue';
-import { Human } from '@vladmandic/human';
+import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import { 
     CameraIcon, 
     ClockIcon, 
@@ -28,28 +28,7 @@ const isLoading = ref(false);
 const lastLog = ref(null);
 const errorMsg = ref(null);
 const modelsLoaded = ref(false);
-const humanConfig = {
-    debug: false,
-    userConsole: false,
-    modelBasePath: 'https://cdn.jsdelivr.net/npm/@vladmandic/human/models/',
-    filter: { enabled: true, equalization: true, flip: false },
-    face: {
-        enabled: true,
-        detector: { return: true, rotation: true, mask: false, minConfidence: 0.4 },
-        mesh: { enabled: true },
-        iris: { enabled: true },
-        description: { enabled: true },
-        emotion: { enabled: false },
-        antispoof: { enabled: true },
-        liveness: { enabled: true },
-    },
-    body: { enabled: false },
-    hand: { enabled: false },
-    object: { enabled: false },
-    segmentation: { enabled: false },
-};
-
-const human = new Human(humanConfig);
+const faceLandmarker = shallowRef(null);
 
 // High-Speed 3D Liveness Engine
 const livenessStatus = ref('waiting'); 
@@ -63,18 +42,6 @@ const lastIdentifiedCode = ref(null);
 // Verification Steps
 const stepHeadTurn = ref(false);
 const stepMouthMove = ref(false);
-
-const resetLiveness = () => {
-    livenessStatus.value = 'waiting';
-    livenessScore.value = 0;
-    identifiedUser.value = null;
-    livenessFeedback.value = 'Ready for scan';
-    livenessHistory.length = 0;
-    stepHeadTurn.value = false;
-    stepMouthMove.value = false;
-    consecutiveMatches.value = 0;
-    lastIdentifiedCode.value = null;
-};
 
 // Pre-load Success Sound
 const successSound = new Audio('/sounds/success.wav');
@@ -91,8 +58,20 @@ const timeInterval = setInterval(() => {
 // Initialize Face AI
 onMounted(async () => {
     try {
-        await human.load();
-        await human.warmup();
+        const vision = await FilesetResolver.forVisionTasks(
+            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm"
+        );
+        
+        faceLandmarker.value = await FaceLandmarker.createFromOptions(vision, {
+            baseOptions: {
+                modelAssetPath: `/models/face_landmarker.task`,
+                delegate: "CPU"
+            },
+            outputFaceBlendshapes: true,
+            runningMode: "VIDEO",
+            numFaces: 1
+        });
+
         modelsLoaded.value = true;
         startCamera();
     } catch (e) {
@@ -101,213 +80,178 @@ onMounted(async () => {
     }
 });
 
-// Auto Scan Loop
-let scanInterval = null;
-
-const startAutoScan = () => {
-    if (scanInterval) clearInterval(scanInterval);
-    // Scan at 5-10 FPS for responsiveness
-    scanInterval = setInterval(async () => {
-        if (isAutoScan.value && isCameraActive.value && !isScanning.value && !scanCooldown.value && !isLoading.value && modelsLoaded.value) {
-            await performLocalScan();
-        }
-    }, 150); 
-};
-
-// Robust Similarity Helper with Normalization
-const getSimilarity = (embedding1, embedding2) => {
-    if (!embedding1 || !embedding2 || embedding1.length !== embedding2.length) return 0;
-    
-    // Normalize vectors first
-    const normalize = (vec) => {
-        const mag = Math.sqrt(vec.reduce((sum, val) => sum + val * val, 0));
-        return mag > 0 ? vec.map(v => v / mag) : vec;
-    };
-    
-    const norm1 = normalize(embedding1);
-    const norm2 = normalize(embedding2);
-    
-    // Cosine similarity via dot product of normalized vectors
+const getSimilarity = (sig1, sig2) => {
+    if (!sig1 || !sig2 || sig1.length !== sig2.length) return 0;
+    // Cosine similarity
     let dot = 0;
-    for (let i = 0; i < norm1.length; i++) {
-        dot += norm1[i] * norm2[i];
+    let mag1 = 0;
+    let mag2 = 0;
+    for (let i = 0; i < sig1.length; i++) {
+        dot += sig1[i] * sig2[i];
+        mag1 += sig1[i] ** 2;
+        mag2 += sig2[i] ** 2;
     }
-    
-    // Clamp to [0, 1] range
-    return Math.max(0, Math.min(1, dot));
+    return dot / (Math.sqrt(mag1) * Math.sqrt(mag2));
 };
 
-const performLocalScan = async () => {
-    if (!videoRef.value || videoRef.value.paused || videoRef.value.ended || isLoading.value || scanCooldown.value || !modelsLoaded.value) return;
+const performScan = async () => {
+    if (!videoRef.value || videoRef.value.paused || videoRef.value.ended || isLoading.value || scanCooldown.value || !modelsLoaded.value || !faceLandmarker.value) return;
 
-    // 1. Detection
-    const result = await human.detect(videoRef.value);
-    
-    if (!result.face || result.face.length === 0) {
-        if (livenessStatus.value !== 'waiting') resetLiveness();
-        return;
-    }
+    // Ensure video is ready and has dimensions
+    if (videoRef.value.readyState < 2 || videoRef.value.videoWidth === 0) return;
 
-    const face = result.face[0];
-    const box = face.boxRaw; // [x, y, width, height] normalized
-    
-    // --- CRITICAL: STRICT SPATIAL FILTERING (ENTIRE FACE MUST BE INSIDE CIRCLE) ---
-    const faceCenterX = box[0] + (box[2] / 2);
-    const faceCenterY = box[1] + (box[3] / 2);
-    const distFromCenter = Math.sqrt(Math.pow(faceCenterX - 0.5, 2) + Math.pow(faceCenterY - 0.5, 2));
-    
-    // Face center must be well-centered
-    if (distFromCenter > 0.18) {
-        livenessFeedback.value = "Center your face in the circle";
-        if (livenessStatus.value !== 'waiting') resetLiveness();
-        return;
-    }
-
-    // Quality & Size Check - face must be appropriate size
-    if (box[2] < 0.20 || box[2] > 0.65) {
-        livenessFeedback.value = box[2] < 0.20 ? "Come closer..." : "Move back slightly...";
-        if (livenessStatus.value !== 'waiting') resetLiveness();
-        return;
-    }
-    
-    // Confidence threshold
-    if (face.score < 0.75) {
-        livenessFeedback.value = "Improve lighting or face camera directly";
-        return;
-    }
-
-    // 2. Liveness Data Collection (Using Human's advanced mesh)
-    const landmarks = face.meshRaw; // 468 points
-    
-    // Roll check using iris/eyes
-    const leftEye = landmarks[33];
-    const rightEye = landmarks[263];
-    const roll = Math.abs(rightEye[1] - leftEye[1]) / Math.abs(rightEye[0] - leftEye[0]);
-    if (roll > 0.12) {
-        livenessFeedback.value = "Keep your head level...";
-        return;
-    }
-
-    // Parallax & Action Meta-Data
-    const noseBridge = landmarks[1];
-    const leftEdge = landmarks[234];
-    const rightEdge = landmarks[454];
-    const topLip = landmarks[13];
-    const bottomLip = landmarks[14];
-
-    const eyeDist = Math.abs(rightEye[0] - leftEye[0]);
-    const noseOffset = (noseBridge[0] - leftEye[0]) / eyeDist;
-    const edgeRatio = Math.abs(leftEye[0] - leftEdge[0]) / Math.abs(rightEdge[0] - rightEye[0]);
-    const mouthOpenRatio = Math.abs(bottomLip[1] - topLip[1]) / eyeDist;
-
-    livenessHistory.push({
-        noseOffset,
-        edgeRatio,
-        mouthOpenRatio,
-        time: Date.now()
-    });
-    if (livenessHistory.length > 20) livenessHistory.shift();
-
-    // 3. CRITICAL: Identification Phase with Strict Matching
-    if (livenessStatus.value === 'waiting') {
-        const currentEmbedding = face.embedding;
+    try {
+        // MediaPipe VIDEO mode requires a timestamp
+        const timestamp = performance.now();
+        const result = await faceLandmarker.value.detectForVideo(videoRef.value, timestamp);
         
-        if (!currentEmbedding || currentEmbedding.length < 128) {
-            return; // Invalid descriptor
+        if (!result || !result.faceLandmarks || result.faceLandmarks.length === 0) {
+            livenessFeedback.value = "Ready for scan";
+            return;
+        }
+
+        const landmarks = result.faceLandmarks[0];
+
+        // --- CIRCLE DETECTION: Ensure face is centered ---
+        // Circle is 256px (w-64) in the center of the viewport.
+        // Landmarks are normalized 0-1.
+        // For simplicity, we check if the nose (index 1) is near the center (0.5, 0.5)
+        // and if the face size is appropriate.
+        const nose = landmarks[1];
+        const faceCenterX = nose.x;
+        const faceCenterY = nose.y;
+
+        // Tolerance: face must be within the center 30% of the screen to be "inside" the guide
+        if (faceCenterX < 0.35 || faceCenterX > 0.65 || faceCenterY < 0.3 || faceCenterY > 0.7) {
+            livenessFeedback.value = "Center your face in circle";
+            return;
         }
         
-        let bestMatch = { label: 'unknown', similarity: 0, distance: 1.0 };
+        // --- Create Geometric Signature (Identical to Registration) ---
+        const centered = landmarks.map(l => ({
+            x: l.x - nose.x,
+            y: l.y - nose.y,
+            z: l.z - nose.z
+        }));
+
+        const eyeDist = Math.sqrt(
+            Math.pow(landmarks[133].x - landmarks[362].x, 2) + 
+            Math.pow(landmarks[133].y - landmarks[362].y, 2)
+        );
         
-        // Compare against all registered employees
+        if (eyeDist < 0.05) {
+            livenessFeedback.value = "Move closer to camera";
+            return;
+        }
+
+        const currentSignature = centered.flatMap(l => [
+            l.x / eyeDist,
+            l.y / eyeDist,
+            l.z / eyeDist
+        ]);
+        
+        isScanning.value = true;
+        livenessFeedback.value = "Analyzing face...";
+
+        let bestMatch = { label: 'unknown', similarity: 0 };
+        
+        // Compare against all registered employees locally
         for (const emp of props.employees) {
-            if (!emp.descriptor || emp.descriptor.length < 128) continue;
+            if (!emp.descriptor) continue;
+            const similarity = getSimilarity(currentSignature, emp.descriptor);
             
-            const similarity = getSimilarity(currentEmbedding, emp.descriptor);
-            const distance = 1.0 - similarity;
-            
-            // STRICT THRESHOLD: Only accept very strong matches
-            if (similarity > 0.70 && similarity > bestMatch.similarity) {
+            // Landmark-based signature threshold (0.95+ is usually same person after normalization)
+            if (similarity > 0.96 && similarity > bestMatch.similarity) {
                 bestMatch = { 
                     label: emp.employee_code, 
                     similarity,
-                    distance,
                     name: emp.name
                 };
             }
         }
 
         if (bestMatch.label !== 'unknown') {
-            // Require 4 consecutive strong matches to prevent false positives
-            if (bestMatch.label === lastIdentifiedCode.value) {
-                consecutiveMatches.value++;
-            } else {
-                lastIdentifiedCode.value = bestMatch.label;
-                consecutiveMatches.value = 1;
-            }
-
-            if (consecutiveMatches.value >= 4) {
-                identifiedUser.value = bestMatch.name;
-                form.employee_code = bestMatch.label.slice(-4); // Only last 4 digits
-                livenessStatus.value = 'verifying';
-                livenessFeedback.value = `Identified: ${bestMatch.name}`;
-            } else {
-                livenessFeedback.value = `Verifying... (${consecutiveMatches.value}/4)`;
-            }
-        } else {
-            consecutiveMatches.value = 0;
-            lastIdentifiedCode.value = null;
-            livenessFeedback.value = "Face not recognized";
-        }
-    }
-
-    // 4. Verification Phase (Enhanced Anti-Spoofing)
-    if (livenessStatus.value === 'verifying') {
-        const offsets = livenessHistory.map(h => h.noseOffset);
-        const edgeRatios = livenessHistory.map(h => h.edgeRatio);
-        const mouthRatios = livenessHistory.map(h => h.mouthOpenRatio);
-
-        if (!stepHeadTurn.value) {
-            livenessFeedback.value = "Slowly turn head left & right";
-            const yawVar = Math.max(...offsets) - Math.min(...offsets);
-            const edgeVar = Math.max(...edgeRatios) - Math.min(...edgeRatios);
+            identifiedUser.value = bestMatch.name;
+            livenessFeedback.value = `✓ Identified: ${bestMatch.name}`;
+            livenessStatus.value = 'verified';
             
-            if (yawVar > 0.05 && edgeVar > 0.18) {
-                stepHeadTurn.value = true;
-                livenessHistory.length = 0; 
-            }
-        } else if (!stepMouthMove.value) {
-            livenessFeedback.value = "Now Smile or Open Mouth";
-            const mouthVar = Math.max(...mouthRatios) - Math.min(...mouthRatios);
-            if (mouthVar > 0.08) {
-                stepMouthMove.value = true;
-            }
-        } else {
-            // Final check: Antispoofing probability
-            const realScore = face.real !== undefined ? face.real : 0.5;
+            // Auto-submit attendance
+            const fullCode = bestMatch.label;
             
-            if (realScore > 0.35) {
-                livenessScore.value = 100;
-                livenessStatus.value = 'verified';
-                livenessFeedback.value = "✓ Access Granted";
-                submitAttendance(true);
+            // Capture frame for record
+            const context = canvasRef.value.getContext('2d');
+            canvasRef.value.width = videoRef.value.videoWidth;
+            canvasRef.value.height = videoRef.value.videoHeight;
+            context.drawImage(videoRef.value, 0, 0);
+            const imageData = canvasRef.value.toDataURL('image/jpeg', 0.6);
+
+            axios.post(route('attendance.kiosk.store'), {
+                employee_code: fullCode,
+                image: imageData,
+                type: form.type
+            })
+            .then(response => {
+                lastLog.value = response.data;
+                successSound.play().catch(e => console.warn("Audio play blocked:", e));
                 
                 scanCooldown.value = true;
                 setTimeout(() => {
-                    resetLiveness();
                     scanCooldown.value = false;
+                    livenessFeedback.value = "Ready for scan";
+                    identifiedUser.value = null;
+                    livenessStatus.value = 'waiting';
+                    lastLog.value = null;
                 }, 5000);
-            } else {
-                livenessFeedback.value = "Liveness check failed. Not a real person detected.";
-                errorMsg.value = "Spoofing attempt detected. Please use your real face.";
-                resetLiveness();
+            })
+            .catch(err => {
+                console.error("Attendance error:", err);
+                errorMsg.value = err.response?.data?.message || "Log failed";
+                
+                // Play error sound for validation errors (like "Already timed in")
+                errorSound.currentTime = 0;
+                errorSound.play().catch(e => console.warn("Audio play blocked:", e));
+
                 scanCooldown.value = true;
                 setTimeout(() => {
-                    scanCooldown.value = false;
                     errorMsg.value = null;
-                }, 3000);
-            }
+                    scanCooldown.value = false;
+                    livenessFeedback.value = "Ready for scan";
+                    identifiedUser.value = null;
+                    livenessStatus.value = 'waiting';
+                }, 4000);
+            })
+            .finally(() => {
+                isScanning.value = false;
+            });
+        } else {
+            livenessFeedback.value = "Face not recognized";
+            isScanning.value = false;
         }
+    } catch (e) {
+        console.error("Detection error:", e);
+        // Don't show error message to user for transient detection errors
+        isScanning.value = false;
     }
+};
+
+// Auto Scan Loop
+let isLoopRunning = false;
+
+const startAutoScan = () => {
+    if (isLoopRunning) return;
+    isLoopRunning = true;
+    
+    const loop = async () => {
+        if (!isAutoScan.value || !isCameraActive.value || isScanning.value || scanCooldown.value || isLoading.value || !modelsLoaded.value) {
+            requestAnimationFrame(loop);
+            return;
+        }
+        
+        await performScan();
+        requestAnimationFrame(loop);
+    };
+    
+    requestAnimationFrame(loop);
 };
 
 const form = useForm({
@@ -317,16 +261,50 @@ const form = useForm({
 });
 
 const startCamera = async () => {
+    errorMsg.value = null;
+    
+    // Check for Secure Context (HTTPS/Localhost)
+    if (!window.isSecureContext && window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+        errorMsg.value = "Camera access requires HTTPS. Please ensure your site has an SSL certificate.";
+        return;
+    }
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        errorMsg.value = "Your browser does not support camera access or it is blocked.";
+        return;
+    }
+
     try {
-        stream.value = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+        // Try HD first
+        try {
+            stream.value = await navigator.mediaDevices.getUserMedia({ 
+                video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" } 
+            });
+        } catch (e) {
+            // Fallback to any video
+            console.warn("HD camera failed, trying default...", e);
+            stream.value = await navigator.mediaDevices.getUserMedia({ video: true });
+        }
+
         if (videoRef.value) {
             videoRef.value.srcObject = stream.value;
             isCameraActive.value = true;
-            startAutoScan();
+            
+            // Wait for video to be ready before scanning
+            videoRef.value.onloadedmetadata = () => {
+                videoRef.value.play();
+                startAutoScan();
+            };
         }
     } catch (err) {
         console.error("Camera error:", err);
-        errorMsg.value = "Could not access camera. Please allow permissions.";
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+            errorMsg.value = "Camera permission denied. Please allow camera access in your browser settings.";
+        } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+            errorMsg.value = "Camera is already in use by another application.";
+        } else {
+            errorMsg.value = "Could not access camera. Error: " + err.message;
+        }
     }
 };
 
@@ -335,7 +313,7 @@ const stopCamera = () => {
         stream.value.getTracks().forEach(track => track.stop());
         isCameraActive.value = false;
     }
-    if (scanInterval) clearInterval(scanInterval);
+    isLoopRunning = false;
 };
 
 const capture = () => {
@@ -402,7 +380,6 @@ const submitAttendance = (isAuto = false) => {
         .then(response => {
             lastLog.value = response.data;
             form.employee_code = ''; 
-            resetLiveness();
             if (!isAuto) resetCapture();
             else form.image = null; 
 
@@ -476,23 +453,11 @@ const formattedDate = computed(() => {
                         <div class="text-blue-200 font-mono text-sm bg-black/70 px-6 py-2 rounded-xl backdrop-blur-md border border-white/10 shadow-2xl text-center">
                             <div v-if="identifiedUser" class="text-emerald-400 font-bold mb-1">USER: {{ identifiedUser }}</div>
                             <div class="flex items-center justify-center gap-2 mb-1">
-                                <span v-if="livenessStatus === 'verifying'" class="flex h-2 w-2 relative">
+                                <span v-if="isScanning" class="flex h-2 w-2 relative">
                                     <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                                     <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
                                 </span>
                                 {{ livenessFeedback }}
-                            </div>
-                            <div v-if="livenessStatus !== 'waiting'" class="flex flex-col gap-1 mt-2">
-                                <div class="flex items-center justify-center gap-1 text-[10px] uppercase tracking-tighter" :class="stepHeadTurn ? 'text-emerald-400' : 'text-slate-500'">
-                                    <CheckCircleIcon v-if="stepHeadTurn" class="w-3 h-3" />
-                                    <div v-else class="w-2 h-2 rounded-full bg-slate-700"></div>
-                                    3D Rotation
-                                </div>
-                                <div class="flex items-center justify-center gap-1 text-[10px] uppercase tracking-tighter" :class="stepMouthMove ? 'text-emerald-400' : 'text-slate-500'">
-                                    <CheckCircleIcon v-if="stepMouthMove" class="w-3 h-3" />
-                                    <div v-else class="w-2 h-2 rounded-full bg-slate-700"></div>
-                                    Action Check
-                                </div>
                             </div>
                         </div>
                     </div>

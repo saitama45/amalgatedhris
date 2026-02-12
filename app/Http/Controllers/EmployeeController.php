@@ -73,97 +73,185 @@ class EmployeeController extends Controller
         ]);
     }
 
-    public function update(Request $request, Employee $employee)
-    {
-        Log::info("Updating Employee {$employee->id} Payload Analysis", [
-            'keys' => array_keys($request->all()),
-            'face_data_type' => gettype($request->face_data),
-            'face_data_preview' => $request->face_data ? substr($request->face_data, 0, 50) . '...' : 'NULL',
-            'face_descriptor_count' => $request->face_descriptor ? count($request->face_descriptor) : 0
-        ]);
+            public function update(Request $request, Employee $employee)
 
-        $request->validate([
-            'employee_code' => 'required|string|max:50|unique:employees,employee_code,' . $employee->id,
-            'sss_no' => 'nullable|string|max:20',
-            'philhealth_no' => 'nullable|string|max:20',
-            'pagibig_no' => 'nullable|string|max:20',
-            'tin_no' => 'nullable|string|max:20',
-            'civil_status' => 'nullable|string|max:20',
-            'gender' => 'nullable|string|in:Male,Female,Other',
-            'address' => 'nullable|string',
-            'emergency_contact' => 'nullable|string|max:255',
-            'emergency_contact_relationship' => 'nullable|string|max:50',
-            'emergency_contact_number' => 'nullable|string|max:20',
-            'birthday' => 'nullable|date',
-            'department_id' => 'nullable|exists:departments,id',
-            'employment_status' => 'nullable|string|in:Consultant,Probationary,Regular,Project-Based,Casual',
-            'is_sss_deducted' => 'nullable|boolean',
-            'is_philhealth_deducted' => 'nullable|boolean',
-            'is_pagibig_deducted' => 'nullable|boolean',
-            'is_withholding_tax_deducted' => 'nullable|boolean',
-            'face_data' => 'nullable|string', // Base64
-            'face_descriptor' => 'nullable|array', // New descriptor
-        ]);
+            {
 
-        DB::transaction(function () use ($request, $employee) {
-            $data = $request->only([
-                'employee_code',
-                'sss_no', 'philhealth_no', 'pagibig_no', 'tin_no', 
-                'civil_status', 'gender', 'address', 
-                'emergency_contact', 'emergency_contact_relationship', 'emergency_contact_number', 
-                'birthday'
-            ]);
+                Log::info("Updating Employee {$employee->id} Payload Analysis", [
 
-            // Direct check for face_data presence and content
-            if ($request->has('face_data') && !empty($request->face_data)) {
-                if ($request->face_data === 'CLEAR') {
-                    $data['face_data'] = null;
-                    Log::info("Clearing face_data for employee {$employee->id}");
-                } else {
-                    try {
-                    $base64_image = $request->face_data;
-                    
-                    // Simple parsing: split by comma
-                    if (strpos($base64_image, ',') !== false) {
-                        $parts = explode(',', $base64_image);
-                        $imageContent = base64_decode($parts[1]);
-                    } else {
-                        // Assume raw base64 if no prefix
-                        $imageContent = base64_decode($base64_image);
+                    'keys' => array_keys($request->all()),
+
+                    'face_data_type' => gettype($request->face_data),
+
+                    'face_data_preview' => $request->face_data ? substr($request->face_data, 0, 50) . '...' : 'NULL',
+
+                    'face_descriptor_count' => $request->face_descriptor ? count($request->face_descriptor) : 0
+
+                ]);
+
+        
+
+                $request->validate([
+
+                    'employee_code' => 'required|string|max:50|unique:employees,employee_code,' . $employee->id,
+
+                    'sss_no' => 'nullable|string|max:20',
+
+                    'philhealth_no' => 'nullable|string|max:20',
+
+                    'pagibig_no' => 'nullable|string|max:20',
+
+                    'tin_no' => 'nullable|string|max:20',
+
+                    'civil_status' => 'nullable|string|max:20',
+
+                    'gender' => 'nullable|string|in:Male,Female,Other',
+
+                    'address' => 'nullable|string',
+
+                    'emergency_contact' => 'nullable|string|max:255',
+
+                    'emergency_contact_relationship' => 'nullable|string|max:50',
+
+                    'emergency_contact_number' => 'nullable|string|max:20',
+
+                    'birthday' => 'nullable|date',
+
+                    'department_id' => 'nullable|exists:departments,id',
+
+                    'employment_status' => 'nullable|string|in:Consultant,Probationary,Regular,Project-Based,Casual',
+
+                    'is_sss_deducted' => 'nullable|boolean',
+
+                    'is_philhealth_deducted' => 'nullable|boolean',
+
+                    'is_pagibig_deducted' => 'nullable|boolean',
+
+                    'is_withholding_tax_deducted' => 'nullable|boolean',
+
+                    'face_data' => 'nullable|string', // Base64
+
+                    'face_descriptor' => 'nullable|array', // Received from MediaPipe in browser
+
+                ]);
+
+        
+
+                DB::transaction(function () use ($request, $employee) {
+
+                    $data = $request->only([
+
+                        'employee_code',
+
+                        'sss_no', 'philhealth_no', 'pagibig_no', 'tin_no', 
+
+                        'civil_status', 'gender', 'address', 
+
+                        'emergency_contact', 'emergency_contact_relationship', 'emergency_contact_number', 
+
+                        'birthday'
+
+                    ]);
+
+        
+
+                    // Direct check for face_data presence and content
+
+                    if ($request->has('face_data') && !empty($request->face_data)) {
+
+                        if ($request->face_data === 'CLEAR') {
+
+                            $data['face_data'] = null;
+
+                            Log::info("Clearing face_data for employee {$employee->id}");
+
+                        } else {
+
+                            try {
+
+                                $base64_image = $request->face_data;
+
+                                
+
+                                // Simple parsing: split by comma
+
+                                if (strpos($base64_image, ',') !== false) {
+
+                                    $parts = explode(',', $base64_image);
+
+                                    $imageContent = base64_decode($parts[1]);
+
+                                } else {
+
+                                    // Assume raw base64 if no prefix
+
+                                    $imageContent = base64_decode($base64_image);
+
+                                }
+
+        
+
+                                if ($imageContent === false) {
+
+                                    throw new \Exception('Base64 decode failed.');
+
+                                }
+
+        
+
+                                $filename = 'face_' . $employee->id . '_' . time() . '.jpg';
+
+                                $uploadPath = public_path('uploads/faces');
+
+        
+
+                                if (!file_exists($uploadPath)) {
+
+                                    mkdir($uploadPath, 0777, true);
+
+                                }
+
+        
+
+                                $fullPath = $uploadPath . DIRECTORY_SEPARATOR . $filename;
+
+                                file_put_contents($fullPath, $imageContent);
+
+                                
+
+                                Log::info("Successfully saved face image to: $fullPath");
+
+        
+
+                                // Construct JSON
+
+                                $faceData = [
+
+                                    'file' => $filename,
+
+                                    'descriptor' => $request->face_descriptor ?? null
+
+                                ];
+
+                                
+
+                                $data['face_data'] = json_encode($faceData);
+
+                                
+
+                            } catch (\Exception $e) {
+
+                                Log::error("Error processing face_data: " . $e->getMessage());
+
+                            }
+
+                        }
+
                     }
 
-                    if ($imageContent === false) {
-                        throw new \Exception('Base64 decode failed.');
-                    }
+        
 
-                    // Always save as JPG for simplicity if detection fails, 
-                    // or try to guess from header if we really want to be fancy, but JPG is safe enough for face crops.
-                    $filename = 'face_' . $employee->id . '_' . time() . '.jpg';
-                    $uploadPath = public_path('uploads/faces');
-
-                    if (!file_exists($uploadPath)) {
-                        mkdir($uploadPath, 0777, true);
-                    }
-
-                    $fullPath = $uploadPath . DIRECTORY_SEPARATOR . $filename;
-                    file_put_contents($fullPath, $imageContent);
-                    
-                    Log::info("Successfully saved face image to: $fullPath");
-
-                    // Construct JSON
-                    $faceData = [
-                        'file' => $filename,
-                        'descriptor' => $request->face_descriptor ?? null
-                    ];
-                    
-                    $data['face_data'] = json_encode($faceData);
-                    
-                } catch (\Exception $e) {
-                    Log::error("Error processing face_data: " . $e->getMessage());
-                    // Don't crash the whole update, but log it.
-                }
-                } // Close else
-            } else if ($request->has('face_data') && is_null($request->face_data)) {
+     else if ($request->has('face_data') && is_null($request->face_data)) {
                  // Explicitly cleared
                  // $data['face_data'] = null;
             } else if ($request->has('face_data') && $request->face_data === 'CLEAR') {

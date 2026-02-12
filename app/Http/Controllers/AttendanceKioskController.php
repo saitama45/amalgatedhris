@@ -18,7 +18,6 @@ class AttendanceKioskController extends Controller
             ->whereNotNull('face_data')
             ->get()
             ->map(function ($employee) {
-                // Handle JSON or legacy string
                 $descriptor = null;
                 if ($employee->face_data) {
                     $decoded = json_decode($employee->face_data, true);
@@ -61,11 +60,7 @@ class AttendanceKioskController extends Controller
             'type' => 'required|in:time_in,time_out',
         ]);
 
-        // --- 1:N Face Identification Placeholder ---
-        // $employee = FaceService::findMatch($request->image);
-        // For demo, we can't match without a library.
-        // We will return 404 to indicate "Not Recognized".
-        
+        // Browser handles identification, this is a fallback for server-side if needed later
         return response()->json(['message' => 'Face not recognized.'], 404);
     }
 
