@@ -1,7 +1,14 @@
 <script setup>
 import { Head, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import Modal from '@/Components/Modal.vue';
+import {
+    UserGroupIcon,
+    IdentificationIcon,
+    XMarkIcon,
+    ChevronRightIcon
+} from '@heroicons/vue/24/outline';
 import {
     Chart as ChartJS,
     Title,
@@ -20,11 +27,27 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend,
 const props = defineProps({
     birthdays: Array,
     stats: Object,
-    charts: Object
+    charts: Object,
+    evaluationEmployees: {
+        type: Array,
+        default: () => []
+    },
+    totalEmployeesList: {
+        type: Array,
+        default: () => []
+    },
+    newHiresList: {
+        type: Array,
+        default: () => []
+    }
 });
 
 const page = usePage();
 const user = computed(() => page.props.auth?.user || {});
+
+const showEvaluationModal = ref(false);
+const showTotalEmployeesModal = ref(false);
+const showNewHiresModal = ref(false);
 
 const currentDate = new Date().toLocaleDateString('en-US', { 
     weekday: 'long', 
@@ -131,38 +154,47 @@ const pieChartOptions = {
                 <!-- Stats Row -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <!-- Total Employees -->
-                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex items-center justify-between relative overflow-hidden">
+                    <div 
+                        @click="showTotalEmployeesModal = true"
+                        class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex items-center justify-between relative overflow-hidden cursor-pointer hover:border-blue-300 transition-all group"
+                    >
                         <div class="relative z-10">
                             <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">Total Employees</p>
                             <h4 class="text-3xl font-bold text-slate-800 mt-2">{{ stats?.totalEmployees || 0 }}</h4>
                         </div>
-                        <div class="p-3 bg-blue-50 rounded-lg text-blue-600">
+                        <div class="p-3 bg-blue-50 rounded-lg text-blue-600 group-hover:scale-110 transition-transform">
                             <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                         </div>
                         <div class="absolute -bottom-6 -right-6 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl"></div>
                     </div>
 
                     <!-- For Evaluation -->
-                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex items-center justify-between relative overflow-hidden">
+                    <div 
+                        @click="showEvaluationModal = true"
+                        class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex items-center justify-between relative overflow-hidden cursor-pointer hover:border-amber-300 transition-all group"
+                    >
                         <div class="relative z-10">
                             <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">For Evaluation</p>
                             <h4 class="text-3xl font-bold text-slate-800 mt-2">{{ stats?.forEvaluation || 0 }}</h4>
-                            <p class="text-xs text-slate-400 mt-1">Approaching 6th month</p>
+                            <p class="text-xs text-slate-400 mt-1">Currently on 5th month</p>
                         </div>
-                        <div class="p-3 bg-amber-50 rounded-lg text-amber-600">
+                        <div class="p-3 bg-amber-50 rounded-lg text-amber-600 group-hover:scale-110 transition-transform">
                             <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                         </div>
                         <div class="absolute -bottom-6 -right-6 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl"></div>
                     </div>
 
                     <!-- New Hires -->
-                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex items-center justify-between relative overflow-hidden">
+                    <div 
+                        @click="showNewHiresModal = true"
+                        class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex items-center justify-between relative overflow-hidden cursor-pointer hover:border-emerald-300 transition-all group"
+                    >
                         <div class="relative z-10">
                             <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">New Hires</p>
                             <h4 class="text-3xl font-bold text-slate-800 mt-2">{{ stats?.newHires || 0 }}</h4>
                             <p class="text-xs text-slate-400 mt-1">This month</p>
                         </div>
-                        <div class="p-3 bg-emerald-50 rounded-lg text-emerald-600">
+                        <div class="p-3 bg-emerald-50 rounded-lg text-emerald-600 group-hover:scale-110 transition-transform">
                             <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
                         </div>
                         <div class="absolute -bottom-6 -right-6 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl"></div>
@@ -226,5 +258,225 @@ const pieChartOptions = {
 
             </div>
         </div>
+
+        <!-- Evaluation List Modal -->
+        <Modal :show="showEvaluationModal" @close="showEvaluationModal = false" maxWidth="3xl">
+            <div class="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                <div>
+                    <h3 class="text-lg font-bold text-slate-900">Employees for Evaluation</h3>
+                    <p class="text-sm text-slate-500">Employees currently on their 5th month of service.</p>
+                </div>
+                <button @click="showEvaluationModal = false" class="text-slate-400 hover:text-slate-500 transition-colors">
+                    <XMarkIcon class="w-6 h-6" />
+                </button>
+            </div>
+            
+            <div class="p-6">
+                <div class="overflow-hidden border border-slate-100 rounded-xl shadow-sm">
+                    <table class="min-w-full divide-y divide-slate-100">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase">Employee</th>
+                                <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase">Position & Dept</th>
+                                <th class="px-4 py-3 text-center text-[10px] font-bold text-slate-500 uppercase">Hire Date</th>
+                                <th class="px-4 py-3 text-right text-[10px] font-bold text-slate-500 uppercase w-10"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-slate-50">
+                            <tr v-for="emp in evaluationEmployees" :key="emp.id" class="hover:bg-slate-50 group transition-colors">
+                                <td class="px-4 py-4 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <div class="h-8 w-8 bg-amber-100 rounded-full flex items-center justify-center text-amber-700 font-bold text-xs">
+                                            {{ emp.name.charAt(0) }}
+                                        </div>
+                                        <div class="ml-3">
+                                            <div class="text-sm font-bold text-slate-900">{{ emp.name }}</div>
+                                            <div class="text-[10px] text-slate-500 font-mono">{{ emp.employee_code }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-4 whitespace-nowrap">
+                                    <div class="text-sm text-slate-700 font-medium">{{ emp.position }}</div>
+                                    <div class="text-[10px] text-slate-500">{{ emp.department }}</div>
+                                </td>
+                                <td class="px-4 py-4 whitespace-nowrap text-center">
+                                    <span class="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-700 text-[10px] font-bold rounded border border-blue-100">
+                                        {{ emp.hire_date }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-4 text-right">
+                                    <Link 
+                                        :href="route('employees.index', { search: emp.employee_code })"
+                                        class="text-slate-400 hover:text-blue-600 transition-colors"
+                                        title="View Profile"
+                                    >
+                                        <ChevronRightIcon class="w-5 h-5" />
+                                    </Link>
+                                </td>
+                            </tr>
+                            <tr v-if="evaluationEmployees.length === 0">
+                                <td colspan="4" class="px-4 py-12 text-center text-slate-400 text-sm italic">
+                                    No employees found for evaluation this month.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end">
+                <button 
+                    @click="showEvaluationModal = false"
+                    class="px-4 py-2 bg-white border border-slate-200 text-slate-700 font-bold rounded-lg hover:bg-slate-50 transition-all text-sm"
+                >
+                    Close
+                </button>
+            </div>
+        </Modal>
+
+        <!-- Total Employees Modal -->
+        <Modal :show="showTotalEmployeesModal" @close="showTotalEmployeesModal = false" maxWidth="3xl">
+            <div class="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                <div>
+                    <h3 class="text-lg font-bold text-slate-900">Total Active Employees</h3>
+                    <p class="text-sm text-slate-500">Current active roster of the company.</p>
+                </div>
+                <button @click="showTotalEmployeesModal = false" class="text-slate-400 hover:text-slate-500 transition-colors">
+                    <XMarkIcon class="w-6 h-6" />
+                </button>
+            </div>
+            
+            <div class="p-6">
+                <div class="overflow-hidden border border-slate-100 rounded-xl shadow-sm">
+                    <table class="min-w-full divide-y divide-slate-100">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase">Employee</th>
+                                <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase">Position & Dept</th>
+                                <th class="px-4 py-3 text-center text-[10px] font-bold text-slate-500 uppercase">Hire Date</th>
+                                <th class="px-4 py-3 text-right text-[10px] font-bold text-slate-500 uppercase w-10"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-slate-50">
+                            <tr v-for="emp in totalEmployeesList" :key="emp.id" class="hover:bg-slate-50 group transition-colors">
+                                <td class="px-4 py-4 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <div class="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold text-xs">
+                                            {{ emp.name.charAt(0) }}
+                                        </div>
+                                        <div class="ml-3">
+                                            <div class="text-sm font-bold text-slate-900">{{ emp.name }}</div>
+                                            <div class="text-[10px] text-slate-500 font-mono">{{ emp.employee_code }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-4 whitespace-nowrap">
+                                    <div class="text-sm text-slate-700 font-medium">{{ emp.position }}</div>
+                                    <div class="text-[10px] text-slate-500">{{ emp.department }}</div>
+                                </td>
+                                <td class="px-4 py-4 whitespace-nowrap text-center">
+                                    <span class="inline-flex items-center px-2 py-1 bg-slate-50 text-slate-700 text-[10px] font-bold rounded border border-slate-100">
+                                        {{ emp.hire_date }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-4 text-right">
+                                    <Link 
+                                        :href="route('employees.index', { search: emp.employee_code })"
+                                        class="text-slate-400 hover:text-blue-600 transition-colors"
+                                        title="View Profile"
+                                    >
+                                        <ChevronRightIcon class="w-5 h-5" />
+                                    </Link>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end">
+                <button 
+                    @click="showTotalEmployeesModal = false"
+                    class="px-4 py-2 bg-white border border-slate-200 text-slate-700 font-bold rounded-lg hover:bg-slate-50 transition-all text-sm"
+                >
+                    Close
+                </button>
+            </div>
+        </Modal>
+
+        <!-- New Hires Modal -->
+        <Modal :show="showNewHiresModal" @close="showNewHiresModal = false" maxWidth="3xl">
+            <div class="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                <div>
+                    <h3 class="text-lg font-bold text-slate-900">New Hires (This Month)</h3>
+                    <p class="text-sm text-slate-500">Employees who joined in {{ new Date().toLocaleString('default', { month: 'long', year: 'numeric' }) }}.</p>
+                </div>
+                <button @click="showNewHiresModal = false" class="text-slate-400 hover:text-slate-500 transition-colors">
+                    <XMarkIcon class="w-6 h-6" />
+                </button>
+            </div>
+            
+            <div class="p-6">
+                <div class="overflow-hidden border border-slate-100 rounded-xl shadow-sm">
+                    <table class="min-w-full divide-y divide-slate-100">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase">Employee</th>
+                                <th class="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase">Position & Dept</th>
+                                <th class="px-4 py-3 text-center text-[10px] font-bold text-slate-500 uppercase">Hire Date</th>
+                                <th class="px-4 py-3 text-right text-[10px] font-bold text-slate-500 uppercase w-10"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-slate-50">
+                            <tr v-for="emp in newHiresList" :key="emp.id" class="hover:bg-slate-50 group transition-colors">
+                                <td class="px-4 py-4 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <div class="h-8 w-8 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 font-bold text-xs">
+                                            {{ emp.name.charAt(0) }}
+                                        </div>
+                                        <div class="ml-3">
+                                            <div class="text-sm font-bold text-slate-900">{{ emp.name }}</div>
+                                            <div class="text-[10px] text-slate-500 font-mono">{{ emp.employee_code }}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-4 whitespace-nowrap">
+                                    <div class="text-sm text-slate-700 font-medium">{{ emp.position }}</div>
+                                    <div class="text-[10px] text-slate-500">{{ emp.department }}</div>
+                                </td>
+                                <td class="px-4 py-4 whitespace-nowrap text-center">
+                                    <span class="inline-flex items-center px-2 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded border border-emerald-100">
+                                        {{ emp.hire_date }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-4 text-right">
+                                    <Link 
+                                        :href="route('employees.index', { search: emp.employee_code })"
+                                        class="text-slate-400 hover:text-blue-600 transition-colors"
+                                        title="View Profile"
+                                    >
+                                        <ChevronRightIcon class="w-5 h-5" />
+                                    </Link>
+                                </td>
+                            </tr>
+                            <tr v-if="newHiresList.length === 0">
+                                <td colspan="4" class="px-4 py-12 text-center text-slate-400 text-sm italic">
+                                    No new hires recorded for this month.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end">
+                <button 
+                    @click="showNewHiresModal = false"
+                    class="px-4 py-2 bg-white border border-slate-200 text-slate-700 font-bold rounded-lg hover:bg-slate-50 transition-all text-sm"
+                >
+                    Close
+                </button>
+            </div>
+        </Modal>
     </AppLayout>
 </template>

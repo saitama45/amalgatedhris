@@ -36,6 +36,18 @@ const statusClass = (status) => {
         default: return 'bg-amber-100 text-amber-700';
     }
 };
+
+const filteredLeaveBreakdown = computed(() => {
+    if (!props.leaveCredits?.breakdown) return [];
+    
+    const gender = props.employee?.gender;
+    return props.leaveCredits.breakdown.filter(type => {
+        const name = type.name.toLowerCase();
+        if (gender === 'Male' && name.includes('maternity')) return false;
+        if (gender === 'Female' && name.includes('paternity')) return false;
+        return true;
+    });
+});
 </script>
 
 <template>
@@ -93,7 +105,7 @@ const statusClass = (status) => {
                         <p class="text-xs text-slate-400 font-medium">Year {{ new Date().getFullYear() }}</p>
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div v-for="type in leaveCredits.breakdown" :key="type.name" class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                        <div v-for="type in filteredLeaveBreakdown" :key="type.name" class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                             <div class="flex justify-between items-start mb-3">
                                 <p class="text-sm font-bold text-slate-800">{{ type.name }}</p>
                                 <div class="flex gap-1">
