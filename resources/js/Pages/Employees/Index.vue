@@ -15,6 +15,7 @@ import {
     BuildingOffice2Icon,
     PencilSquareIcon,
     DocumentDuplicateIcon,
+    QrCodeIcon,
     UserMinusIcon,
     XMarkIcon,
     CheckCircleIcon,
@@ -721,6 +722,26 @@ const closeEditModal = () => {
     showEditModal.value = false;
 };
 
+const isRegeneratingQR = ref(false);
+const regenerateQR = () => {
+    if (!editingEmployee.value) return;
+    
+    isRegeneratingQR.value = true;
+    router.post(route('employees.regenerate-qr', editingEmployee.value.id), {}, {
+        onSuccess: (page) => {
+            showSuccess('QR Code regenerated successfully.');
+            // Find the updated employee in the list and update editingEmployee
+            const updated = props.employees.data.find(e => e.id === editingEmployee.value.id);
+            if (updated) {
+                editingEmployee.value = updated;
+            }
+        },
+        onFinish: () => {
+            isRegeneratingQR.value = false;
+        }
+    });
+};
+
 
 // --- Document Checklist Logic ---
 const showDocsModal = ref(false);
@@ -1054,6 +1075,13 @@ const submitResign = async () => {
                 >
                     Face Biometrics
                 </button>
+                <button 
+                    @click="activeTab = 'digital_id'" 
+                    class="pb-2 text-sm font-bold border-b-2 transition-all"
+                    :class="activeTab === 'digital_id' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'"
+                >
+                    Digital ID
+                </button>
             </div>
             
             <form @submit.prevent="submitEdit" class="p-6">
@@ -1291,6 +1319,52 @@ const submitResign = async () => {
                             <CameraIcon class="w-12 h-12 mb-2 opacity-50" />
                             <span class="text-xs font-bold uppercase tracking-wider">Camera Off</span>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Digital ID / QR Code Section -->
+                <div v-show="activeTab === 'digital_id'" class="space-y-6">
+                    <div class="bg-amber-50 border border-amber-100 rounded-xl p-4 flex gap-3">
+                        <div class="p-2 bg-amber-100 rounded-full h-fit text-amber-600">
+                            <QrCodeIcon class="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-amber-900 text-sm">Employee QR Code</h4>
+                            <p class="text-xs text-amber-700 mt-1">Unique digital identifier for attendance and verification.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col items-center justify-center py-8 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+                        <div v-if="editingEmployee?.qr_code" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-6 relative group">
+                            <img 
+                                :src="`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${editingEmployee.qr_code}`" 
+                                alt="Employee QR Code"
+                                class="w-64 h-64"
+                            >
+                            <div class="mt-4 text-center">
+                                <span class="text-xs font-mono font-bold text-slate-500 uppercase tracking-widest">{{ editingEmployee.qr_code }}</span>
+                            </div>
+                        </div>
+
+                        <div v-else class="text-center py-12">
+                             <QrCodeIcon class="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                             <p class="text-slate-500 font-bold">No QR Code Generated</p>
+                             <p class="text-xs text-slate-400">Click below to generate an initial code.</p>
+                        </div>
+
+                        <button 
+                            type="button" 
+                            @click="regenerateQR" 
+                            :disabled="isRegeneratingQR"
+                            class="flex items-center space-x-2 px-6 py-2.5 bg-white border border-slate-200 rounded-xl text-slate-700 font-bold text-sm hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm disabled:opacity-50"
+                        >
+                            <ArrowPathIcon class="w-4 h-4" :class="{'animate-spin': isRegeneratingQR}" />
+                            <span>{{ editingEmployee?.qr_code ? 'Regenerate New QR Code' : 'Generate QR Code' }}</span>
+                        </button>
+                        
+                        <p class="mt-4 text-[10px] text-slate-400 max-w-xs text-center italic">
+                            Regenerating a QR Code will invalidate any previously printed or saved codes for this employee.
+                        </p>
                     </div>
                 </div>
 

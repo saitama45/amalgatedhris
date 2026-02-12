@@ -370,4 +370,13 @@ class EmployeeController extends Controller
     {
         return response()->json($employee->documents);
     }
+
+    public function regenerateQRCode(Employee $employee)
+    {
+        $employee->update([
+            'qr_code' => 'QR-' . strtoupper(bin2hex(random_bytes(8))),
+        ]);
+
+        return redirect()->back()->with('success', 'QR Code regenerated successfully.');
+    }
 }

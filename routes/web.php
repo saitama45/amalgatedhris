@@ -57,6 +57,7 @@ Route::middleware('auth')->group(function () {
     // Workforce (Employees)
     Route::middleware('permission:employees.view')->group(function () {
         Route::put('employees/{employee}/resign', [\App\Http\Controllers\EmployeeController::class, 'resign'])->name('employees.resign');
+        Route::post('employees/{employee}/regenerate-qr', [\App\Http\Controllers\EmployeeController::class, 'regenerateQRCode'])->name('employees.regenerate-qr');
         Route::post('employees/{employee}/documents', [\App\Http\Controllers\EmployeeController::class, 'uploadDocument'])->name('employees.upload-document');
         Route::get('employees/{employee}/documents', [\App\Http\Controllers\EmployeeController::class, 'getDocuments'])->name('employees.documents.list');
         Route::get('employees/{employee}/salary', [\App\Http\Controllers\SalaryHistoryController::class, 'index'])->name('employees.salary.index');

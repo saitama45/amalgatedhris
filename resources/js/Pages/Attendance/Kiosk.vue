@@ -2,7 +2,8 @@
 import { Head, useForm } from '@inertiajs/vue3';
 import { ref, onMounted, onUnmounted, computed, watch, shallowRef } from 'vue';
 import Toast from '@/Components/Toast.vue';
-import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
+// import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import { 
     CameraIcon, 
     ClockIcon, 
@@ -29,13 +30,14 @@ const lastLog = ref(null);
 const errorMsg = ref(null);
 const modelsLoaded = ref(false);
 const faceLandmarker = shallowRef(null);
+const html5QrCode = shallowRef(null);
 
 // High-Speed 3D Liveness Engine
 const livenessStatus = ref('waiting'); 
 const livenessHistory = [];
 const livenessScore = ref(0);
 const identifiedUser = ref(null);
-const livenessFeedback = ref('Ready for scan');
+const livenessFeedback = ref('Ready for QR Scan');
 const consecutiveMatches = ref(0);
 const lastIdentifiedCode = ref(null);
 
@@ -55,21 +57,15 @@ const timeInterval = setInterval(() => {
     currentTime.value = new Date();
 }, 1000);
 
-// Initialize Face AI
+// Initialize QR Scanner
 onMounted(async () => {
+    /* 
+    // Facial Recognition Disabled
     console.log('Kiosk mounted. Employees with descriptors:', props.employees.length);
-    props.employees.forEach(emp => {
-        console.log(`Employee ${emp.employee_code} (${emp.name}):`, {
-            hasDescriptor: !!emp.descriptor,
-            descriptorLength: emp.descriptor ? emp.descriptor.length : 0
-        });
-    });
-    
     try {
         const vision = await FilesetResolver.forVisionTasks(
             "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm"
         );
-        
         faceLandmarker.value = await FaceLandmarker.createFromOptions(vision, {
             baseOptions: {
                 modelAssetPath: `/models/face_landmarker.task`,
@@ -79,17 +75,18 @@ onMounted(async () => {
             runningMode: "VIDEO",
             numFaces: 1
         });
-
         modelsLoaded.value = true;
-        console.log('MediaPipe Face Landmarker loaded successfully');
         startCamera();
     } catch (e) {
         console.error("Critical: Face Recognition unavailable.", e);
         errorMsg.value = "System Error: Face Recognition unavailable.";
     }
+    */
+    startCamera();
 });
 
 const getSimilarity = (sig1, sig2) => {
+    /*
     if (!sig1 || !sig2 || sig1.length !== sig2.length) {
         console.warn('Signature length mismatch:', sig1?.length, 'vs', sig2?.length);
         return 0;
@@ -103,228 +100,83 @@ const getSimilarity = (sig1, sig2) => {
     const distance = Math.sqrt(sumSquaredDiff);
     
     // Convert distance to similarity using exponential decay
-    // Observed ranges: same person ~5-6, different person ~8-9
     const similarity = Math.exp(-distance / 2.5);
-    
-    console.log('Distance:', distance.toFixed(4), 'Similarity:', similarity.toFixed(4));
-    
     return similarity;
+    */
+    return 0;
 };
 
 const performScan = async () => {
+    /*
     if (!videoRef.value || videoRef.value.paused || videoRef.value.ended || isLoading.value || scanCooldown.value || !modelsLoaded.value || !faceLandmarker.value) return;
-
     if (videoRef.value.readyState < 2 || videoRef.value.videoWidth === 0) return;
 
     try {
         const timestamp = performance.now();
         const result = await faceLandmarker.value.detectForVideo(videoRef.value, timestamp);
-        
-        if (!result || !result.faceLandmarks || result.faceLandmarks.length === 0) {
-            livenessFeedback.value = "Ready for scan";
-            consecutiveMatches.value = 0;
-            return;
-        }
-
-        const landmarks = result.faceLandmarks[0];
-
-        // --- UI Guide Check ---
-        const noseScreen = landmarks[1];
-        if (noseScreen.x < 0.35 || noseScreen.x > 0.65 || noseScreen.y < 0.3 || noseScreen.y > 0.7) {
-            livenessFeedback.value = "Center your face in circle";
-            consecutiveMatches.value = 0;
-            return;
-        }
-
-        // --- Gaze Check ---
-        const distL = Math.abs(noseScreen.x - landmarks[133].x);
-        const distR = Math.abs(noseScreen.x - landmarks[362].x);
-        const ratio = distL / distR;
-        if (ratio < 0.65 || ratio > 1.5) {
-            livenessFeedback.value = "Look directly at camera";
-            consecutiveMatches.value = 0;
-            return;
-        }
-        
-        // --- 3D SIGNATURE ---
-        const anchor = landmarks[168];
-        const centered = landmarks.map(l => ({
-            x: l.x - anchor.x,
-            y: l.y - anchor.y,
-            z: l.z - anchor.z
-        }));
-
-        const dx = landmarks[133].x - landmarks[362].x;
-        const dy = landmarks[133].y - landmarks[362].y;
-        const dz = landmarks[133].z - landmarks[362].z;
-        const eyeDist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-        
-        // Add discriminative facial ratios
-        const faceWidth = Math.abs(landmarks[234].x - landmarks[454].x);
-        const faceHeight = Math.abs(landmarks[10].y - landmarks[152].y);
-        const noseWidth = Math.abs(landmarks[129].x - landmarks[358].x);
-        const mouthWidth = Math.abs(landmarks[61].x - landmarks[291].x);
-        const eyeToNose = Math.abs(landmarks[168].y - landmarks[6].y);
-        const noseToMouth = Math.abs(landmarks[2].y - landmarks[0].y);
-        
-        const currentSignature = [
-            ...centered.flatMap(l => [
-                l.x / eyeDist,
-                l.y / eyeDist
-            ]),
-            faceWidth / faceHeight,
-            noseWidth / faceWidth,
-            mouthWidth / faceWidth,
-            eyeToNose / faceHeight,
-            noseToMouth / faceHeight
-        ];
-        
-        isScanning.value = true;
-        livenessFeedback.value = "Analyzing facial structure...";
-
-        let bestMatch = { label: 'unknown', score: 0 };
-        let secondBest = { label: 'unknown', score: 0 };
-        
-        console.log('Comparing against', props.employees.length, 'registered employees');
-        console.log('Current signature sample:', currentSignature.slice(0, 10));
-        console.log('Current signature length:', currentSignature.length);
-        
-        for (const emp of props.employees) {
-            if (!emp.descriptor) {
-                console.warn(`Employee ${emp.employee_code} has no descriptor`);
-                continue;
-            }
-            
-            console.log(`Employee ${emp.employee_code} descriptor:`, {
-                length: emp.descriptor.length,
-                sample: emp.descriptor.slice(0, 10),
-                type: typeof emp.descriptor[0],
-                firstValue: emp.descriptor[0],
-                allZeros: emp.descriptor.every(v => v === 0)
-            });
-            
-            const score = getSimilarity(currentSignature, emp.descriptor);
-            
-            console.log(`Match score for ${emp.employee_code} (${emp.name}): ${score.toFixed(4)}`);
-            
-            if (score > bestMatch.score) {
-                secondBest = bestMatch;
-                bestMatch = { 
-                    label: emp.employee_code, 
-                    score,
-                    name: emp.name
-                };
-            } else if (score > secondBest.score) {
-                secondBest = { label: emp.employee_code, score, name: emp.name };
-            }
-        }
-        
-        // Require significant difference between best and second best (at least 0.03)
-        const scoreDiff = bestMatch.score - secondBest.score;
-        console.log('Best match:', bestMatch, 'Second best:', secondBest, 'Difference:', scoreDiff.toFixed(4));
-        
-        // THRESHOLD: Accept distances 3-6 as potential matches (similarity 0.10-0.30)
-        // Same person typically: distance 3-6, different person: distance 8-11
-        if (bestMatch.label !== 'unknown' && bestMatch.score > 0.08 && scoreDiff > 0.05) {
-            if (lastIdentifiedCode.value === bestMatch.label) {
-                consecutiveMatches.value++;
-            } else {
-                lastIdentifiedCode.value = bestMatch.label;
-                consecutiveMatches.value = 1;
-            }
-
-            if (consecutiveMatches.value < 6) {
-                livenessFeedback.value = "Stabilizing...";
-                isScanning.value = false;
-                return;
-            }
-
-            identifiedUser.value = bestMatch.name;
-            livenessFeedback.value = `✓ Identified: ${bestMatch.name}`;
-            livenessStatus.value = 'verified';
-            
-            const fullCode = bestMatch.label;
-            const context = canvasRef.value.getContext('2d');
-            canvasRef.value.width = videoRef.value.videoWidth;
-            canvasRef.value.height = videoRef.value.videoHeight;
-            context.drawImage(videoRef.value, 0, 0);
-            const imageData = canvasRef.value.toDataURL('image/jpeg', 0.6);
-
-            axios.post(route('attendance.kiosk.store'), {
-                employee_code: fullCode,
-                image: imageData,
-                type: form.type
-            })
-            .then(response => {
-                lastLog.value = response.data;
-                successSound.play().catch(e => console.warn("Audio play blocked:", e));
-                
-                scanCooldown.value = true;
-                setTimeout(() => {
-                    scanCooldown.value = false;
-                    livenessFeedback.value = "Ready for scan";
-                    identifiedUser.value = null;
-                    livenessStatus.value = 'waiting';
-                    lastLog.value = null;
-                    consecutiveMatches.value = 0;
-                    lastIdentifiedCode.value = null;
-                }, 5000);
-            })
-            .catch(err => {
-                console.error("Attendance error:", err);
-                console.error("Error response:", err.response?.data);
-                errorMsg.value = err.response?.data?.message || "Log failed";
-                errorSound.currentTime = 0;
-                errorSound.play().catch(e => console.warn("Audio play blocked:", e));
-
-                scanCooldown.value = true;
-                setTimeout(() => {
-                    errorMsg.value = null;
-                    scanCooldown.value = false;
-                    livenessFeedback.value = "Ready for scan";
-                    identifiedUser.value = null;
-                    livenessStatus.value = 'waiting';
-                    consecutiveMatches.value = 0;
-                    lastIdentifiedCode.value = null;
-                }, 4000);
-            })
-            .finally(() => {
-                isScanning.value = false;
-            });
-        } else {
-            if (scoreDiff <= 0.03 && bestMatch.score > 0) {
-                livenessFeedback.value = "Ambiguous match - move closer";
-            } else {
-                livenessFeedback.value = "Face not recognized";
-            }
-            isScanning.value = false;
-            consecutiveMatches.value = 0;
-            lastIdentifiedCode.value = null;
-        }
+        // ... rest of the old face recognition logic ...
     } catch (e) {
         console.error("Detection error:", e);
-        isScanning.value = false;
     }
+    */
+    return;
+};
+
+const isStartingScanner = ref(false);
+const startQRScanner = () => {
+    if (html5QrCode.value || isStartingScanner.value) return;
+
+    isStartingScanner.value = true;
+    html5QrCode.value = new Html5Qrcode("reader");
+    
+    // Optimized configuration for Kiosk performance
+    const config = { 
+        fps: 25, 
+        qrbox: (viewfinderWidth, viewfinderHeight) => {
+            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+            const size = Math.floor(minEdge * 0.7);
+            return { width: size, height: size };
+        },
+        aspectRatio: 1.0, 
+        formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ],
+        experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true 
+        }
+    };
+
+    // The first argument must be a simple selector object or a deviceId string
+    html5QrCode.value.start(
+        { facingMode: "user" },
+        config,
+        (decodedText, decodedResult) => {
+            if (scanCooldown.value || isLoading.value) return;
+            handleQRDetected(decodedText);
+        },
+        (errorMessage) => {
+            // silence noise
+        }
+    ).then(() => {
+        isCameraActive.value = true;
+        isStartingScanner.value = false;
+        console.log("High-performance QR Scanner started");
+    }).catch((err) => {
+        console.error("QR Start Error:", err);
+        isStartingScanner.value = false;
+        errorMsg.value = "Camera Error: " + err;
+    });
+};
+
+const handleQRDetected = (qrCode) => {
+    if (scanCooldown.value) return;
+    
+    // Auto-fill and submit
+    form.employee_code = qrCode;
+    submitAttendance(true);
 };
 
 // Auto Scan Loop
-let isLoopRunning = false;
-
 const startAutoScan = () => {
-    if (isLoopRunning) return;
-    isLoopRunning = true;
-    
-    const loop = async () => {
-        if (!isAutoScan.value || !isCameraActive.value || isScanning.value || scanCooldown.value || isLoading.value || !modelsLoaded.value) {
-            requestAnimationFrame(loop);
-            return;
-        }
-        
-        await performScan();
-        requestAnimationFrame(loop);
-    };
-    
-    requestAnimationFrame(loop);
+    startQRScanner();
 };
 
 const form = useForm({
@@ -335,58 +187,16 @@ const form = useForm({
 
 const startCamera = async () => {
     errorMsg.value = null;
-    
-    // Check for Secure Context (HTTPS/Localhost)
-    if (!window.isSecureContext && window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
-        errorMsg.value = "Camera access requires HTTPS. Please ensure your site has an SSL certificate.";
-        return;
-    }
-
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        errorMsg.value = "Your browser does not support camera access or it is blocked.";
-        return;
-    }
-
-    try {
-        // Try HD first
-        try {
-            stream.value = await navigator.mediaDevices.getUserMedia({ 
-                video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" } 
-            });
-        } catch (e) {
-            // Fallback to any video
-            console.warn("HD camera failed, trying default...", e);
-            stream.value = await navigator.mediaDevices.getUserMedia({ video: true });
-        }
-
-        if (videoRef.value) {
-            videoRef.value.srcObject = stream.value;
-            isCameraActive.value = true;
-            
-            // Wait for video to be ready before scanning
-            videoRef.value.onloadedmetadata = () => {
-                videoRef.value.play();
-                startAutoScan();
-            };
-        }
-    } catch (err) {
-        console.error("Camera error:", err);
-        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-            errorMsg.value = "Camera permission denied. Please allow camera access in your browser settings.";
-        } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
-            errorMsg.value = "Camera is already in use by another application.";
-        } else {
-            errorMsg.value = "Could not access camera. Error: " + err.message;
-        }
-    }
+    startQRScanner();
 };
 
 const stopCamera = () => {
-    if (stream.value) {
-        stream.value.getTracks().forEach(track => track.stop());
-        isCameraActive.value = false;
+    if (html5QrCode.value) {
+        html5QrCode.value.stop().then(() => {
+            isCameraActive.value = false;
+            html5QrCode.value = null;
+        }).catch(err => console.error(err));
     }
-    isLoopRunning = false;
 };
 
 const capture = () => {
@@ -415,16 +225,8 @@ const submitAttendance = (isAuto = false) => {
         return;
     }
 
-    // Always match by last 4 digits
-    const lastDigits = inputCode.slice(-4);
-    const match = props.employees.find(emp => emp.employee_code.slice(-4) === lastDigits);
-    
-    if (!match) {
-        errorMsg.value = "No employee found with ID ending in " + lastDigits;
-        return;
-    }
-    
-    const fullEmployeeCode = match.employee_code;
+    // When scanning QR, inputCode might be the full QR code. 
+    // The backend now handles finding by employee_code OR qr_code.
 
     if (isAuto) {
          isScanning.value = true;
@@ -432,21 +234,26 @@ const submitAttendance = (isAuto = false) => {
 
     // Capture for record
     if (!form.image && isCameraActive.value) {
-         if (videoRef.value && canvasRef.value) {
-            const context = canvasRef.value.getContext('2d');
-            canvasRef.value.width = videoRef.value.videoWidth;
-            canvasRef.value.height = videoRef.value.videoHeight;
-            context.drawImage(videoRef.value, 0, 0);
-            form.image = canvasRef.value.toDataURL('image/jpeg', 0.6);
+         const activeVideo = document.querySelector('#reader video');
+         if (activeVideo && canvasRef.value) {
+            try {
+                const context = canvasRef.value.getContext('2d');
+                canvasRef.value.width = activeVideo.videoWidth || 640;
+                canvasRef.value.height = activeVideo.videoHeight || 480;
+                context.drawImage(activeVideo, 0, 0);
+                form.image = canvasRef.value.toDataURL('image/jpeg', 0.6);
+            } catch (e) {
+                console.warn("Could not capture image from QR stream:", e);
+            }
          }
     }
 
     isLoading.value = true;
     errorMsg.value = null;
 
-    // Send with full employee code
+    // Send the code (could be ID or QR)
     axios.post(route('attendance.kiosk.store'), {
-        employee_code: fullEmployeeCode,
+        employee_code: inputCode,
         image: form.image,
         type: form.type
     })
@@ -460,8 +267,13 @@ const submitAttendance = (isAuto = false) => {
             successSound.currentTime = 0;
             successSound.play().catch(e => console.warn("Audio play blocked:", e)); 
             
+            livenessFeedback.value = "✓ SUCCESS";
+
             setTimeout(() => {
                 scanCooldown.value = false;
+                livenessFeedback.value = "Ready for QR Scan";
+                livenessStatus.value = 'waiting';
+                lastLog.value = null;
             }, 5000);
         })
         .catch(err => {
@@ -470,11 +282,18 @@ const submitAttendance = (isAuto = false) => {
             errorMsg.value = responseData?.message || 
                             (responseData?.errors ? Object.values(responseData.errors).flat()[0] : "Attendance failed.");
             
+            livenessFeedback.value = "✕ FAILED";
+            livenessStatus.value = 'waiting';
+
             scanCooldown.value = true;
             errorSound.currentTime = 0;
             errorSound.play().catch(e => console.warn("Audio play blocked:", e));
             
-            setTimeout(() => scanCooldown.value = false, 3000);
+            setTimeout(() => {
+                scanCooldown.value = false;
+                errorMsg.value = null;
+                livenessFeedback.value = "Ready for QR Scan";
+            }, 3000);
         })
         .finally(() => {
             isLoading.value = false;
@@ -486,6 +305,9 @@ const submitAttendance = (isAuto = false) => {
 
 onUnmounted(() => {
     stopCamera();
+    if (html5QrCode.value) {
+        html5QrCode.value.stop().catch(err => console.error(err));
+    }
     clearInterval(timeInterval);
 });
 
@@ -504,32 +326,34 @@ const formattedDate = computed(() => {
     <div class="h-screen bg-slate-900 flex flex-col md:flex-row overflow-hidden relative">
         <Toast />
         
-        <!-- Left: Camera Feed -->
+        <!-- Left: Camera Feed / QR Scanner -->
         <div class="flex-1 relative bg-black flex items-center justify-center overflow-hidden">
+                <!-- QR Scanner Target -->
+                <div id="reader" class="w-full h-full"></div>
+
                 <video 
                     ref="videoRef" 
                     autoplay 
                     playsinline 
                     muted 
-                    class="absolute inset-0 w-full h-full object-cover"
-                    :class="{'opacity-50': capturedImage}"
+                    class="absolute inset-0 w-full h-full object-cover hidden"
                 ></video>
                 
-                <!-- Face Overlay Guide -->
-                <div v-if="isCameraActive && !capturedImage" class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <!-- Overlay Guide -->
+                <div v-if="isCameraActive && !capturedImage" class="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
                     <div 
-                        class="w-64 h-64 border-4 rounded-full transition-all duration-300 shadow-[0_0_100px_rgba(59,130,246,0.3)]"
-                        :class="livenessStatus === 'verified' ? 'border-emerald-500 scale-110' : (livenessStatus === 'verifying' ? 'border-amber-400 animate-pulse' : 'border-blue-500/50')"
+                        class="w-72 h-72 border-4 rounded-3xl transition-all duration-300 shadow-[0_0_100px_rgba(59,130,246,0.3)]"
+                        :class="livenessStatus === 'verified' ? 'border-emerald-500 scale-105' : 'border-blue-500/50 border-dashed'"
                     ></div>
                     
-                    <div class="absolute flex flex-col items-center mt-96">
+                    <div class="absolute flex flex-col items-center mt-[450px]">
                         <div class="text-blue-200 font-mono text-sm bg-black/70 px-6 py-2 rounded-xl backdrop-blur-md border border-white/10 shadow-2xl text-center">
-                            <div v-if="identifiedUser" class="text-emerald-400 font-bold mb-1">USER: {{ identifiedUser }}</div>
                             <div class="flex items-center justify-center gap-2 mb-1">
                                 <span v-if="isScanning" class="flex h-2 w-2 relative">
                                     <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                                     <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
                                 </span>
+                                <QrCodeIcon class="w-4 h-4 text-blue-400" />
                                 {{ livenessFeedback }}
                             </div>
                         </div>
@@ -537,29 +361,16 @@ const formattedDate = computed(() => {
                 </div>
 
                 <!-- Captured Image Overlay -->
-                <img v-if="capturedImage" :src="capturedImage" class="absolute inset-0 w-full h-full object-cover z-10">
+                <img v-if="capturedImage" :src="capturedImage" class="absolute inset-0 w-full h-full object-cover z-30">
 
                 <canvas ref="canvasRef" class="hidden"></canvas>
 
                 <!-- Camera Controls -->
-                <div class="absolute bottom-6 left-0 right-0 flex justify-center z-20 gap-4 items-center">
-                    <button 
-                        @click="isAutoScan = !isAutoScan"
-                        class="px-4 py-2 rounded-full font-bold text-xs backdrop-blur-md transition-all flex items-center border"
-                        :class="isAutoScan ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-white/10 border-white/20 text-slate-400 hover:text-white'"
-                    >
-                        <div class="w-2 h-2 rounded-full mr-2" :class="isAutoScan ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'"></div>
-                        {{ isAutoScan ? 'Auto Scan ON' : 'Auto Scan OFF' }}
-                    </button>
-
-                    <!-- Manual capture hidden per request
-                    <button @click="resetCapture" v-if="capturedImage" class="bg-white/20 hover:bg-white/30 backdrop-blur-md text-white p-4 rounded-full transition-all">
-                        <ArrowPathIcon class="w-8 h-8" />
-                    </button>
-                    <button @click="capture" v-if="!capturedImage" class="bg-white hover:bg-slate-200 text-slate-900 p-4 rounded-full shadow-lg transition-all transform hover:scale-105 active:scale-95">
-                        <CameraIcon class="w-8 h-8" />
-                    </button>
-                    -->
+                <div class="absolute bottom-6 left-0 right-0 flex justify-center z-40 gap-4 items-center">
+                    <div class="px-4 py-2 rounded-full font-bold text-xs backdrop-blur-md transition-all flex items-center border bg-blue-500/20 border-blue-500 text-blue-400">
+                        <div class="w-2 h-2 rounded-full mr-2 bg-blue-400 animate-pulse"></div>
+                        QR SCANNER ACTIVE
+                    </div>
                 </div>
             </div>
 
@@ -656,5 +467,50 @@ const formattedDate = computed(() => {
 /* High contrast focus for scanner visibility */
 input:focus {
     box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3);
+}
+
+#reader :deep(video) {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+}
+
+#reader :deep(img) {
+    display: none !important;
+}
+
+#reader :deep(#html5-qrcode-anchor-scan-region) {
+    border: none !important;
+}
+
+/* Hide html5-qrcode controls as we use our own */
+#reader :deep(button), 
+#reader :deep(span), 
+#reader :deep(select) {
+    display: none !important;
+}
+
+#reader :deep(#html5-qrcode-panel-scan-region) {
+    border: none !important;
+}
+
+/* Add a custom scanline effect */
+.w-72.h-72::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: rgba(59, 130, 246, 0.5);
+    box-shadow: 0 0 15px 2px rgba(59, 130, 246, 0.8);
+    animation: scan 2s linear infinite;
+    z-index: 30;
+}
+
+@keyframes scan {
+    0% { top: 0; }
+    50% { top: 100%; }
+    100% { top: 0; }
 }
 </style>

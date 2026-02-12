@@ -15,7 +15,6 @@ class AttendanceKioskController extends Controller
     public function index()
     {
         $employees = Employee::with('user')
-            ->whereNotNull('face_data')
             ->get()
             ->map(function ($employee) {
                 $descriptor = null;
@@ -31,23 +30,14 @@ class AttendanceKioskController extends Controller
                     }
                 }
 
-                \Log::info("Employee {$employee->employee_code} descriptor check", [
-                    'has_face_data' => !empty($employee->face_data),
-                    'descriptor_count' => $descriptor ? count($descriptor) : 0,
-                    'descriptor_sample' => $descriptor ? array_slice($descriptor, 0, 5) : null,
-                    'descriptor_valid' => !empty($descriptor)
-                ]);
-
                 return [
                     'employee_code' => $employee->employee_code,
+                    'qr_code' => $employee->qr_code,
                     'name' => $employee->user ? $employee->user->name : 'Unknown',
                     'descriptor' => $descriptor,
                 ];
             })
-            ->filter(fn($e) => !empty($e['descriptor']) && is_array($e['descriptor']) && count($e['descriptor']) === 961)
             ->values();
-
-        \Log::info("Kiosk loaded with {$employees->count()} employees with valid face descriptors");
 
         return Inertia::render('Attendance/Kiosk', [
             'employees' => $employees
@@ -57,12 +47,22 @@ class AttendanceKioskController extends Controller
     public function store(Request $request, AttendanceService $attendanceService)
     {
         $request->validate([
-            'employee_code' => 'required|string|exists:employees,employee_code',
+            'employee_code' => 'required|string',
             'image' => 'nullable|string',
             'type' => 'required|in:time_in,time_out',
         ]);
 
-        $employee = Employee::where('employee_code', $request->employee_code)->first();
+        // Find by employee_code, qr_code, or last 4 digits of employee_code
+        $employee = Employee::where('employee_code', $request->employee_code)
+            ->orWhere('qr_code', $request->employee_code)
+            ->when(strlen($request->employee_code) === 4, function ($query) use ($request) {
+                return $query->orWhere('employee_code', 'like', '%' . $request->employee_code);
+            })
+            ->first();
+
+        if (!$employee) {
+            return response()->json(['message' => 'Employee not found.'], 404);
+        }
         
         return $this->logAttendance($employee, $request->type, $attendanceService);
     }

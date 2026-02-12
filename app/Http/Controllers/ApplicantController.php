@@ -198,6 +198,7 @@ class ApplicantController extends Controller
             $employee = Employee::create([
                 'user_id' => $user->id,
                 'employee_code' => 'EMP-' . now()->year . '-' . str_pad($user->id, 4, '0', STR_PAD_LEFT),
+                'qr_code' => 'QR-' . strtoupper(bin2hex(random_bytes(8))),
             ]);
 
             // Create Employment Record (Consolidated Assignment & Pay)
