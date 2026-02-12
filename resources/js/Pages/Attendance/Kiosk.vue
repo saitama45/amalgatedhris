@@ -57,6 +57,14 @@ const timeInterval = setInterval(() => {
 
 // Initialize Face AI
 onMounted(async () => {
+    console.log('Kiosk mounted. Employees with descriptors:', props.employees.length);
+    props.employees.forEach(emp => {
+        console.log(`Employee ${emp.employee_code} (${emp.name}):`, {
+            hasDescriptor: !!emp.descriptor,
+            descriptorLength: emp.descriptor ? emp.descriptor.length : 0
+        });
+    });
+    
     try {
         const vision = await FilesetResolver.forVisionTasks(
             "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm"
@@ -73,6 +81,7 @@ onMounted(async () => {
         });
 
         modelsLoaded.value = true;
+        console.log('MediaPipe Face Landmarker loaded successfully');
         startCamera();
     } catch (e) {
         console.error("Critical: Face Recognition unavailable.", e);
@@ -81,104 +90,160 @@ onMounted(async () => {
 });
 
 const getSimilarity = (sig1, sig2) => {
-    if (!sig1 || !sig2 || sig1.length !== sig2.length) return 0;
-    // Cosine similarity
-    let dot = 0;
-    let mag1 = 0;
-    let mag2 = 0;
-    for (let i = 0; i < sig1.length; i++) {
-        dot += sig1[i] * sig2[i];
-        mag1 += sig1[i] ** 2;
-        mag2 += sig2[i] ** 2;
+    if (!sig1 || !sig2 || sig1.length !== sig2.length) {
+        console.warn('Signature length mismatch:', sig1?.length, 'vs', sig2?.length);
+        return 0;
     }
-    return dot / (Math.sqrt(mag1) * Math.sqrt(mag2));
+    
+    // Euclidean distance - more discriminative than cosine for faces
+    let sumSquaredDiff = 0;
+    for (let i = 0; i < sig1.length; i++) {
+        sumSquaredDiff += (sig1[i] - sig2[i]) ** 2;
+    }
+    const distance = Math.sqrt(sumSquaredDiff);
+    
+    // Convert distance to similarity using exponential decay
+    // Observed ranges: same person ~5-6, different person ~8-9
+    const similarity = Math.exp(-distance / 2.5);
+    
+    console.log('Distance:', distance.toFixed(4), 'Similarity:', similarity.toFixed(4));
+    
+    return similarity;
 };
 
 const performScan = async () => {
     if (!videoRef.value || videoRef.value.paused || videoRef.value.ended || isLoading.value || scanCooldown.value || !modelsLoaded.value || !faceLandmarker.value) return;
 
-    // Ensure video is ready and has dimensions
     if (videoRef.value.readyState < 2 || videoRef.value.videoWidth === 0) return;
 
     try {
-        // MediaPipe VIDEO mode requires a timestamp
         const timestamp = performance.now();
         const result = await faceLandmarker.value.detectForVideo(videoRef.value, timestamp);
         
         if (!result || !result.faceLandmarks || result.faceLandmarks.length === 0) {
             livenessFeedback.value = "Ready for scan";
+            consecutiveMatches.value = 0;
             return;
         }
 
         const landmarks = result.faceLandmarks[0];
 
-        // --- CIRCLE DETECTION: Ensure face is centered ---
-        // Circle is 256px (w-64) in the center of the viewport.
-        // Landmarks are normalized 0-1.
-        // For simplicity, we check if the nose (index 1) is near the center (0.5, 0.5)
-        // and if the face size is appropriate.
-        const nose = landmarks[1];
-        const faceCenterX = nose.x;
-        const faceCenterY = nose.y;
-
-        // Tolerance: face must be within the center 30% of the screen to be "inside" the guide
-        if (faceCenterX < 0.35 || faceCenterX > 0.65 || faceCenterY < 0.3 || faceCenterY > 0.7) {
+        // --- UI Guide Check ---
+        const noseScreen = landmarks[1];
+        if (noseScreen.x < 0.35 || noseScreen.x > 0.65 || noseScreen.y < 0.3 || noseScreen.y > 0.7) {
             livenessFeedback.value = "Center your face in circle";
+            consecutiveMatches.value = 0;
+            return;
+        }
+
+        // --- Gaze Check ---
+        const distL = Math.abs(noseScreen.x - landmarks[133].x);
+        const distR = Math.abs(noseScreen.x - landmarks[362].x);
+        const ratio = distL / distR;
+        if (ratio < 0.65 || ratio > 1.5) {
+            livenessFeedback.value = "Look directly at camera";
+            consecutiveMatches.value = 0;
             return;
         }
         
-        // --- Create Geometric Signature (Identical to Registration) ---
+        // --- 3D SIGNATURE ---
+        const anchor = landmarks[168];
         const centered = landmarks.map(l => ({
-            x: l.x - nose.x,
-            y: l.y - nose.y,
-            z: l.z - nose.z
+            x: l.x - anchor.x,
+            y: l.y - anchor.y,
+            z: l.z - anchor.z
         }));
 
-        const eyeDist = Math.sqrt(
-            Math.pow(landmarks[133].x - landmarks[362].x, 2) + 
-            Math.pow(landmarks[133].y - landmarks[362].y, 2)
-        );
+        const dx = landmarks[133].x - landmarks[362].x;
+        const dy = landmarks[133].y - landmarks[362].y;
+        const dz = landmarks[133].z - landmarks[362].z;
+        const eyeDist = Math.sqrt(dx*dx + dy*dy + dz*dz);
         
-        if (eyeDist < 0.05) {
-            livenessFeedback.value = "Move closer to camera";
-            return;
-        }
-
-        const currentSignature = centered.flatMap(l => [
-            l.x / eyeDist,
-            l.y / eyeDist,
-            l.z / eyeDist
-        ]);
+        // Add discriminative facial ratios
+        const faceWidth = Math.abs(landmarks[234].x - landmarks[454].x);
+        const faceHeight = Math.abs(landmarks[10].y - landmarks[152].y);
+        const noseWidth = Math.abs(landmarks[129].x - landmarks[358].x);
+        const mouthWidth = Math.abs(landmarks[61].x - landmarks[291].x);
+        const eyeToNose = Math.abs(landmarks[168].y - landmarks[6].y);
+        const noseToMouth = Math.abs(landmarks[2].y - landmarks[0].y);
+        
+        const currentSignature = [
+            ...centered.flatMap(l => [
+                l.x / eyeDist,
+                l.y / eyeDist
+            ]),
+            faceWidth / faceHeight,
+            noseWidth / faceWidth,
+            mouthWidth / faceWidth,
+            eyeToNose / faceHeight,
+            noseToMouth / faceHeight
+        ];
         
         isScanning.value = true;
-        livenessFeedback.value = "Analyzing face...";
+        livenessFeedback.value = "Analyzing facial structure...";
 
-        let bestMatch = { label: 'unknown', similarity: 0 };
+        let bestMatch = { label: 'unknown', score: 0 };
+        let secondBest = { label: 'unknown', score: 0 };
         
-        // Compare against all registered employees locally
+        console.log('Comparing against', props.employees.length, 'registered employees');
+        console.log('Current signature sample:', currentSignature.slice(0, 10));
+        console.log('Current signature length:', currentSignature.length);
+        
         for (const emp of props.employees) {
-            if (!emp.descriptor) continue;
-            const similarity = getSimilarity(currentSignature, emp.descriptor);
+            if (!emp.descriptor) {
+                console.warn(`Employee ${emp.employee_code} has no descriptor`);
+                continue;
+            }
             
-            // Landmark-based signature threshold (0.95+ is usually same person after normalization)
-            if (similarity > 0.96 && similarity > bestMatch.similarity) {
+            console.log(`Employee ${emp.employee_code} descriptor:`, {
+                length: emp.descriptor.length,
+                sample: emp.descriptor.slice(0, 10),
+                type: typeof emp.descriptor[0],
+                firstValue: emp.descriptor[0],
+                allZeros: emp.descriptor.every(v => v === 0)
+            });
+            
+            const score = getSimilarity(currentSignature, emp.descriptor);
+            
+            console.log(`Match score for ${emp.employee_code} (${emp.name}): ${score.toFixed(4)}`);
+            
+            if (score > bestMatch.score) {
+                secondBest = bestMatch;
                 bestMatch = { 
                     label: emp.employee_code, 
-                    similarity,
+                    score,
                     name: emp.name
                 };
+            } else if (score > secondBest.score) {
+                secondBest = { label: emp.employee_code, score, name: emp.name };
             }
         }
+        
+        // Require significant difference between best and second best (at least 0.03)
+        const scoreDiff = bestMatch.score - secondBest.score;
+        console.log('Best match:', bestMatch, 'Second best:', secondBest, 'Difference:', scoreDiff.toFixed(4));
+        
+        // THRESHOLD: Accept distances 3-6 as potential matches (similarity 0.10-0.30)
+        // Same person typically: distance 3-6, different person: distance 8-11
+        if (bestMatch.label !== 'unknown' && bestMatch.score > 0.08 && scoreDiff > 0.05) {
+            if (lastIdentifiedCode.value === bestMatch.label) {
+                consecutiveMatches.value++;
+            } else {
+                lastIdentifiedCode.value = bestMatch.label;
+                consecutiveMatches.value = 1;
+            }
 
-        if (bestMatch.label !== 'unknown') {
+            if (consecutiveMatches.value < 6) {
+                livenessFeedback.value = "Stabilizing...";
+                isScanning.value = false;
+                return;
+            }
+
             identifiedUser.value = bestMatch.name;
             livenessFeedback.value = `✓ Identified: ${bestMatch.name}`;
             livenessStatus.value = 'verified';
             
-            // Auto-submit attendance
             const fullCode = bestMatch.label;
-            
-            // Capture frame for record
             const context = canvasRef.value.getContext('2d');
             canvasRef.value.width = videoRef.value.videoWidth;
             canvasRef.value.height = videoRef.value.videoHeight;
@@ -201,13 +266,14 @@ const performScan = async () => {
                     identifiedUser.value = null;
                     livenessStatus.value = 'waiting';
                     lastLog.value = null;
+                    consecutiveMatches.value = 0;
+                    lastIdentifiedCode.value = null;
                 }, 5000);
             })
             .catch(err => {
                 console.error("Attendance error:", err);
+                console.error("Error response:", err.response?.data);
                 errorMsg.value = err.response?.data?.message || "Log failed";
-                
-                // Play error sound for validation errors (like "Already timed in")
                 errorSound.currentTime = 0;
                 errorSound.play().catch(e => console.warn("Audio play blocked:", e));
 
@@ -218,18 +284,25 @@ const performScan = async () => {
                     livenessFeedback.value = "Ready for scan";
                     identifiedUser.value = null;
                     livenessStatus.value = 'waiting';
+                    consecutiveMatches.value = 0;
+                    lastIdentifiedCode.value = null;
                 }, 4000);
             })
             .finally(() => {
                 isScanning.value = false;
             });
         } else {
-            livenessFeedback.value = "Face not recognized";
+            if (scoreDiff <= 0.03 && bestMatch.score > 0) {
+                livenessFeedback.value = "Ambiguous match - move closer";
+            } else {
+                livenessFeedback.value = "Face not recognized";
+            }
             isScanning.value = false;
+            consecutiveMatches.value = 0;
+            lastIdentifiedCode.value = null;
         }
     } catch (e) {
         console.error("Detection error:", e);
-        // Don't show error message to user for transient detection errors
         isScanning.value = false;
     }
 };

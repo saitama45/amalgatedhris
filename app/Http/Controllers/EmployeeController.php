@@ -160,6 +160,21 @@ class EmployeeController extends Controller
                     if ($request->has('face_data') && !empty($request->face_data)) {
 
                         if ($request->face_data === 'CLEAR') {
+                            // Delete physical file if exists
+                            if ($employee->face_data) {
+                                try {
+                                    $oldData = json_decode($employee->face_data, true);
+                                    if (isset($oldData['file'])) {
+                                        $oldFilePath = public_path('uploads/faces/' . $oldData['file']);
+                                        if (file_exists($oldFilePath)) {
+                                            unlink($oldFilePath);
+                                            Log::info("Deleted old face image: " . $oldFilePath);
+                                        }
+                                    }
+                                } catch (\Exception $e) {
+                                    Log::error("Failed to delete old face image: " . $e->getMessage());
+                                }
+                            }
 
                             $data['face_data'] = null;
 

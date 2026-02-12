@@ -76,7 +76,7 @@ onMounted(async () => {
                 delegate: "CPU"
             },
             outputFaceBlendshapes: true,
-            runningMode: "IMAGE",
+            runningMode: "VIDEO",
             numFaces: 1
         });
         modelsLoaded.value = true;
@@ -350,6 +350,31 @@ const isBioCameraActive = ref(false);
 const bioImage = ref(null);
 const isBioProcessing = ref(false); // New state for processing
 const bioFeedback = ref('Ready to capture');
+const capturedSamples = ref([]); // Store multiple samples
+const requiredSamples = 3; // Capture 3 samples
+let bioLoopActive = false;
+
+const runBioLoop = async () => {
+    if (!bioLoopActive || !isBioCameraActive.value || !faceLandmarker.value || bioImage.value) return;
+    
+    // Readiness Guard: Ensure video has actual dimensions and is ready
+    if (!bioVideoRef.value || bioVideoRef.value.readyState < 2 || bioVideoRef.value.videoWidth === 0) {
+        if (bioLoopActive) requestAnimationFrame(runBioLoop);
+        return;
+    }
+
+    try {
+        const timestamp = performance.now();
+        const result = await faceLandmarker.value.detectForVideo(bioVideoRef.value, timestamp);
+        if (result && result.faceLandmarks && result.faceLandmarks.length > 0) {
+            bioFeedback.value = "✓ Face Detected - Ready";
+        } else {
+            bioFeedback.value = "Position face in circle";
+        }
+    } catch (e) {}
+    
+    if (bioLoopActive) requestAnimationFrame(runBioLoop);
+};
 
 const startBioCamera = async () => {
     try {
@@ -358,7 +383,8 @@ const startBioCamera = async () => {
         if (bioVideoRef.value) {
             bioVideoRef.value.srcObject = bioStream.value;
             isBioCameraActive.value = true;
-            bioFeedback.value = "Position face in circle";
+            bioLoopActive = true;
+            runBioLoop();
         }
     } catch (err) {
         console.error("Camera error:", err);
@@ -367,6 +393,7 @@ const startBioCamera = async () => {
 };
 
 const stopBioCamera = () => {
+    bioLoopActive = false;
     if (bioStream.value) {
         bioStream.value.getTracks().forEach(track => track.stop());
         isBioCameraActive.value = false;
@@ -377,49 +404,69 @@ const stopBioCamera = () => {
 const captureBio = async () => {
     if (!bioVideoRef.value || !bioCanvasRef.value || !modelsLoaded.value) return;
     
+    // Safety check for video dimensions
+    if (bioVideoRef.value.videoWidth === 0 || bioVideoRef.value.videoHeight === 0) {
+        showError("Camera still warming up. Please wait a moment.");
+        return;
+    }
+
     isBioProcessing.value = true;
     
     try {
-        const result = await faceLandmarker.value.detect(bioVideoRef.value);
+        const timestamp = performance.now();
+        const result = await faceLandmarker.value.detectForVideo(bioVideoRef.value, timestamp);
         
         if (!result.faceLandmarks || result.faceLandmarks.length === 0) {
             showError("No face detected. Ensure good lighting and face the camera directly.");
             return;
         }
 
-        // Get the 478 landmarks (high density)
+        // --- UNIFIED HIGH-PRECISION 3D SIGNATURE ---
+        // Uses 478 landmarks with depth (Z), normalized by facial scale.
         const landmarks = result.faceLandmarks[0];
         
-        // --- High-Accuracy Geometric Signature ---
-        // 1. Center landmarks (Nose tip index 1 becomes 0,0,0)
-        const nose = landmarks[1];
+        // 1. Center on Nose Bridge (Index 168)
+        const anchor = landmarks[168];
         const centered = landmarks.map(l => ({
-            x: l.x - nose.x,
-            y: l.y - nose.y,
-            z: l.z - nose.z
+            x: l.x - anchor.x,
+            y: l.y - anchor.y,
+            z: l.z - anchor.z
         }));
 
-        // 2. Scale landmarks (Normalize by distance between inner eyes)
-        // Indices: Left Inner Eye (133), Right Inner Eye (362)
-        const eyeDist = Math.sqrt(
-            Math.pow(landmarks[133].x - landmarks[362].x, 2) + 
-            Math.pow(landmarks[133].y - landmarks[362].y, 2)
-        );
+        // 2. Scale to Unit (Normalize by Inter-ocular distance)
+        const dx = landmarks[133].x - landmarks[362].x;
+        const dy = landmarks[133].y - landmarks[362].y;
+        const dz = landmarks[133].z - landmarks[362].z;
+        const eyeDist = Math.sqrt(dx*dx + dy*dy + dz*dz);
         
-        const normalized = centered.flatMap(l => [
-            l.x / eyeDist,
-            l.y / eyeDist,
-            l.z / eyeDist
-        ]);
+        // Add discriminative facial ratios
+        const faceWidth = Math.abs(landmarks[234].x - landmarks[454].x);
+        const faceHeight = Math.abs(landmarks[10].y - landmarks[152].y);
+        const noseWidth = Math.abs(landmarks[129].x - landmarks[358].x);
+        const mouthWidth = Math.abs(landmarks[61].x - landmarks[291].x);
+        const eyeToNose = Math.abs(landmarks[168].y - landmarks[6].y);
+        const noseToMouth = Math.abs(landmarks[2].y - landmarks[0].y);
+        
+        const descriptor = [
+            ...centered.flatMap(l => [
+                l.x / eyeDist,
+                l.y / eyeDist
+            ]),
+            faceWidth / faceHeight,
+            noseWidth / faceWidth,
+            mouthWidth / faceWidth,
+            eyeToNose / faceHeight,
+            noseToMouth / faceHeight
+        ];
 
-        // Validation: Ensure capture quality
-        if (eyeDist < 0.05) {
-            showError("Face too far away. Please move closer.");
-            return;
-        }
+        console.log('Face descriptor generated:', {
+            length: descriptor.length,
+            sample: descriptor.slice(0, 10),
+            eyeDist: eyeDist
+        });
 
-        // Store geometric signature
-        editForm.face_descriptor = normalized;
+        // Store physical signature
+        editForm.face_descriptor = descriptor;
         
         // Circular Crop for display
         const videoWidth = bioVideoRef.value.videoWidth;
@@ -457,6 +504,7 @@ const retakeBio = () => {
     bioImage.value = null;
     editForm.face_data = null;
     editForm.face_descriptor = null;
+    capturedSamples.value = [];
     startBioCamera();
 };
 

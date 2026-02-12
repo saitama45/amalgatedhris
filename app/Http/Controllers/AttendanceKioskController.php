@@ -23,8 +23,20 @@ class AttendanceKioskController extends Controller
                     $decoded = json_decode($employee->face_data, true);
                     if (json_last_error() === JSON_ERROR_NONE && isset($decoded['descriptor'])) {
                         $descriptor = $decoded['descriptor'];
+                        
+                        // Ensure descriptor is array of numbers, not strings
+                        if (is_array($descriptor)) {
+                            $descriptor = array_map('floatval', $descriptor);
+                        }
                     }
                 }
+
+                \Log::info("Employee {$employee->employee_code} descriptor check", [
+                    'has_face_data' => !empty($employee->face_data),
+                    'descriptor_count' => $descriptor ? count($descriptor) : 0,
+                    'descriptor_sample' => $descriptor ? array_slice($descriptor, 0, 5) : null,
+                    'descriptor_valid' => !empty($descriptor)
+                ]);
 
                 return [
                     'employee_code' => $employee->employee_code,
@@ -32,8 +44,10 @@ class AttendanceKioskController extends Controller
                     'descriptor' => $descriptor,
                 ];
             })
-            ->filter(fn($e) => !empty($e['descriptor']))
+            ->filter(fn($e) => !empty($e['descriptor']) && is_array($e['descriptor']) && count($e['descriptor']) === 961)
             ->values();
+
+        \Log::info("Kiosk loaded with {$employees->count()} employees with valid face descriptors");
 
         return Inertia::render('Attendance/Kiosk', [
             'employees' => $employees
