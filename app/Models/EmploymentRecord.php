@@ -32,8 +32,8 @@ class EmploymentRecord extends Model
     ];
 
     protected $casts = [
-        'start_date' => 'date',
-        'end_date' => 'date',
+        'start_date' => 'date:Y-m-d',
+        'end_date' => 'date:Y-m-d',
         'is_active' => 'boolean',
         'is_ot_allowed' => 'boolean',
         'is_sss_deducted' => 'boolean',

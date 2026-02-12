@@ -105,6 +105,7 @@ const salaryHistory = ref([]);
 const isLoadingSalary = ref(false);
 const isEditingSalary = ref(false);
 const editingSalaryItem = ref(null);
+const showAddForm = ref(false);
 
 const canShowSalaryForm = computed(() => {
     if (isEditingSalary.value) {
@@ -138,6 +139,7 @@ const openSalaryModal = (employee) => {
 const resetSalaryForm = () => {
     isEditingSalary.value = false;
     editingSalaryItem.value = null;
+    showAddForm.value = false;
     salaryForm.reset();
     salaryForm.clearErrors();
 };
@@ -145,6 +147,7 @@ const resetSalaryForm = () => {
 const editSalaryItem = (item) => {
     isEditingSalary.value = true;
     editingSalaryItem.value = item;
+    showAddForm.value = true;
     
     salaryForm.basic_rate = item.basic_rate;
     salaryForm.allowance = item.allowance;
@@ -152,7 +155,7 @@ const editSalaryItem = (item) => {
     salaryForm.company_id = item.company_id;
     
     // For EmploymentRecord, we use start_date as the effective date
-    salaryForm.effective_date = item.start_date ? item.start_date.substring(0, 10) : '';
+    salaryForm.effective_date = item.start_date;
 };
 
 const fetchSalaryHistory = (employeeId) => {
@@ -186,12 +189,6 @@ const submitSalary = () => {
                 fetchSalaryHistory(salaryEmployee.value.id);
             },
             onError: (errors) => {
-                // If it's a flash error (business logic like payroll check), it might not be in 'errors' object 
-                // depending on how useErrorHandler handles it. 
-                // But standard Inertia errors bag works.
-                // However, we returned ->with('error', msg). We need to check page props for that or standard error bag.
-                // Usually controller validation errors land here. Business logic errors via 'with' land in page.props.flash.
-                // Let's assume standard error toast helper handles flash.
                 showError('Failed to update salary record.');
             }
         });
@@ -200,13 +197,7 @@ const submitSalary = () => {
         salaryForm.post(route('employees.salary.store', salaryEmployee.value.id), {
             onSuccess: () => {
                 fetchSalaryHistory(salaryEmployee.value.id);
-                // Keep form populated with new latest for convenience, or reset?
-                // Resetting to "Add Mode" is safer.
                 resetSalaryForm();
-                // But re-populate position
-                if (salaryEmployee.value?.active_employment_record) {
-                    salaryForm.position_id = salaryEmployee.value.active_employment_record.position_id;
-                }
             },
             onError: () => showError('Failed to add salary rate.')
         });
@@ -976,6 +967,10 @@ const submitResign = async () => {
                                                     <CheckCircleIcon class="w-3 h-3 mr-1" />
                                                     FACE ID
                                                 </div>
+                                                <div v-if="employee.qr_code" class="ml-2 px-1.5 py-0.5 bg-blue-100 text-[10px] text-blue-700 font-bold rounded flex items-center" title="QR ID Assigned">
+                                                    <CheckCircleIcon class="w-3 h-3 mr-1" />
+                                                    QR ID
+                                                </div>
                                             </div>
                                             <div class="text-xs text-slate-500">Joined: {{ new Date(employee.created_at).toLocaleDateString() }}</div>
                                         </div>
@@ -1337,7 +1332,7 @@ const submitResign = async () => {
                     <div class="flex flex-col items-center justify-center py-8 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
                         <div v-if="editingEmployee?.qr_code" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-6 relative group">
                             <img 
-                                :src="`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${editingEmployee.qr_code}`" 
+                                :src="`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(editingEmployee.qr_code)}&t=${new Date().getTime()}`" 
                                 alt="Employee QR Code"
                                 class="w-64 h-64"
                             >
@@ -1565,8 +1560,16 @@ const submitResign = async () => {
                     </div>
                 </div>
 
+                <!-- Add Button -->
+                <div v-if="canShowSalaryForm && !showAddForm" class="mb-6">
+                    <button @click="showAddForm = true" type="button" class="w-full py-3 border-2 border-dashed border-emerald-200 rounded-2xl text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-all flex items-center justify-center gap-2 font-bold">
+                        <PlusIcon class="w-5 h-5" />
+                        Add New Rate / Job Movement
+                    </button>
+                </div>
+
                 <!-- Add New Entry Form -->
-                <form v-if="canShowSalaryForm" @submit.prevent="submitSalary" class="mb-8 bg-white p-6 rounded-2xl border-2 border-emerald-100 shadow-sm transition-all" :class="{'ring-2 ring-amber-200 border-amber-300': isEditingSalary}">
+                <form v-if="canShowSalaryForm && showAddForm" @submit.prevent="submitSalary" class="mb-8 bg-white p-6 rounded-2xl border-2 border-emerald-100 shadow-sm transition-all" :class="{'ring-2 ring-amber-200 border-amber-300': isEditingSalary}">
                     <h4 class="font-bold mb-4 text-sm flex items-center justify-between" :class="isEditingSalary ? 'text-amber-800' : 'text-slate-900'">
                         <div class="flex items-center">
                             <div class="p-1.5 rounded-lg mr-3" :class="isEditingSalary ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'">
@@ -1574,7 +1577,7 @@ const submitResign = async () => {
                             </div>
                             {{ isEditingSalary ? 'Edit Salary Record' : 'Add New Rate / Job Movement' }}
                         </div>
-                        <button v-if="isEditingSalary" @click.prevent="resetSalaryForm" class="text-xs text-slate-400 hover:text-slate-600 underline">Cancel Edit</button>
+                        <button @click.prevent="resetSalaryForm" class="text-xs text-slate-400 hover:text-slate-600 underline">Cancel</button>
                     </h4>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div class="md:col-span-2">
@@ -1610,11 +1613,11 @@ const submitResign = async () => {
                         </div>
                     </div>
                     <div class="flex justify-end space-x-3">
-                        <button v-if="isEditingSalary" type="button" @click="resetSalaryForm" class="px-6 py-2.5 text-slate-600 font-bold bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors">
+                        <button type="button" @click="resetSalaryForm" class="px-6 py-2.5 text-slate-600 font-bold bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors">
                             Cancel
                         </button>
                         <button type="submit" :disabled="salaryForm.processing" class="text-white text-xs font-bold px-8 py-2.5 rounded-xl transition-all shadow-lg" :class="isEditingSalary ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/20' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'">
-                            {{ isEditingSalary ? 'Update Record' : 'Add to History' }}
+                            {{ isEditingSalary ? 'Update' : 'Save' }}
                         </button>
                     </div>
                 </form>
@@ -1641,7 +1644,7 @@ const submitResign = async () => {
                         <tbody class="bg-white divide-y divide-slate-50">
                             <tr v-for="item in salaryHistory" :key="item.id" class="hover:bg-slate-50 group">
                                 <td class="px-4 py-3 text-sm font-bold text-slate-700">
-                                    {{ item.start_date.substring(0, 10) }}
+                                    {{ item.start_date }}
                                 </td>
                                 <td class="px-4 py-3 text-sm text-slate-600">
                                     <div class="font-bold text-slate-800">{{ item.company?.name || 'Unknown Company' }}</div>

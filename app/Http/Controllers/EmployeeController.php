@@ -29,6 +29,14 @@ class EmployeeController extends Controller
             }
         }
 
+        // AUTO-REPAIR: Ensure all employees have a QR code
+        $missingQR = Employee::whereNull('qr_code')->get();
+        foreach ($missingQR as $emp) {
+            $emp->update([
+                'qr_code' => 'QR-' . strtoupper(bin2hex(random_bytes(8))),
+            ]);
+        }
+
         $query = Employee::with(['user', 'activeEmploymentRecord.position', 'activeEmploymentRecord.department', 'activeEmploymentRecord.company', 'documents']);
 
         if ($request->filled('search')) {

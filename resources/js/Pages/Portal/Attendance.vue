@@ -167,6 +167,13 @@ const calculateUndertime = (log) => {
                         <button @click="applyFilters" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-2 px-6 rounded-lg transition-colors flex items-center gap-2">
                             <FunnelIcon class="w-4 h-4" /> Filter
                         </button>
+                        <a 
+                            :href="route('portal.attendance.export', filterForm)" 
+                            target="_blank"
+                            class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 px-6 rounded-lg transition-colors flex items-center gap-2"
+                        >
+                            <ClockIcon class="w-4 h-4" /> Export DTR
+                        </a>
                     </div>
                 </div>
 

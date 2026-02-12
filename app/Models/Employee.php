@@ -25,6 +25,7 @@ class Employee extends Model
         'birthday',
         'face_data',
         'qr_code',
+        'profile_photo',
     ];
 
     protected $casts = [

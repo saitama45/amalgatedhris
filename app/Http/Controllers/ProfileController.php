@@ -36,14 +36,17 @@ class ProfileController extends Controller
         if ($request->hasFile('photo')) {
             // Delete old photo if exists
             if ($user->profile_photo) {
-                // Check if it's not a default placeholder logic if any, but assume direct path storage
-                // If path is stored relative to public root, delete it.
-                // Assuming path is stored as 'profile-photos/filename.jpg'
                 \Illuminate\Support\Facades\Storage::disk('public')->delete($user->profile_photo);
             }
 
             $path = $request->file('photo')->store('profile-photos', 'public');
             $data['profile_photo'] = $path;
+            
+            // Mirror to employee table if employee exists
+            $employee = \App\Models\Employee::where('user_id', $user->id)->first();
+            if ($employee) {
+                $employee->update(['profile_photo' => $path]);
+            }
         }
 
         $user->update($data);

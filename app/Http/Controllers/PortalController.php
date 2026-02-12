@@ -260,6 +260,34 @@ class PortalController extends Controller
         ]);
     }
 
+    public function exportAttendancePdf(Request $request)
+    {
+        $employee = Auth::user()->employee;
+        if (!$employee) abort(403, 'No employee record found.');
+
+        $startDate = $request->get('start_date', Carbon::now()->startOfMonth()->format('Y-m-d'));
+        $endDate = $request->get('end_date', Carbon::now()->endOfMonth()->format('Y-m-d'));
+
+        $logs = \App\Models\AttendanceLog::where('employee_id', $employee->id)
+            ->with(['employee.activeEmploymentRecord.department', 'employee.activeEmploymentRecord.company', 'employee.activeEmploymentRecord.position', 'employee.activeEmploymentRecord.defaultShift'])
+            ->whereDate('date', '>=', $startDate)
+            ->whereDate('date', '<=', $endDate)
+            ->orderBy('date', 'asc')
+            ->get();
+
+        $employee->load(['user', 'activeEmploymentRecord.department', 'activeEmploymentRecord.company', 'activeEmploymentRecord.position']);
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.dtr', [
+            'logs' => $logs,
+            'employee' => $employee,
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+        ]);
+
+        $filename = "DTR_{$employee->employee_code}_{$startDate}_to_{$endDate}.pdf";
+        return $pdf->stream($filename);
+    }
+
     public function storeOvertime(Request $request)
     {
         $validated = $request->validate([

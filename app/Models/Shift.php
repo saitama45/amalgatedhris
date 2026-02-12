@@ -16,4 +16,8 @@ class Shift extends Model
         'break_minutes',
         'description',
     ];
+
+    protected $casts = [
+        'break_minutes' => 'integer',
+    ];
 }

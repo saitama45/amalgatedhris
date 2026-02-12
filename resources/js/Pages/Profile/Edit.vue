@@ -10,6 +10,7 @@ const props = defineProps({
 
 const activeTab = ref('profile');
 const { showSuccess, showError } = useToast();
+const emailError = ref('');
 
 const profileForm = useForm({
     name: props.user.name,
@@ -55,39 +56,41 @@ const updateProfile = () => {
             _method: 'PUT',
         })).post(route('profile.update'), {
             onSuccess: () => {
-                showSuccess('Profile updated successfully');
                 photoPreview.value = null;
                 const fileInput = document.getElementById('photo');
                 if (fileInput) fileInput.value = null;
-            },
-            onError: (errors) => {
-                const errorMessage = Object.values(errors).flat().join(', ') || 'Failed to update profile';
-                showError(errorMessage);
             }
         });
         return;
     }
 
-    profileForm.put(route('profile.update'), {
-        onSuccess: () => {
-            showSuccess('Profile updated successfully');
-        },
-        onError: (errors) => {
-            const errorMessage = Object.values(errors).flat().join(', ') || 'Failed to update profile';
-            showError(errorMessage);
-        }
-    });
+    profileForm.put(route('profile.update'));
+};
+
+const handleTextInput = (field, e) => {
+    const value = e.target.value.replace(/[^a-zA-Z\s]/g, '').toUpperCase();
+    profileForm[field] = value;
+    e.target.value = value;
+};
+
+const onlyLetters = (e) => {
+    const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End', ' '];
+    if (allowedKeys.includes(e.key)) return;
+    if (!/^[a-zA-Z]$/.test(e.key)) {
+        e.preventDefault();
+    }
+};
+
+const validateEmail = (e) => {
+    const email = e.target.value;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    emailError.value = emailRegex.test(email) ? '' : 'Please enter a valid email address';
 };
 
 const updatePassword = () => {
     passwordForm.put(route('profile.password'), {
         onSuccess: () => {
             passwordForm.reset();
-            showSuccess('Password updated successfully');
-        },
-        onError: (errors) => {
-            const errorMessage = Object.values(errors).flat().join(', ') || 'Failed to update password';
-            showError(errorMessage);
         }
     });
 };
@@ -170,7 +173,9 @@ const updatePassword = () => {
                             <div>
                                 <label class="block text-sm font-bold text-slate-700 mb-2">Full Name</label>
                                 <input 
-                                    v-model="profileForm.name" 
+                                    :value="profileForm.name" 
+                                    @input="handleTextInput('name', $event)"
+                                    @keydown="onlyLetters"
                                     type="text" 
                                     required 
                                     class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
@@ -182,17 +187,21 @@ const updatePassword = () => {
                                 <label class="block text-sm font-bold text-slate-700 mb-2">Email Address</label>
                                 <input 
                                     v-model="profileForm.email" 
+                                    @input="validateEmail"
                                     type="email" 
                                     required 
                                     class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                                 >
-                                <div v-if="profileForm.errors.email" class="text-red-600 text-sm mt-1 font-medium">{{ profileForm.errors.email }}</div>
+                                <div v-if="emailError" class="text-red-600 text-sm mt-1 font-medium">{{ emailError }}</div>
+                                <div v-else-if="profileForm.errors.email" class="text-red-600 text-sm mt-1 font-medium">{{ profileForm.errors.email }}</div>
                             </div>
 
                             <div>
                                 <label class="block text-sm font-bold text-slate-700 mb-2">Department</label>
                                 <input 
-                                    v-model="profileForm.department" 
+                                    :value="profileForm.department" 
+                                    @input="handleTextInput('department', $event)"
+                                    @keydown="onlyLetters"
                                     type="text" 
                                     class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                                 >
@@ -202,7 +211,9 @@ const updatePassword = () => {
                             <div>
                                 <label class="block text-sm font-bold text-slate-700 mb-2">Position</label>
                                 <input 
-                                    v-model="profileForm.position" 
+                                    :value="profileForm.position" 
+                                    @input="handleTextInput('position', $event)"
+                                    @keydown="onlyLetters"
                                     type="text" 
                                     class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                                 >
