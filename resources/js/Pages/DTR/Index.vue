@@ -492,7 +492,7 @@ const calculateUndertime = (log) => {
                                         <span :class="['px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wide border border-transparent', statusClass(log.status)]">
                                             {{ log.status }}
                                         </span>
-                                        <div v-if="log.is_ob" class="flex items-center gap-1">
+                                        <div v-if="log.is_ob && (log.in_photo_path || log.out_photo_path)" class="flex items-center gap-1">
                                             <span class="bg-indigo-100 text-indigo-700 text-[10px] px-1.5 py-0.5 rounded font-bold border border-indigo-200 uppercase">OB</span>
                                             <button @click="viewOBDetails(log)" class="text-indigo-600 hover:text-indigo-800 transition-colors" title="View OB Verification">
                                                 <CameraIcon class="w-4 h-4" />

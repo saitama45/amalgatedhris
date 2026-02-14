@@ -263,20 +263,26 @@ class PortalController extends Controller
     public function obAttendance()
     {
         $employee = Auth::user()->employee;
-        $todayLog = $employee ? \App\Models\AttendanceLog::where('employee_id', $employee->id)
+        if (!$employee) {
+            return redirect()->route('portal.dashboard')->with('error', 'No employee record linked to your account. Please contact HR.');
+        }
+
+        $todayLog = \App\Models\AttendanceLog::where('employee_id', $employee->id)
             ->whereDate('date', now()->toDateString())
-            ->first() : null;
+            ->first();
 
         return Inertia::render('Portal/OBAttendance', [
             'todayLog' => $todayLog,
-            'employee' => $employee?->load('activeEmploymentRecord.defaultShift')
+            'employee' => $employee->load('activeEmploymentRecord.defaultShift')
         ]);
     }
 
     public function storeObAttendance(Request $request)
     {
-        $employee = Auth::user()->employee;
-        if (!$employee) abort(403, 'No employee record found.');
+        $employee = \App\Models\Employee::where('user_id', Auth::id())->first();
+        if (!$employee) {
+            return back()->with('error', 'No employee record found for your user account.');
+        }
 
         $request->validate([
             'type' => 'required|in:in,out',

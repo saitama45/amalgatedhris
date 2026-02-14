@@ -240,7 +240,7 @@ const calculateUndertime = (log) => {
                                         <span :class="['px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wide border border-transparent', statusClass(calculateWorkHours(log) === '4.00' ? 'Half Day' : log.status)]">
                                             {{ calculateWorkHours(log) === '4.00' ? 'Half Day' : log.status }}
                                         </span>
-                                        <div v-if="log.is_ob" class="flex items-center gap-1">
+                                        <div v-if="log.is_ob && (log.in_photo_path || log.out_photo_path)" class="flex items-center gap-1">
                                             <span class="bg-indigo-100 text-indigo-700 text-[10px] px-1.5 py-0.5 rounded font-bold border border-indigo-200 uppercase">OB</span>
                                             <div class="flex gap-0.5">
                                                 <a v-if="log.in_location_url" :href="log.in_location_url" target="_blank" class="text-indigo-600 hover:text-indigo-800" title="Time In Location">
