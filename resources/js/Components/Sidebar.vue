@@ -21,7 +21,9 @@ import {
     TableCellsIcon,
     CreditCardIcon,
     ChevronDownIcon,
-    ChevronRightIcon
+    ChevronRightIcon,
+    CameraIcon,
+    MapPinIcon
 } from '@heroicons/vue/24/outline';
 import { usePermission } from '@/Composables/usePermission';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
@@ -73,6 +75,7 @@ const getRouteName = (category) => {
         'portal.leaves': 'portal.leaves',
         'portal.overtime': 'portal.overtime',
         'portal.attendance': 'portal.attendance',
+        'portal.ob-attendance': 'portal.ob-attendance',
         'portal.payslips': 'portal.payslips',
         'portal.deductions': 'portal.deductions',
     };
@@ -105,6 +108,7 @@ const iconMap = {
     'portal.leaves': DocumentDuplicateIcon,
     'portal.overtime': ClockIcon,
     'portal.attendance': ClockIcon,
+    'portal.ob-attendance': CameraIcon,
     'portal.payslips': BanknotesIcon,
     'portal.deductions': CreditCardIcon,
     users: UserGroupIcon,

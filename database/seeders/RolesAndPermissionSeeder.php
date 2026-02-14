@@ -39,6 +39,7 @@ class RolesAndPermissionSeeder extends Seeder
             'portal.leaves',
             'portal.overtime',
             'portal.attendance',
+            'portal.ob-attendance',
             'portal.payslips',
             'portal.deductions'
         ]);

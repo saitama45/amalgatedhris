@@ -8,7 +8,8 @@ import {
     BanknotesIcon, 
     CreditCardIcon,
     ChevronRightIcon,
-    InformationCircleIcon
+    InformationCircleIcon,
+    CameraIcon
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
@@ -208,7 +209,7 @@ const filteredLeaveBreakdown = computed(() => {
                     </div>
 
                     <!-- Quick Actions -->
-                    <div class="lg:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="lg:col-span-2 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
                         <Link :href="route('portal.leaves')" class="p-6 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all group">
                             <CalendarIcon class="w-8 h-8 mb-4 group-hover:scale-110 transition-transform" />
                             <p class="font-bold">File Leave</p>
@@ -223,6 +224,11 @@ const filteredLeaveBreakdown = computed(() => {
                             <ClockIcon class="w-8 h-8 mb-4 group-hover:scale-110 transition-transform" />
                             <p class="font-bold">My Attendance</p>
                             <p class="text-xs text-indigo-50 mt-1 opacity-80">View log history</p>
+                        </Link>
+                        <Link :href="route('portal.ob-attendance')" class="p-6 bg-rose-600 text-white rounded-2xl shadow-lg shadow-rose-600/20 hover:bg-rose-700 transition-all group">
+                            <CameraIcon class="w-8 h-8 mb-4 group-hover:scale-110 transition-transform" />
+                            <p class="font-bold">OB Attendance</p>
+                            <p class="text-xs text-rose-50 mt-1 opacity-80">Selfie + GPS</p>
                         </Link>
                         <Link :href="route('portal.payslips')" class="p-6 bg-emerald-600 text-white rounded-2xl shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 transition-all group">
                             <BanknotesIcon class="w-8 h-8 mb-4 group-hover:scale-110 transition-transform" />

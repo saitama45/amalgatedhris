@@ -18,7 +18,10 @@ import {
     XMarkIcon,
     FunnelIcon,
     ExclamationTriangleIcon,
-    DocumentTextIcon
+    DocumentTextIcon,
+    CameraIcon,
+    MapPinIcon,
+    UserCircleIcon
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
@@ -221,6 +224,15 @@ const showImportModal = ref(false);
 const importForm = useForm({
     file: null,
 });
+
+// OB Details Modal
+const showOBModal = ref(false);
+const obDetails = ref(null);
+
+const viewOBDetails = (log) => {
+    obDetails.value = log;
+    showOBModal.value = true;
+};
 
 const submitImport = () => {
     importForm.post(route('dtr.import'), {
@@ -476,9 +488,17 @@ const calculateUndertime = (log) => {
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-center">
-                                    <span :class="['px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wide border border-transparent', statusClass(log.status)]">
-                                        {{ log.status }}
-                                    </span>
+                                    <div class="flex flex-col items-center gap-1">
+                                        <span :class="['px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wide border border-transparent', statusClass(log.status)]">
+                                            {{ log.status }}
+                                        </span>
+                                        <div v-if="log.is_ob" class="flex items-center gap-1">
+                                            <span class="bg-indigo-100 text-indigo-700 text-[10px] px-1.5 py-0.5 rounded font-bold border border-indigo-200 uppercase">OB</span>
+                                            <button @click="viewOBDetails(log)" class="text-indigo-600 hover:text-indigo-800 transition-colors" title="View OB Verification">
+                                                <CameraIcon class="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right">
                                     <div class="flex justify-end gap-1">
@@ -595,6 +615,57 @@ const calculateUndertime = (log) => {
                     </button>
                 </div>
             </form>
+        </Modal>
+
+        <!-- OB Details Modal -->
+        <Modal :show="showOBModal" @close="showOBModal = false" maxWidth="2xl">
+            <div class="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-slate-900">Official Business Verification</h3>
+                <button @click="showOBModal = false"><XMarkIcon class="w-5 h-5 text-slate-400" /></button>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-2 gap-6">
+                    <!-- Time In OB -->
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <h4 class="text-sm font-bold text-slate-500 uppercase tracking-widest">Time In</h4>
+                            <span class="text-xs font-mono font-bold text-slate-700">{{ obDetails?.time_in ? new Date(obDetails.time_in).toLocaleTimeString() : 'N/A' }}</span>
+                        </div>
+                        <div class="aspect-video bg-slate-100 rounded-xl overflow-hidden border border-slate-200 relative">
+                            <img v-if="obDetails?.in_photo_path" :src="'/storage/' + obDetails.in_photo_path" class="w-full h-full object-cover">
+                            <div v-else class="w-full h-full flex items-center justify-center text-slate-400 text-xs">No photo</div>
+                        </div>
+                        <a v-if="obDetails?.in_location_url" :href="obDetails.in_location_url" target="_blank" class="flex items-center justify-center gap-2 w-full py-2 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-bold hover:bg-indigo-100 transition-colors">
+                            <MapPinIcon class="w-4 h-4" /> View Map Location
+                        </a>
+                    </div>
+
+                    <!-- Time Out OB -->
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <h4 class="text-sm font-bold text-slate-500 uppercase tracking-widest">Time Out</h4>
+                            <span class="text-xs font-mono font-bold text-slate-700">{{ obDetails?.time_out ? new Date(obDetails.time_out).toLocaleTimeString() : 'N/A' }}</span>
+                        </div>
+                        <div class="aspect-video bg-slate-100 rounded-xl overflow-hidden border border-slate-200 relative">
+                            <img v-if="obDetails?.out_photo_path" :src="'/storage/' + obDetails.out_photo_path" class="w-full h-full object-cover">
+                            <div v-else class="w-full h-full flex items-center justify-center text-slate-400 text-xs">No photo</div>
+                        </div>
+                        <a v-if="obDetails?.out_location_url" :href="obDetails.out_location_url" target="_blank" class="flex items-center justify-center gap-2 w-full py-2 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-bold hover:bg-indigo-100 transition-colors">
+                            <MapPinIcon class="w-4 h-4" /> View Map Location
+                        </a>
+                    </div>
+                </div>
+
+                <div class="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <div class="flex items-center gap-3">
+                        <UserCircleIcon class="w-10 h-10 text-slate-400" />
+                        <div>
+                            <p class="text-sm font-bold text-slate-800">{{ obDetails?.employee?.user?.name }}</p>
+                            <p class="text-xs text-slate-500">{{ formatDisplayDate(obDetails?.date) }} • {{ obDetails?.status }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </Modal>
     </AppLayout>
 </template>

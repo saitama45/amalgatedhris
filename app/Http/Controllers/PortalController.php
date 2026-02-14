@@ -260,6 +260,55 @@ class PortalController extends Controller
         ]);
     }
 
+    public function obAttendance()
+    {
+        $employee = Auth::user()->employee;
+        $todayLog = $employee ? \App\Models\AttendanceLog::where('employee_id', $employee->id)
+            ->whereDate('date', now()->toDateString())
+            ->first() : null;
+
+        return Inertia::render('Portal/OBAttendance', [
+            'todayLog' => $todayLog,
+            'employee' => $employee?->load('activeEmploymentRecord.defaultShift')
+        ]);
+    }
+
+    public function storeObAttendance(Request $request)
+    {
+        $employee = Auth::user()->employee;
+        if (!$employee) abort(403, 'No employee record found.');
+
+        $request->validate([
+            'type' => 'required|in:in,out',
+            'photo' => 'required|string', // Base64 image from webcam
+            'latitude' => 'required|numeric',
+            'longitude' => 'required|numeric',
+        ]);
+
+        $type = $request->type;
+        $lat = $request->latitude;
+        $long = $request->longitude;
+        $dateTime = now();
+        $date = $dateTime->toDateString();
+
+        // Handle base64 photo
+        $img = $request->photo;
+        $img = str_replace('data:image/jpeg;base64,', '', $img);
+        $img = str_replace('data:image/png;base64,', '', $img);
+        $img = str_replace(' ', '+', $img);
+        $data = base64_decode($img);
+        $filename = "attendance/ob/{$date}/" . uniqid() . '.jpg';
+        \Illuminate\Support\Facades\Storage::disk('public')->put($filename, $data);
+
+        $log = \App\Models\AttendanceLog::logOB($employee, $dateTime, $type, [
+            'latitude' => $lat,
+            'longitude' => $long,
+            'photo_path' => $filename
+        ]);
+
+        return back()->with('success', "Official Business Time " . ($type === 'in' ? 'In' : 'Out') . " recorded successfully.");
+    }
+
     public function exportAttendancePdf(Request $request)
     {
         $employee = Auth::user()->employee;

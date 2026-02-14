@@ -141,9 +141,11 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [\App\Http\Controllers\PortalController::class, 'index'])->name('dashboard');
         Route::get('/leaves', [\App\Http\Controllers\PortalController::class, 'leaves'])->name('leaves');
             Route::get('/overtime', [\App\Http\Controllers\PortalController::class, 'overtime'])->name('overtime');
-            Route::get('/attendance', [\App\Http\Controllers\PortalController::class, 'attendance'])->name('attendance');
-            Route::get('/attendance/export', [\App\Http\Controllers\PortalController::class, 'exportAttendancePdf'])->name('attendance.export');
-            Route::get('/payslips', [\App\Http\Controllers\PortalController::class, 'payslips'])->name('payslips');        Route::get('/my-payslip/{id}/pdf', [\App\Http\Controllers\PortalController::class, 'exportPayslipPdf'])->name('payslips.pdf');
+                    Route::get('/attendance', [\App\Http\Controllers\PortalController::class, 'attendance'])->name('attendance');
+                    Route::get('/attendance/export', [\App\Http\Controllers\PortalController::class, 'exportAttendancePdf'])->name('attendance.export');
+                    Route::get('/ob-attendance', [\App\Http\Controllers\PortalController::class, 'obAttendance'])->name('ob-attendance');
+                    Route::post('/ob-attendance', [\App\Http\Controllers\PortalController::class, 'storeObAttendance'])->name('ob-attendance.store');
+                    Route::get('/payslips', [\App\Http\Controllers\PortalController::class, 'payslips'])->name('payslips');        Route::get('/my-payslip/{id}/pdf', [\App\Http\Controllers\PortalController::class, 'exportPayslipPdf'])->name('payslips.pdf');
         Route::get('/deductions', [\App\Http\Controllers\PortalController::class, 'deductions'])->name('deductions');
 
         // Self-service actions (avoiding 403 from admin routes)
