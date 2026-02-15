@@ -234,8 +234,14 @@ const greeting = computed(() => {
 
                                 <div class="pt-8 w-full border-t border-white/5">
                                     <div v-if="lastLog?.is_birthday" class="space-y-2">
-                                        <p class="text-amber-200 font-bold text-lg">We're so glad you're with us today!</p>
-                                        <p class="text-slate-400 text-xs italic">"The only way to do great work is to love what you do." - May your day be as amazing as your dedication.</p>
+                                        <template v-if="lastLog?.message?.includes('In')">
+                                            <p class="text-amber-200 font-bold text-lg">We're so glad you're with us today!</p>
+                                            <p class="text-slate-400 text-xs italic">"The only way to do great work is to love what you do." - Thank you for your amazing dedication even on your special day.</p>
+                                        </template>
+                                        <template v-else>
+                                            <p class="text-amber-200 font-bold text-lg">Shift ends, let the party begin!</p>
+                                            <p class="text-slate-400 text-xs italic">Go home, relax, and celebrate with your loved ones. You've earned a wonderful evening. Happy Birthday!</p>
+                                        </template>
                                     </div>
                                     <p v-else class="text-slate-400 font-medium">Have a productive day ahead!</p>
                                 </div>
