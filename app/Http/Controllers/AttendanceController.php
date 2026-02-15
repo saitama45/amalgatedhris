@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class AttendanceController extends Controller
 {
@@ -45,6 +46,14 @@ class AttendanceController extends Controller
             });
         }
 
+        if ($request->has('is_ob') && $request->is_ob !== null && $request->is_ob !== '') {
+            $query->where('is_ob', $request->is_ob);
+        }
+
+        if ($request->no_timeout == '1') {
+            $query->whereNull('time_out');
+        }
+
         // Sort by Date DESC, then Employee Name
         $perPage = $request->input('per_page', 10);
         $logs = $query->orderBy('date', 'desc')
@@ -73,6 +82,8 @@ class AttendanceController extends Controller
                 'search' => $request->search,
                 'department_id' => $request->department_id,
                 'company_id' => $request->company_id,
+                'is_ob' => $request->is_ob,
+                'no_timeout' => $request->no_timeout,
             ],
             'options' => [
                 'employees' => Employee::with(['user', 'activeEmploymentRecord'])->get()->map(fn($e) => [
@@ -300,6 +311,16 @@ class AttendanceController extends Controller
 
         if ($isLocked) {
             return redirect()->back()->with('error', 'Cannot delete. This attendance record is already part of a finalized payroll.');
+        }
+
+        // Delete OB Photos if they exist
+        if ($attendanceLog->is_ob) {
+            if ($attendanceLog->in_photo_path) {
+                Storage::disk('public')->delete($attendanceLog->in_photo_path);
+            }
+            if ($attendanceLog->out_photo_path) {
+                Storage::disk('public')->delete($attendanceLog->out_photo_path);
+            }
         }
 
         $attendanceLog->delete();

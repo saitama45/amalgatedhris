@@ -40,6 +40,8 @@ const filterForm = ref({
     end_date: props.filters.end_date,
     department_id: props.filters.department_id || '',
     company_id: props.filters.company_id || '',
+    is_ob: props.filters.is_ob ?? '',
+    no_timeout: props.filters.no_timeout || '',
 });
 
 const pagination = usePagination(props.logs, 'dtr.index', () => ({
@@ -357,6 +359,10 @@ const calculateUndertime = (log) => {
     const undertime = expectedHours - actualHours;
     return undertime > 0.02 ? (undertime * 60).toFixed(0) : 0; // 0.02 tolerance for rounding
 };
+
+const formatHours = (minutes) => {
+    return parseFloat((minutes / 60).toFixed(2)) + ' hrs';
+};
 </script>
 
 <template>
@@ -375,33 +381,60 @@ const calculateUndertime = (log) => {
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 
                 <!-- Filters -->
-                <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-4 mb-6">
-                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-end">
-                        <div class="w-full">
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Date Range</label>
-                            <div class="grid grid-cols-2 gap-2">
-                                <input v-model="filterForm.start_date" type="date" class="w-full rounded-lg border-slate-200 text-sm">
-                                <input v-model="filterForm.end_date" type="date" class="w-full rounded-lg border-slate-200 text-sm">
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-x-6 gap-y-4 items-end">
+                        <!-- Date Range Group -->
+                        <div class="md:col-span-2 lg:col-span-6 2xl:col-span-4">
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Date Range</label>
+                            <div class="flex items-center gap-2">
+                                <div class="relative w-full">
+                                    <input v-model="filterForm.start_date" type="date" class="w-full rounded-xl border-slate-200 text-sm focus:ring-blue-500 focus:border-blue-500 transition-all">
+                                </div>
+                                <div class="text-slate-300 font-bold text-xs uppercase px-1">to</div>
+                                <div class="relative w-full">
+                                    <input v-model="filterForm.end_date" type="date" class="w-full rounded-xl border-slate-200 text-sm focus:ring-blue-500 focus:border-blue-500 transition-all">
+                                </div>
                             </div>
                         </div>
-                        <div class="w-full">
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Company</label>
-                            <select v-model="filterForm.company_id" class="w-full rounded-lg border-slate-200 text-sm">
+
+                        <!-- Organization Filters -->
+                        <div class="lg:col-span-3 2xl:col-span-2">
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Company</label>
+                            <select v-model="filterForm.company_id" class="w-full rounded-xl border-slate-200 text-sm focus:ring-blue-500 focus:border-blue-500 transition-all">
                                 <option value="">All Companies</option>
                                 <option v-for="comp in options.companies" :key="comp.id" :value="comp.id">{{ comp.name }}</option>
                             </select>
                         </div>
-                        <div class="w-full">
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Department</label>
-                            <select v-model="filterForm.department_id" class="w-full rounded-lg border-slate-200 text-sm">
+
+                        <div class="lg:col-span-3 2xl:col-span-2">
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Department</label>
+                            <select v-model="filterForm.department_id" class="w-full rounded-xl border-slate-200 text-sm focus:ring-blue-500 focus:border-blue-500 transition-all">
                                 <option value="">All Departments</option>
                                 <option v-for="dept in options.departments" :key="dept.id" :value="dept.id">{{ dept.name }}</option>
                             </select>
                         </div>
-                        <div class="w-full">
-                            <button @click="applyFilters" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
-                                <FunnelIcon class="w-4 h-4" /> Filter Logs
-                            </button>
+
+                        <!-- Status & Log Type -->
+                        <div class="lg:col-span-4 2xl:col-span-2">
+                            <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Log Type</label>
+                            <select v-model="filterForm.is_ob" class="w-full rounded-xl border-slate-200 text-sm focus:ring-blue-500 focus:border-blue-500 transition-all">
+                                <option value="">All Logs</option>
+                                <option value="0">Regular Logs</option>
+                                <option value="1">OB Logs</option>
+                            </select>
+                        </div>
+
+                        <!-- Action Group -->
+                        <div class="lg:col-span-8 2xl:col-span-2">
+                            <div class="flex flex-row items-center justify-between lg:justify-start 2xl:flex-col 2xl:items-start gap-4 lg:gap-8 2xl:gap-2">
+                                <label class="flex items-center gap-2 cursor-pointer group py-1 ml-1">
+                                    <input v-model="filterForm.no_timeout" type="checkbox" true-value="1" false-value="" class="w-4 h-4 rounded border-slate-300 text-blue-600 shadow-sm focus:ring-blue-500 transition-all">
+                                    <span class="text-[10px] font-bold text-slate-500 group-hover:text-slate-700 transition-colors uppercase tracking-tight">Missing Time Out</span>
+                                </label>
+                                <button @click="applyFilters" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 px-6 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm active:scale-[0.98]">
+                                    <FunnelIcon class="w-4 h-4" /> Filter
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -476,13 +509,13 @@ const calculateUndertime = (log) => {
                                 <td class="px-6 py-4 whitespace-nowrap text-center">
                                     <div class="flex flex-col items-center gap-1">
                                         <div v-if="calculateLate(log) > 0" class="text-[10px] leading-none text-rose-600 font-bold bg-rose-50 px-1.5 py-1 rounded border border-rose-100 w-16 text-center">
-                                            {{ calculateLate(log) }}m Late
+                                            {{ formatHours(calculateLate(log)) }} Late
                                         </div>
                                         <div v-if="calculateUndertime(log) > 0" class="text-[10px] leading-none text-amber-600 font-bold bg-amber-50 px-1.5 py-1 rounded border border-amber-100 w-16 text-center">
-                                            {{ calculateUndertime(log) }}m UT
+                                            {{ formatHours(calculateUndertime(log)) }} UT
                                         </div>
                                         <div v-if="log.ot_minutes > 0" class="text-[10px] leading-none text-blue-600 font-bold bg-blue-50 px-1.5 py-1 rounded border border-blue-100 w-16 text-center">
-                                            {{ log.ot_minutes }}m OT
+                                            {{ formatHours(log.ot_minutes) }} OT
                                         </div>
                                         <div v-if="calculateLate(log) == 0 && calculateUndertime(log) == 0 && log.ot_minutes == 0" class="text-xs text-slate-400">-</div>
                                     </div>
@@ -492,9 +525,11 @@ const calculateUndertime = (log) => {
                                         <span :class="['px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wide border border-transparent', statusClass(log.status)]">
                                             {{ log.status }}
                                         </span>
-                                        <div v-if="log.is_ob && (log.in_photo_path || log.out_photo_path)" class="flex items-center gap-1">
-                                            <span class="bg-indigo-100 text-indigo-700 text-[10px] px-1.5 py-0.5 rounded font-bold border border-indigo-200 uppercase">OB</span>
-                                            <button @click="viewOBDetails(log)" class="text-indigo-600 hover:text-indigo-800 transition-colors" title="View OB Verification">
+                                        <div v-if="log.is_ob" class="flex items-center gap-1">
+                                            <a v-if="log.in_location_url || log.out_location_url" :href="log.in_location_url || log.out_location_url" target="_blank" class="bg-indigo-50 text-indigo-600 p-1 rounded border border-indigo-100 hover:bg-indigo-100 transition-colors" title="View on Google Maps">
+                                                <MapPinIcon class="w-4 h-4" />
+                                            </a>
+                                            <button @click="viewOBDetails(log)" class="text-slate-400 hover:text-indigo-600 transition-colors" title="View OB Photos">
                                                 <CameraIcon class="w-4 h-4" />
                                             </button>
                                         </div>

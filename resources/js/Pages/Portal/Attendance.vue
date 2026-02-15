@@ -3,13 +3,16 @@ import { Head, router } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
+import Modal from '@/Components/Modal.vue';
 import { usePagination } from '@/Composables/usePagination';
 import { 
     ClockIcon, 
     FunnelIcon,
     CalendarIcon,
     CameraIcon,
-    MapPinIcon
+    MapPinIcon,
+    XMarkIcon,
+    UserCircleIcon
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
@@ -44,6 +47,15 @@ const formatDisplayDate = (dateStr) => {
 
 const applyFilters = () => {
     pagination.performSearch(route('portal.attendance'), filterForm.value);
+};
+
+// OB Details Modal
+const showOBModal = ref(false);
+const obDetails = ref(null);
+
+const viewOBDetails = (log) => {
+    obDetails.value = log;
+    showOBModal.value = true;
 };
 
 // Helper for status colors
@@ -139,6 +151,10 @@ const calculateUndertime = (log) => {
     const undertime = expectedHours - actualHours;
     return undertime > 0.02 ? (undertime * 60).toFixed(0) : 0;
 };
+
+const formatHours = (minutes) => {
+    return parseFloat((minutes / 60).toFixed(2)) + ' hrs';
+};
 </script>
 
 <template>
@@ -224,13 +240,13 @@ const calculateUndertime = (log) => {
                                 <td class="px-6 py-4 whitespace-nowrap text-center">
                                     <div class="flex flex-col items-center gap-1">
                                         <div v-if="calculateLate(log) > 0" class="text-[10px] leading-none text-rose-600 font-bold bg-rose-50 px-1.5 py-1 rounded border border-rose-100 w-16 text-center">
-                                            {{ calculateLate(log) }}m Late
+                                            {{ formatHours(calculateLate(log)) }} Late
                                         </div>
                                         <div v-if="calculateUndertime(log) > 0" class="text-[10px] leading-none text-amber-600 font-bold bg-amber-50 px-1.5 py-1 rounded border border-amber-100 w-16 text-center">
-                                            {{ calculateUndertime(log) }}m UT
+                                            {{ formatHours(calculateUndertime(log)) }} UT
                                         </div>
                                         <div v-if="log.ot_minutes > 0" class="text-[10px] leading-none text-blue-600 font-bold bg-blue-50 px-1.5 py-1 rounded border border-blue-100 w-16 text-center">
-                                            {{ log.ot_minutes }}m OT
+                                            {{ formatHours(log.ot_minutes) }} OT
                                         </div>
                                         <div v-if="calculateLate(log) == 0 && calculateUndertime(log) == 0 && log.ot_minutes == 0" class="text-xs text-slate-400">-</div>
                                     </div>
@@ -240,16 +256,13 @@ const calculateUndertime = (log) => {
                                         <span :class="['px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wide border border-transparent', statusClass(calculateWorkHours(log) === '4.00' ? 'Half Day' : log.status)]">
                                             {{ calculateWorkHours(log) === '4.00' ? 'Half Day' : log.status }}
                                         </span>
-                                        <div v-if="log.is_ob && (log.in_photo_path || log.out_photo_path)" class="flex items-center gap-1">
-                                            <span class="bg-indigo-100 text-indigo-700 text-[10px] px-1.5 py-0.5 rounded font-bold border border-indigo-200 uppercase">OB</span>
-                                            <div class="flex gap-0.5">
-                                                <a v-if="log.in_location_url" :href="log.in_location_url" target="_blank" class="text-indigo-600 hover:text-indigo-800" title="Time In Location">
-                                                    <MapPinIcon class="w-3.5 h-3.5" />
-                                                </a>
-                                                <a v-if="log.out_location_url" :href="log.out_location_url" target="_blank" class="text-rose-600 hover:text-rose-800" title="Time Out Location">
-                                                    <MapPinIcon class="w-3.5 h-3.5" />
-                                                </a>
-                                            </div>
+                                        <div v-if="log.is_ob" class="flex items-center gap-1">
+                                            <a v-if="log.in_location_url || log.out_location_url" :href="log.in_location_url || log.out_location_url" target="_blank" class="bg-indigo-50 text-indigo-600 p-1 rounded border border-indigo-100 hover:bg-indigo-100 transition-colors" title="View on Google Maps">
+                                                <MapPinIcon class="w-4 h-4" />
+                                            </a>
+                                            <button @click="viewOBDetails(log)" class="text-slate-400 hover:text-indigo-600 transition-colors" title="View OB Photos">
+                                                <CameraIcon class="w-4 h-4" />
+                                            </button>
                                         </div>
                                     </div>
                                 </td>
@@ -267,5 +280,56 @@ const calculateUndertime = (log) => {
                 </div>
             </div>
         </div>
+
+        <!-- OB Details Modal -->
+        <Modal :show="showOBModal" @close="showOBModal = false" maxWidth="2xl">
+            <div class="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-slate-900">Official Business Verification</h3>
+                <button @click="showOBModal = false"><XMarkIcon class="w-5 h-5 text-slate-400" /></button>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-2 gap-6">
+                    <!-- Time In OB -->
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <h4 class="text-sm font-bold text-slate-500 uppercase tracking-widest">Time In</h4>
+                            <span class="text-xs font-mono font-bold text-slate-700">{{ obDetails?.time_in ? new Date(obDetails.time_in).toLocaleTimeString() : 'N/A' }}</span>
+                        </div>
+                        <div class="aspect-video bg-slate-100 rounded-xl overflow-hidden border border-slate-200 relative">
+                            <img v-if="obDetails?.in_photo_path" :src="'/storage/' + obDetails.in_photo_path" class="w-full h-full object-cover">
+                            <div v-else class="w-full h-full flex items-center justify-center text-slate-400 text-xs">No photo</div>
+                        </div>
+                        <a v-if="obDetails?.in_location_url" :href="obDetails.in_location_url" target="_blank" class="flex items-center justify-center gap-2 w-full py-2 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-bold hover:bg-indigo-100 transition-colors">
+                            <MapPinIcon class="w-4 h-4" /> View Map Location
+                        </a>
+                    </div>
+
+                    <!-- Time Out OB -->
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <h4 class="text-sm font-bold text-slate-500 uppercase tracking-widest">Time Out</h4>
+                            <span class="text-xs font-mono font-bold text-slate-700">{{ obDetails?.time_out ? new Date(obDetails.time_out).toLocaleTimeString() : 'N/A' }}</span>
+                        </div>
+                        <div class="aspect-video bg-slate-100 rounded-xl overflow-hidden border border-slate-200 relative">
+                            <img v-if="obDetails?.out_photo_path" :src="'/storage/' + obDetails.out_photo_path" class="w-full h-full object-cover">
+                            <div v-else class="w-full h-full flex items-center justify-center text-slate-400 text-xs">No photo</div>
+                        </div>
+                        <a v-if="obDetails?.out_location_url" :href="obDetails.out_location_url" target="_blank" class="flex items-center justify-center gap-2 w-full py-2 bg-indigo-50 text-indigo-700 rounded-lg text-sm font-bold hover:bg-indigo-100 transition-colors">
+                            <MapPinIcon class="w-4 h-4" /> View Map Location
+                        </a>
+                    </div>
+                </div>
+
+                <div class="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <div class="flex items-center gap-3">
+                        <UserCircleIcon class="w-10 h-10 text-slate-400" />
+                        <div>
+                            <p class="text-sm font-bold text-slate-800">{{ obDetails?.employee?.user?.name }}</p>
+                            <p class="text-xs text-slate-500">{{ formatDisplayDate(obDetails?.date) }} • {{ obDetails?.status }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </Modal>
     </AppLayout>
 </template>

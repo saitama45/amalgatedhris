@@ -33,6 +33,7 @@ class AttendanceLog extends Model
         'date' => 'date:Y-m-d',
         'time_in' => 'datetime',
         'time_out' => 'datetime',
+        'is_ob' => 'boolean',
     ];
 
     /**

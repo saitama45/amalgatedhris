@@ -9,6 +9,7 @@ import { useToast } from '@/Composables/useToast';
 import { usePermission } from '@/Composables/usePermission';
 import { useConfirm } from '@/Composables/useConfirm';
 import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
+import QRCode from 'qrcode';
 import {
     UserIcon,
     IdentificationIcon,
@@ -692,6 +693,13 @@ const openEditModal = (employee) => {
         editForm.face_data = null; // Reset staged change
         editForm.face_descriptor = null;
         
+        // Generate Local QR Code if exists
+        if (employee.qr_code) {
+            generateQrCode(employee.qr_code);
+        } else {
+            localQrCodeUrl.value = '';
+        }
+        
         editForm.clearErrors();    showEditModal.value = true;
 };
 
@@ -714,6 +722,27 @@ const closeEditModal = () => {
 };
 
 const isRegeneratingQR = ref(false);
+const localQrCodeUrl = ref('');
+
+const generateQrCode = async (text) => {
+    if (!text) {
+        localQrCodeUrl.value = '';
+        return;
+    }
+    try {
+        localQrCodeUrl.value = await QRCode.toDataURL(text, {
+            width: 300,
+            margin: 2,
+            color: {
+                dark: '#000000',
+                light: '#ffffff'
+            }
+        });
+    } catch (err) {
+        console.error('Failed to generate QR code locally:', err);
+    }
+};
+
 const regenerateQR = () => {
     if (!editingEmployee.value) return;
     
@@ -725,6 +754,7 @@ const regenerateQR = () => {
             const updated = props.employees.data.find(e => e.id === editingEmployee.value.id);
             if (updated) {
                 editingEmployee.value = updated;
+                generateQrCode(updated.qr_code);
             }
         },
         onFinish: () => {
@@ -1330,15 +1360,20 @@ const submitResign = async () => {
                     </div>
 
                     <div class="flex flex-col items-center justify-center py-8 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
-                        <div v-if="editingEmployee?.qr_code" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-6 relative group">
+                        <div v-if="editingEmployee?.qr_code && localQrCodeUrl" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-6 relative group">
                             <img 
-                                :src="`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(editingEmployee.qr_code)}&t=${new Date().getTime()}`" 
+                                :src="localQrCodeUrl" 
                                 alt="Employee QR Code"
                                 class="w-64 h-64"
                             >
                             <div class="mt-4 text-center">
                                 <span class="text-xs font-mono font-bold text-slate-500 uppercase tracking-widest">{{ editingEmployee.qr_code }}</span>
                             </div>
+                        </div>
+
+                        <div v-else-if="editingEmployee?.qr_code && !localQrCodeUrl" class="flex flex-col items-center py-12">
+                             <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500 mb-4"></div>
+                             <p class="text-slate-500 font-bold">Generating QR Code...</p>
                         </div>
 
                         <div v-else class="text-center py-12">
