@@ -139,8 +139,9 @@ class ScheduleController extends Controller
         ]);
 
         $workDaysStr = implode(',', $request->days_of_week);
+        $updatedCount = 0;
 
-        DB::transaction(function () use ($request, $workDaysStr) {
+        DB::transaction(function () use ($request, $workDaysStr, &$updatedCount) {
             foreach ($request->employee_ids as $employeeId) {
                 $employee = Employee::find($employeeId);
                 if ($employee && $employee->activeEmploymentRecord) {
@@ -151,10 +152,11 @@ class ScheduleController extends Controller
                         'late_policy' => $request->late_policy,
                         'is_ot_allowed' => $request->is_ot_allowed ?? false,
                     ]);
+                    $updatedCount++;
                 }
             }
         });
 
-        return redirect()->back()->with('success', 'Standard schedule updated successfully.');
+        return redirect()->back()->with('success', "Standard schedule updated for $updatedCount employees.");
     }
 }

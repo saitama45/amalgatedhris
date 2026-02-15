@@ -317,6 +317,11 @@ const editForm = useForm({
     gender: '',
     birthday: '',
     address: '',
+    home_no_street: '',
+    barangay: '',
+    city: '',
+    region: '',
+    zip_code: '',
     emergency_contact: '',
     emergency_contact_relationship: '',
     emergency_contact_number: '',
@@ -648,6 +653,14 @@ const handleAddressInput = (e) => {
     }
 };
 
+const handleDetailedAddressInput = (field, e) => {
+    const val = e.target.value.replace(/\p{Extended_Pictographic}/gu, '');
+    editForm[field] = val;
+    if (e.target.value !== val) {
+        e.target.value = val;
+    }
+};
+
 const openEditModal = (employee) => {
     editingEmployee.value = employee;
     activeTab.value = 'profile'; // Reset tab
@@ -656,6 +669,11 @@ const openEditModal = (employee) => {
     editForm.gender = employee.gender || '';
     editForm.birthday = employee.birthday ? employee.birthday.split('T')[0] : '';
     editForm.address = employee.address || '';
+    editForm.home_no_street = employee.home_no_street || '';
+    editForm.barangay = employee.barangay || '';
+    editForm.city = employee.city || '';
+    editForm.region = employee.region || '';
+    editForm.zip_code = employee.zip_code || '';
     editForm.emergency_contact = employee.emergency_contact || '';
     editForm.emergency_contact_relationship = employee.emergency_contact_relationship || '';
     editForm.emergency_contact_number = formatPhone(employee.emergency_contact_number || '');
@@ -978,6 +996,7 @@ const submitResign = async () => {
                                 <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Employee</th>
                                 <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">ID & Contact</th>
                                 <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Position</th>
+                                <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Address</th>
                                 <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Department</th>
                                 <th class="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Actions</th>
                             </tr>
@@ -1019,6 +1038,16 @@ const submitResign = async () => {
                                     <span class="text-sm font-medium text-slate-700">
                                         {{ employee.active_employment_record?.position?.name || 'No Position' }}
                                     </span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="text-xs text-slate-600 line-clamp-2 max-w-[200px]">
+                                        {{ employee.home_no_street ? employee.home_no_street + ', ' : '' }}
+                                        {{ employee.barangay ? employee.barangay + ', ' : '' }}
+                                        {{ employee.city ? employee.city + ', ' : '' }}
+                                        {{ employee.region ? employee.region : '' }}
+                                        {{ employee.zip_code ? ' ' + employee.zip_code : '' }}
+                                        <span v-if="!employee.home_no_street && !employee.city" class="text-slate-400 italic">No address set</span>
+                                    </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="flex flex-col">
@@ -1176,14 +1205,66 @@ const submitResign = async () => {
                     </div>
                 </div>
 
-                 <div class="mb-6">
-                    <label class="block text-sm font-bold text-slate-700 mb-1">Complete Address</label>
-                    <textarea 
-                        :value="editForm.address" 
-                        @input="handleAddressInput" 
-                        rows="2" 
-                        class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                    ></textarea>
+                 <div class="border-t border-slate-100 pt-6 mb-6">
+                    <h4 class="font-bold text-slate-800 mb-4">Detailed Address</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-bold text-slate-700 mb-1">House No. / Street / Subd</label>
+                            <input 
+                                :value="editForm.home_no_street" 
+                                @input="handleDetailedAddressInput('home_no_street', $event)"
+                                type="text" 
+                                class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                            >
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-1">Barangay</label>
+                            <input 
+                                :value="editForm.barangay" 
+                                @input="handleDetailedAddressInput('barangay', $event)"
+                                type="text" 
+                                class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                            >
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-1">City / Municipality</label>
+                            <input 
+                                :value="editForm.city" 
+                                @input="handleDetailedAddressInput('city', $event)"
+                                type="text" 
+                                class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                            >
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-1">Region / Province</label>
+                            <input 
+                                :value="editForm.region" 
+                                @input="handleDetailedAddressInput('region', $event)"
+                                type="text" 
+                                class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                            >
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-1">Zip Code</label>
+                            <input 
+                                :value="editForm.zip_code" 
+                                @input="handleDetailedAddressInput('zip_code', $event)"
+                                @keydown="onlyNumbers"
+                                type="text" 
+                                maxlength="10"
+                                class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono"
+                            >
+                        </div>
+                    </div>
+                    <div class="hidden">
+                        <label class="block text-sm font-bold text-slate-700 mb-1">Legacy Address (Combined)</label>
+                        <textarea 
+                            :value="editForm.address" 
+                            @input="handleAddressInput" 
+                            rows="1" 
+                            class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                        ></textarea>
+                    </div>
                 </div>
 
                 <div class="border-t border-slate-100 pt-6 mb-6">

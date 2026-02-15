@@ -117,6 +117,16 @@ class EmployeeController extends Controller
 
                     'address' => 'nullable|string',
 
+                    'home_no_street' => 'nullable|string|max:255',
+
+                    'barangay' => 'nullable|string|max:255',
+
+                    'city' => 'nullable|string|max:255',
+
+                    'region' => 'nullable|string|max:255',
+
+                    'zip_code' => 'nullable|string|max:20',
+
                     'emergency_contact' => 'nullable|string|max:255',
 
                     'emergency_contact_relationship' => 'nullable|string|max:50',
@@ -154,6 +164,8 @@ class EmployeeController extends Controller
                         'sss_no', 'philhealth_no', 'pagibig_no', 'tin_no', 
 
                         'civil_status', 'gender', 'address', 
+
+                        'home_no_street', 'barangay', 'city', 'region', 'zip_code',
 
                         'emergency_contact', 'emergency_contact_relationship', 'emergency_contact_number', 
 
