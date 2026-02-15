@@ -21,6 +21,7 @@ const props = defineProps({
 
 const page = usePage();
 const authUser = computed(() => page.props.auth.user);
+const firstName = computed(() => authUser.value.name?.split(' ')[0] || 'User');
 
 const formatCurrency = (val) => {
     return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(val);
@@ -71,7 +72,7 @@ const filteredLeaveBreakdown = computed(() => {
                                 <span class="text-3xl font-bold text-teal-400">{{ authUser.name?.charAt(0) }}</span>
                             </div>
                             <div>
-                                <h1 class="text-2xl font-bold">Welcome back, {{ authUser.name }}!</h1>
+                                <h1 class="text-2xl font-bold">Welcome back, {{ firstName }}!</h1>
                                 <p class="text-slate-400 mt-1">
                                     {{ employee?.active_employment_record?.position?.name || 'Authorized User' }} 
                                     <span v-if="employee?.active_employment_record?.department?.name"> • {{ employee.active_employment_record.department.name }}</span>

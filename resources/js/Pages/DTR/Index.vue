@@ -28,11 +28,12 @@ const props = defineProps({
     logs: Object,
     filters: Object,
     options: Object,
+    settings: Object,
 });
 
 const { hasPermission } = usePermission();
 const { confirm: confirmAction } = useConfirm();
-const { showError } = useToast();
+const { showError, showSuccess } = useToast();
 
 // Filters
 const filterForm = ref({
@@ -74,6 +75,25 @@ const applyFilters = () => {
         per_page: pagination.perPage.value // Explicitly include per_page
     };
     pagination.performSearch(route('dtr.index'), params);
+};
+
+// Kiosk Setting Toggle
+const kioskManualInput = ref(props.settings?.kiosk_manual_input || false);
+const isUpdatingKioskSetting = ref(false);
+
+const updateKioskSetting = () => {
+    isUpdatingKioskSetting.value = true;
+    router.post(route('dtr.settings.kiosk-manual-input'), {
+        enabled: kioskManualInput.value
+    }, {
+        onSuccess: () => {
+            showSuccess('Kiosk manual input setting updated.');
+        },
+        onFinish: () => {
+            isUpdatingKioskSetting.value = false;
+        },
+        preserveScroll: true
+    });
 };
 
 // Form (Add/Edit)
@@ -373,6 +393,18 @@ const formatHours = (minutes) => {
                 <div>
                     <h2 class="font-bold text-2xl text-slate-800 leading-tight">Daily Time Records</h2>
                     <p class="text-sm text-slate-500 mt-1">Monitor attendance logs, tardiness, and overtime.</p>
+                </div>
+                
+                <!-- System Config: Kiosk Manual Toggle -->
+                <div v-if="hasPermission('attendance.kiosk.manual_input')" class="mt-4 md:mt-0 flex items-center gap-3 bg-blue-50 px-4 py-2 rounded-xl border border-blue-100 shadow-sm">
+                    <div class="flex flex-col">
+                        <span class="text-[10px] font-black text-blue-600 uppercase tracking-widest leading-none">Kiosk Manual Mode</span>
+                        <span class="text-[9px] text-blue-400 font-bold uppercase tracking-tighter">Allows typing in Kiosk</span>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" v-model="kioskManualInput" @change="updateKioskSetting" :disabled="isUpdatingKioskSetting" class="sr-only peer">
+                        <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
                 </div>
             </div>
         </template>

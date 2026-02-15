@@ -40,7 +40,10 @@ class AttendanceKioskController extends Controller
             ->values();
 
         return Inertia::render('Attendance/Kiosk', [
-            'employees' => $employees
+            'employees' => $employees,
+            'settings' => [
+                'kiosk_manual_input' => \App\Models\Setting::get('kiosk_manual_input', false)
+            ]
         ]);
     }
 
@@ -82,6 +85,7 @@ class AttendanceKioskController extends Controller
     {
         $now = Carbon::now();
         $dateStr = $now->format('Y-m-d');
+        $isBirthday = $employee->birthday && Carbon::parse($employee->birthday)->isBirthday();
 
         // Check if employee has a filed leave for today (Pending or Approved)
         $hasLeave = \App\Models\LeaveRequest::where('employee_id', $employee->id)
@@ -152,7 +156,9 @@ class AttendanceKioskController extends Controller
         return response()->json([
             'message' => 'Successfully ' . ($type === 'time_in' ? 'Timed In' : 'Timed Out'),
             'employee' => $employee->user->name,
-            'time' => $now->format('h:i A')
+            'photo' => $employee->profile_photo ? asset('storage/' . $employee->profile_photo) : null,
+            'time' => $now->format('h:i A'),
+            'is_birthday' => $isBirthday
         ]);
     }
 }

@@ -3,6 +3,7 @@ import { Head, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useToast } from '@/Composables/useToast';
+import { InformationCircleIcon } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
     user: Object,
@@ -169,59 +170,42 @@ const updatePassword = () => {
                 <!-- Profile Information Tab -->
                 <div v-show="activeTab === 'profile'" class="p-6 md:p-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <form @submit.prevent="updateProfile" class="space-y-6">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label class="block text-sm font-bold text-slate-700 mb-2">Full Name</label>
-                                <input 
-                                    :value="profileForm.name" 
-                                    @input="handleTextInput('name', $event)"
-                                    @keydown="onlyLetters"
-                                    type="text" 
-                                    required 
-                                    class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                                >
-                                <div v-if="profileForm.errors.name" class="text-red-600 text-sm mt-1 font-medium">{{ profileForm.errors.name }}</div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                            <!-- Full Name -->
+                            <div class="space-y-1">
+                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Full Name</label>
+                                <div class="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-700">
+                                    {{ user.name }}
+                                </div>
                             </div>
 
-                            <div>
-                                <label class="block text-sm font-bold text-slate-700 mb-2">Email Address</label>
-                                <input 
-                                    v-model="profileForm.email" 
-                                    @input="validateEmail"
-                                    type="email" 
-                                    required 
-                                    class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                                >
-                                <div v-if="emailError" class="text-red-600 text-sm mt-1 font-medium">{{ emailError }}</div>
-                                <div v-else-if="profileForm.errors.email" class="text-red-600 text-sm mt-1 font-medium">{{ profileForm.errors.email }}</div>
+                            <!-- Email -->
+                            <div class="space-y-1">
+                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Email Address</label>
+                                <div class="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-700">
+                                    {{ user.email }}
+                                </div>
                             </div>
 
-                            <div>
-                                <label class="block text-sm font-bold text-slate-700 mb-2">Department</label>
-                                <input 
-                                    :value="profileForm.department" 
-                                    @input="handleTextInput('department', $event)"
-                                    @keydown="onlyLetters"
-                                    type="text" 
-                                    class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                                >
-                                <div v-if="profileForm.errors.department" class="text-red-600 text-sm mt-1 font-medium">{{ profileForm.errors.department }}</div>
+                            <!-- Department -->
+                            <div class="space-y-1">
+                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Department</label>
+                                <div class="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-700">
+                                    {{ user.department || 'Not Assigned' }}
+                                </div>
                             </div>
 
-                            <div>
-                                <label class="block text-sm font-bold text-slate-700 mb-2">Position</label>
-                                <input 
-                                    :value="profileForm.position" 
-                                    @input="handleTextInput('position', $event)"
-                                    @keydown="onlyLetters"
-                                    type="text" 
-                                    class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                                >
-                                <div v-if="profileForm.errors.position" class="text-red-600 text-sm mt-1 font-medium">{{ profileForm.errors.position }}</div>
+                            <!-- Position -->
+                            <div class="space-y-1">
+                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Position</label>
+                                <div class="px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-700">
+                                    {{ user.position || 'Not Assigned' }}
+                                </div>
                             </div>
                         </div>
 
-                        <div class="flex justify-end pt-4 border-t border-slate-100">
+                        <!-- Only show Save button if a new photo is selected -->
+                        <div v-if="photoPreview" class="flex justify-end pt-4 border-t border-slate-100">
                             <button 
                                 type="submit" 
                                 :disabled="profileForm.processing"
@@ -231,8 +215,17 @@ const updatePassword = () => {
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
-                                <span>{{ profileForm.processing ? 'Saving...' : 'Save Changes' }}</span>
+                                <span>{{ profileForm.processing ? 'Updating Photo...' : 'Update Profile Photo' }}</span>
                             </button>
+                        </div>
+                        
+                        <div v-else class="bg-blue-50 border border-blue-100 p-4 rounded-xl flex gap-3 items-start">
+                            <InformationCircleIcon class="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                            <p class="text-xs text-blue-700 leading-relaxed">
+                                Personal information is currently managed by the HR Department. To update your name or assignment details, please coordinate with your Department Head or the HR focal person. 
+                                <br><br>
+                                <span class="font-bold italic">Note: You can still update your profile photo by clicking on your avatar above.</span>
+                            </p>
                         </div>
                     </form>
                 </div>

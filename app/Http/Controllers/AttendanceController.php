@@ -76,6 +76,9 @@ class AttendanceController extends Controller
 
         return Inertia::render('DTR/Index', [
             'logs' => $logs,
+            'settings' => [
+                'kiosk_manual_input' => \App\Models\Setting::get('kiosk_manual_input', false)
+            ],
             'filters' => [
                 'start_date' => $startDate,
                 'end_date' => $endDate,
@@ -363,5 +366,16 @@ class AttendanceController extends Controller
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Import failed: ' . $e->getMessage());
         }
+    }
+
+    public function toggleKioskManualInput(Request $request)
+    {
+        $request->validate([
+            'enabled' => 'required|boolean'
+        ]);
+
+        \App\Models\Setting::set('kiosk_manual_input', $request->enabled, 'boolean');
+
+        return redirect()->back()->with('success', 'Kiosk manual input setting updated.');
     }
 }

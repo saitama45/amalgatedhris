@@ -50,6 +50,7 @@ return [
         'dtr.delete' => 'Delete DTR Logs',
         'dtr.approve' => 'Approve Manual Logs/OT',
         'attendance.kiosk' => 'Access Attendance Kiosk',
+        'attendance.kiosk.manual_input' => 'Enable Manual Input in Kiosk',
 
         // Time & Attendance - Overtime
         'overtime.view' => 'View OT Requests',

@@ -23,6 +23,10 @@ const props = defineProps({
 
 const page = usePage();
 const user = computed(() => page.props.auth?.user || {});
+const firstName = computed(() => {
+    if (!user.value.name) return '';
+    return user.value.name.split(' ')[0];
+});
 
 // Initialize sidebar state from localStorage or default to false (expanded)
 const getStoredSidebarState = () => {
@@ -152,7 +156,7 @@ onUnmounted(() => {
                             <div v-else class="h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center border border-blue-200">
                                 <span class="text-sm font-bold text-blue-700">{{ user.name?.charAt(0) || 'U' }}</span>
                             </div>
-                            <span class="hidden ml-3 text-slate-700 text-sm font-medium lg:block">{{ user.name }}</span>
+                            <span class="hidden ml-3 text-slate-700 text-sm font-medium lg:block">{{ firstName }}</span>
                             <svg class="hidden ml-1 h-5 w-5 text-slate-400 lg:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                 <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
                             </svg>

@@ -44,6 +44,7 @@ const props = defineProps({
 
 const page = usePage();
 const user = computed(() => page.props.auth?.user || {});
+const firstName = computed(() => user.value.name?.split(' ')[0] || 'User');
 
 const showEvaluationModal = ref(false);
 const showTotalEmployeesModal = ref(false);
@@ -146,7 +147,7 @@ const pieChartOptions = {
                 <!-- Welcome Section -->
                 <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-100 flex items-center justify-between">
                      <div>
-                        <h3 class="text-xl font-bold text-slate-800">Welcome back, {{ user.name }}!</h3>
+                        <h3 class="text-xl font-bold text-slate-800">Welcome back, {{ firstName }}!</h3>
                         <p class="text-slate-500 text-sm mt-1">Here is your workforce summary for today.</p>
                      </div>
                 </div>

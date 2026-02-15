@@ -75,6 +75,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('dtr/{attendanceLog}', [\App\Http\Controllers\AttendanceController::class, 'destroy'])->name('dtr.destroy');
         Route::get('dtr/template', [\App\Http\Controllers\AttendanceController::class, 'downloadTemplate'])->name('dtr.template');
         Route::post('dtr/import', [\App\Http\Controllers\AttendanceController::class, 'import'])->name('dtr.import');
+        Route::post('dtr/settings/kiosk-manual-input', [\App\Http\Controllers\AttendanceController::class, 'toggleKioskManualInput'])->name('dtr.settings.kiosk-manual-input');
     });
 
     Route::middleware('permission:shifts.view')->group(function () {

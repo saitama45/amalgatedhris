@@ -1,316 +1,134 @@
 <script setup>
 import { Head, useForm } from '@inertiajs/vue3';
-import { ref, onMounted, onUnmounted, computed, watch, shallowRef } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import Toast from '@/Components/Toast.vue';
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
-// import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
+import confetti from 'canvas-confetti';
 import { 
-    CameraIcon, 
     ClockIcon, 
     UserIcon, 
     CheckCircleIcon, 
     XCircleIcon,
-    ArrowPathIcon,
-    QrCodeIcon
+    QrCodeIcon,
+    ArrowRightOnRectangleIcon,
+    ArrowLeftOnRectangleIcon,
+    HandThumbUpIcon,
+    SparklesIcon,
+    CakeIcon
 } from '@heroicons/vue/24/outline';
+
 const props = defineProps({
     employees: Array,
+    settings: Object,
 });
 
-const videoRef = ref(null);
-const canvasRef = ref(null);
-const stream = ref(null);
-const capturedImage = ref(null);
-const isCameraActive = ref(false);
-const isAutoScan = ref(true); // Default ON
-const isScanning = ref(false); // Request in progress
-const scanCooldown = ref(false);
 const isLoading = ref(false);
 const lastLog = ref(null);
 const errorMsg = ref(null);
-const modelsLoaded = ref(false);
-const faceLandmarker = shallowRef(null);
-const html5QrCode = shallowRef(null);
+const showSuccessCard = ref(false);
 
-// High-Speed 3D Liveness Engine
-const livenessStatus = ref('waiting'); 
-const livenessHistory = [];
-const livenessScore = ref(0);
-const identifiedUser = ref(null);
-const livenessFeedback = ref('Ready for QR Scan');
-const consecutiveMatches = ref(0);
-const lastIdentifiedCode = ref(null);
-
-// Verification Steps
-const stepHeadTurn = ref(false);
-const stepMouthMove = ref(false);
-
-// Pre-load Success Sound
+// Pre-load Feedback Sounds
 const successSound = new Audio('/sounds/success.wav');
-successSound.load();
-
 const errorSound = new Audio('/sounds/error.wav');
-errorSound.load();
 
 const currentTime = ref(new Date());
 const timeInterval = setInterval(() => {
     currentTime.value = new Date();
 }, 1000);
 
-// Initialize QR Scanner
-onMounted(async () => {
-    /* 
-    // Facial Recognition Disabled
-    console.log('Kiosk mounted. Employees with descriptors:', props.employees.length);
-    try {
-        const vision = await FilesetResolver.forVisionTasks(
-            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm"
-        );
-        faceLandmarker.value = await FaceLandmarker.createFromOptions(vision, {
-            baseOptions: {
-                modelAssetPath: `/models/face_landmarker.task`,
-                delegate: "CPU"
-            },
-            outputFaceBlendshapes: true,
-            runningMode: "VIDEO",
-            numFaces: 1
-        });
-        modelsLoaded.value = true;
-        startCamera();
-    } catch (e) {
-        console.error("Critical: Face Recognition unavailable.", e);
-        errorMsg.value = "System Error: Face Recognition unavailable.";
-    }
-    */
-    startCamera();
-});
-
-const getSimilarity = (sig1, sig2) => {
-    /*
-    if (!sig1 || !sig2 || sig1.length !== sig2.length) {
-        console.warn('Signature length mismatch:', sig1?.length, 'vs', sig2?.length);
-        return 0;
-    }
-    
-    // Euclidean distance - more discriminative than cosine for faces
-    let sumSquaredDiff = 0;
-    for (let i = 0; i < sig1.length; i++) {
-        sumSquaredDiff += (sig1[i] - sig2[i]) ** 2;
-    }
-    const distance = Math.sqrt(sumSquaredDiff);
-    
-    // Convert distance to similarity using exponential decay
-    const similarity = Math.exp(-distance / 2.5);
-    return similarity;
-    */
-    return 0;
-};
-
-const performScan = async () => {
-    /*
-    if (!videoRef.value || videoRef.value.paused || videoRef.value.ended || isLoading.value || scanCooldown.value || !modelsLoaded.value || !faceLandmarker.value) return;
-    if (videoRef.value.readyState < 2 || videoRef.value.videoWidth === 0) return;
-
-    try {
-        const timestamp = performance.now();
-        const result = await faceLandmarker.value.detectForVideo(videoRef.value, timestamp);
-        // ... rest of the old face recognition logic ...
-    } catch (e) {
-        console.error("Detection error:", e);
-    }
-    */
-    return;
-};
-
-const isStartingScanner = ref(false);
-const startQRScanner = () => {
-    if (html5QrCode.value || isStartingScanner.value) return;
-
-    isStartingScanner.value = true;
-    html5QrCode.value = new Html5Qrcode("reader");
-    
-    // Optimized configuration for Kiosk performance
-    const config = { 
-        fps: 25, 
-        qrbox: (viewfinderWidth, viewfinderHeight) => {
-            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-            const size = Math.floor(minEdge * 0.7);
-            return { width: size, height: size };
-        },
-        aspectRatio: 1.0, 
-        formatsToSupport: [ Html5QrcodeSupportedFormats.QR_CODE ],
-        experimentalFeatures: {
-            useBarCodeDetectorIfSupported: true 
-        }
-    };
-
-    // The first argument must be a simple selector object or a deviceId string
-    html5QrCode.value.start(
-        { facingMode: "user" },
-        config,
-        (decodedText, decodedResult) => {
-            if (scanCooldown.value || isLoading.value) return;
-            handleQRDetected(decodedText);
-        },
-        (errorMessage) => {
-            // silence noise
-        }
-    ).then(() => {
-        isCameraActive.value = true;
-        isStartingScanner.value = false;
-        console.log("High-performance QR Scanner started");
-    }).catch((err) => {
-        console.error("QR Start Error:", err);
-        isStartingScanner.value = false;
-        errorMsg.value = "Camera Error: " + err;
-    });
-};
-
-const handleQRDetected = (qrCode) => {
-    if (scanCooldown.value) return;
-    
-    // Auto-fill and submit
-    form.employee_code = qrCode;
-    submitAttendance(true);
-};
-
-// Auto Scan Loop
-const startAutoScan = () => {
-    startQRScanner();
-};
-
 const form = useForm({
     employee_code: '',
-    image: null,
     type: 'time_in' // 'time_in' or 'time_out'
 });
 
-const startCamera = async () => {
-    errorMsg.value = null;
-    startQRScanner();
-};
-
-const stopCamera = () => {
-    if (html5QrCode.value) {
-        html5QrCode.value.stop().then(() => {
-            isCameraActive.value = false;
-            html5QrCode.value = null;
-        }).catch(err => console.error(err));
-    }
-};
-
-const capture = () => {
-    if (!videoRef.value || !canvasRef.value) return;
-    
-    const context = canvasRef.value.getContext('2d');
-    canvasRef.value.width = videoRef.value.videoWidth;
-    canvasRef.value.height = videoRef.value.videoHeight;
-    context.drawImage(videoRef.value, 0, 0);
-    
-    const data = canvasRef.value.toDataURL('image/jpeg', 0.7); // Compressed
-    form.image = data;
-    capturedImage.value = data;
-};
-
-const resetCapture = () => {
-    capturedImage.value = null;
-    form.image = null;
-};
-
-const submitAttendance = (isAuto = false) => {
+const submitAttendance = () => {
     let inputCode = form.employee_code.trim();
     
-    if (!inputCode) {
-        if (!isAuto) errorMsg.value = "Please enter Employee ID.";
-        return;
-    }
-
-    // When scanning QR, inputCode might be the full QR code. 
-    // The backend now handles finding by employee_code OR qr_code.
-
-    if (isAuto) {
-         isScanning.value = true;
-    }
-
-    // Capture for record
-    if (!form.image && isCameraActive.value) {
-         const activeVideo = document.querySelector('#reader video');
-         if (activeVideo && canvasRef.value) {
-            try {
-                const context = canvasRef.value.getContext('2d');
-                canvasRef.value.width = activeVideo.videoWidth || 640;
-                canvasRef.value.height = activeVideo.videoHeight || 480;
-                context.drawImage(activeVideo, 0, 0);
-                form.image = canvasRef.value.toDataURL('image/jpeg', 0.6);
-            } catch (e) {
-                console.warn("Could not capture image from QR stream:", e);
-            }
-         }
-    }
+    if (!inputCode) return;
 
     isLoading.value = true;
     errorMsg.value = null;
 
-    // Send the code (could be ID or QR)
     axios.post(route('attendance.kiosk.store'), {
         employee_code: inputCode,
-        image: form.image,
         type: form.type
     })
         .then(response => {
             lastLog.value = response.data;
             form.employee_code = ''; 
-            if (!isAuto) resetCapture();
-            else form.image = null; 
-
-            scanCooldown.value = true;
+            
+            // Success Feedback
+            showSuccessCard.value = true;
             successSound.currentTime = 0;
             successSound.play().catch(e => console.warn("Audio play blocked:", e)); 
             
-            livenessFeedback.value = "✓ SUCCESS";
+            // Birthday Celebration
+            if (lastLog.value?.is_birthday) {
+                const duration = 3 * 1000;
+                const end = Date.now() + duration;
 
+                (function frame() {
+                    confetti({
+                        particleCount: 3,
+                        angle: 60,
+                        spread: 55,
+                        origin: { x: 0 },
+                        colors: ['#3B82F6', '#10B981', '#F59E0B']
+                    });
+                    confetti({
+                        particleCount: 3,
+                        angle: 120,
+                        spread: 55,
+                        origin: { x: 1 },
+                        colors: ['#3B82F6', '#10B981', '#F59E0B']
+                    });
+
+                    if (Date.now() < end) {
+                        requestAnimationFrame(frame);
+                    }
+                }());
+            }
+
+            // Auto-reset: Prolong display for birthdays (15s) vs regular (5s)
+            const resetDelay = lastLog.value?.is_birthday ? 15000 : 5000;
             setTimeout(() => {
-                scanCooldown.value = false;
-                livenessFeedback.value = "Ready for QR Scan";
-                livenessStatus.value = 'waiting';
+                showSuccessCard.value = false;
                 lastLog.value = null;
-            }, 5000);
+            }, resetDelay);
         })
         .catch(err => {
-            // Extract specific validation message if available
             const responseData = err.response?.data;
-            errorMsg.value = responseData?.message || 
-                            (responseData?.errors ? Object.values(responseData.errors).flat()[0] : "Attendance failed.");
-            
-            livenessFeedback.value = "✕ FAILED";
-            livenessStatus.value = 'waiting';
+            errorMsg.value = responseData?.message || "Attendance failed.";
+            form.employee_code = '';
 
-            scanCooldown.value = true;
             errorSound.currentTime = 0;
             errorSound.play().catch(e => console.warn("Audio play blocked:", e));
             
             setTimeout(() => {
-                scanCooldown.value = false;
                 errorMsg.value = null;
-                livenessFeedback.value = "Ready for QR Scan";
             }, 3000);
         })
         .finally(() => {
             isLoading.value = false;
-            isScanning.value = false;
-            const input = document.getElementById('employee_code');
-            if(input) input.focus();
+            // Always keep focus on input
+            focusInput();
         });
 };
 
-onUnmounted(() => {
-    stopCamera();
-    if (html5QrCode.value) {
-        html5QrCode.value.stop().catch(err => console.error(err));
-    }
-    clearInterval(timeInterval);
+const focusInput = () => {
+    const input = document.getElementById('employee_code');
+    if(input) input.focus();
+};
+
+onMounted(() => {
+    focusInput();
+    // Re-focus input if user clicks anywhere
+    document.addEventListener('click', focusInput);
 });
 
+onUnmounted(() => {
+    clearInterval(timeInterval);
+    document.removeEventListener('click', focusInput);
+});
 
 const formattedTime = computed(() => {
     return currentTime.value.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -319,198 +137,271 @@ const formattedTime = computed(() => {
 const formattedDate = computed(() => {
     return currentTime.value.toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 });
+
+const greeting = computed(() => {
+    const hour = currentTime.value.getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 18) return 'Good Afternoon';
+    return 'Good Evening';
+});
 </script>
 
 <template>
     <Head title="Attendance Kiosk" />
-    <div class="h-screen bg-slate-900 flex flex-col md:flex-row overflow-hidden relative">
+    <div class="h-screen bg-[#0F172A] flex flex-col overflow-hidden relative font-sans text-white">
         <Toast />
         
-        <!-- Left: Camera Feed / QR Scanner -->
-        <div class="flex-1 relative bg-black flex items-center justify-center overflow-hidden">
-                <!-- QR Scanner Target -->
-                <div id="reader" class="w-full h-full"></div>
-
-                <video 
-                    ref="videoRef" 
-                    autoplay 
-                    playsinline 
-                    muted 
-                    class="absolute inset-0 w-full h-full object-cover hidden"
-                ></video>
+        <!-- Main Layout -->
+        <div class="flex-1 flex flex-col lg:flex-row">
+            
+            <!-- LEFT: Hero Section (Feedback & Identity) -->
+            <div class="flex-1 relative flex flex-col items-center justify-center p-8 overflow-hidden border-r border-slate-800/50">
                 
-                <!-- Overlay Guide -->
-                <div v-if="isCameraActive && !capturedImage" class="absolute inset-0 flex items-center justify-center pointer-events-none z-20">
-                    <div 
-                        class="w-72 h-72 border-4 rounded-3xl transition-all duration-300 shadow-[0_0_100px_rgba(59,130,246,0.3)]"
-                        :class="livenessStatus === 'verified' ? 'border-emerald-500 scale-105' : 'border-blue-500/50 border-dashed'"
-                    ></div>
-                    
-                    <div class="absolute flex flex-col items-center mt-[450px]">
-                        <div class="text-blue-200 font-mono text-sm bg-black/70 px-6 py-2 rounded-xl backdrop-blur-md border border-white/10 shadow-2xl text-center">
-                            <div class="flex items-center justify-center gap-2 mb-1">
-                                <span v-if="isScanning" class="flex h-2 w-2 relative">
-                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                                    <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                                </span>
-                                <QrCodeIcon class="w-4 h-4 text-blue-400" />
-                                {{ livenessFeedback }}
+                <!-- Abstract Background Blobs -->
+                <div class="absolute top-0 -left-20 w-96 h-96 bg-blue-600/10 rounded-full blur-[120px]"></div>
+                <div class="absolute bottom-0 -right-20 w-96 h-96 bg-indigo-600/10 rounded-full blur-[120px]"></div>
+
+                <!-- Idle State: Big Clock & Instructions -->
+                <Transition name="fade" mode="out-in">
+                    <div v-if="!showSuccessCard" class="text-center z-10 space-y-12">
+                        <div class="space-y-4">
+                            <div class="text-[120px] font-black tracking-tighter leading-none text-transparent bg-clip-text bg-gradient-to-b from-white to-slate-500">
+                                {{ formattedTime }}
+                            </div>
+                            <div class="text-2xl font-bold text-blue-400 uppercase tracking-[0.3em]">
+                                {{ formattedDate }}
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col items-center space-y-6">
+                            <div class="w-32 h-32 bg-slate-800/50 rounded-3xl flex items-center justify-center border-2 border-slate-700/50 relative group">
+                                <QrCodeIcon class="w-16 h-16 text-slate-500 group-hover:text-blue-400 transition-colors" />
+                                <!-- Scanline effect -->
+                                <div class="absolute inset-0 bg-gradient-to-b from-transparent via-blue-500/20 to-transparent h-1 w-full top-0 animate-scan"></div>
+                            </div>
+                            <div class="space-y-2">
+                                <h2 class="text-3xl font-black text-white">Ready to Scan</h2>
+                                <p class="text-slate-400 font-medium">Please position your ID or QR Code at the scanner.</p>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Captured Image Overlay -->
-                <img v-if="capturedImage" :src="capturedImage" class="absolute inset-0 w-full h-full object-cover z-30">
+                    <!-- Success State: Employee Identity -->
+                    <div v-else class="z-10 w-full max-w-2xl">
+                        <div class="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[40px] p-12 shadow-2xl relative overflow-hidden">
+                            <!-- Success Badge -->
+                            <div class="absolute top-8 right-8">
+                                <div class="bg-emerald-500 text-white p-3 rounded-2xl shadow-lg shadow-emerald-500/40 animate-bounce">
+                                    <CheckCircleIcon class="w-8 h-8" />
+                                </div>
+                            </div>
 
-                <canvas ref="canvasRef" class="hidden"></canvas>
+                            <div class="flex flex-col items-center text-center space-y-8">
+                                <!-- Birthday Badge -->
+                                <div v-if="lastLog?.is_birthday" class="animate-pulse">
+                                    <div class="bg-gradient-to-r from-amber-400 to-rose-500 text-white px-6 py-2 rounded-full text-xs font-black uppercase tracking-[0.3em] shadow-lg flex items-center gap-2">
+                                        <CakeIcon class="w-4 h-4" />
+                                        Happy Birthday!
+                                        <CakeIcon class="w-4 h-4" />
+                                    </div>
+                                </div>
 
-                <!-- Camera Controls -->
-                <div class="absolute bottom-6 left-0 right-0 flex justify-center z-40 gap-4 items-center">
-                    <div class="px-4 py-2 rounded-full font-bold text-xs backdrop-blur-md transition-all flex items-center border bg-blue-500/20 border-blue-500 text-blue-400">
-                        <div class="w-2 h-2 rounded-full mr-2 bg-blue-400 animate-pulse"></div>
-                        QR SCANNER ACTIVE
+                                <!-- Photo -->
+                                <div class="relative">
+                                    <div class="w-48 h-48 rounded-[2.5rem] overflow-hidden border-4 shadow-2xl transition-all"
+                                        :class="lastLog?.is_birthday ? 'border-amber-400 animate-glow' : 'border-emerald-500/50'">
+                                        <img v-if="lastLog?.photo" :src="lastLog.photo" class="w-full h-full object-cover">
+                                        <div v-else class="w-full h-full bg-slate-800 flex items-center justify-center">
+                                            <UserIcon class="w-20 h-20 text-slate-600" />
+                                        </div>
+                                    </div>
+                                    <div class="absolute -bottom-4 left-1/2 -translate-x-1/2 px-6 py-1.5 rounded-full text-xs font-black uppercase tracking-widest shadow-lg text-white"
+                                        :class="lastLog?.is_birthday ? 'bg-amber-500' : 'bg-emerald-500'">
+                                        {{ lastLog?.message?.includes('In') ? 'Timed In' : 'Timed Out' }}
+                                    </div>
+                                </div>
+
+                                <div class="space-y-2">
+                                    <p class="text-emerald-400 font-black uppercase tracking-[0.2em] text-sm" :class="{'text-amber-400': lastLog?.is_birthday}">
+                                        {{ lastLog?.is_birthday ? 'Celebrate your day,' : greeting + ',' }}
+                                    </p>
+                                    <h1 class="text-5xl font-black text-white tracking-tight">{{ lastLog?.employee }}</h1>
+                                    <div class="flex items-center justify-center gap-3 mt-4">
+                                        <ClockIcon class="w-6 h-6 text-slate-400" />
+                                        <span class="text-3xl font-mono font-bold text-slate-200">{{ lastLog?.time }}</span>
+                                    </div>
+                                </div>
+
+                                <div class="pt-8 w-full border-t border-white/5">
+                                    <div v-if="lastLog?.is_birthday" class="space-y-2">
+                                        <p class="text-amber-200 font-bold text-lg">We're so glad you're with us today!</p>
+                                        <p class="text-slate-400 text-xs italic">"The only way to do great work is to love what you do." - May your day be as amazing as your dedication.</p>
+                                    </div>
+                                    <p v-else class="text-slate-400 font-medium">Have a productive day ahead!</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                </Transition>
             </div>
 
-            <!-- Right: Controls -->
-            <div class="w-full md:w-96 bg-slate-800 text-white flex flex-col relative z-30 shadow-2xl border-l border-slate-700">
+            <!-- RIGHT: Controls Panel -->
+            <div class="w-full lg:w-[400px] bg-slate-900/50 backdrop-blur-xl border-l border-white/5 flex flex-col z-20">
                 
-                <!-- Clock -->
-                <div class="p-8 text-center border-b border-slate-700 bg-slate-800/50 backdrop-blur">
-                    <div class="text-4xl font-mono font-bold tracking-wider text-blue-400">{{ formattedTime }}</div>
-                    <div class="text-slate-400 text-sm mt-1 uppercase tracking-widest">{{ formattedDate }}</div>
+                <!-- Brand -->
+                <div class="p-8 border-b border-white/5 flex items-center gap-4">
+                    <div class="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-600/30">
+                        <SparklesIcon class="w-7 h-7 text-white" />
+                    </div>
+                    <div>
+                        <h3 class="font-black text-xl tracking-tight">Amalgated</h3>
+                        <p class="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Self-Service Kiosk</p>
+                    </div>
                 </div>
 
-                <!-- Form -->
-                <div class="p-8 flex-1 flex flex-col justify-center space-y-6">
+                <div class="p-8 flex-1 space-y-10 flex flex-col justify-center">
                     
-                    <!-- Mode Toggle -->
-                    <div class="grid grid-cols-2 gap-2 bg-slate-700 p-1 rounded-xl">
-                        <button 
-                            @click="form.type = 'time_in'"
-                            class="py-3 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2"
-                            :class="form.type === 'time_in' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'"
-                        >
-                            <span class="w-2 h-2 rounded-full bg-white animate-pulse" v-if="form.type === 'time_in'"></span>
-                            TIME IN
-                        </button>
-                        <button 
-                            @click="form.type = 'time_out'"
-                            class="py-3 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2"
-                            :class="form.type === 'time_out' ? 'bg-amber-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'"
-                        >
-                            <span class="w-2 h-2 rounded-full bg-white animate-pulse" v-if="form.type === 'time_out'"></span>
-                            TIME OUT
-                        </button>
+                    <!-- Type Selector -->
+                    <div class="space-y-4">
+                        <label class="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">Select Transaction</label>
+                        <div class="grid grid-cols-1 gap-3">
+                            <button 
+                                @click="form.type = 'time_in'"
+                                class="group p-6 rounded-3xl border-2 transition-all duration-300 flex items-center gap-6"
+                                :class="form.type === 'time_in' ? 'bg-emerald-500 border-emerald-400 shadow-xl shadow-emerald-500/20 translate-x-2' : 'bg-slate-800/50 border-slate-700 hover:border-slate-600'"
+                            >
+                                <div class="p-3 rounded-2xl transition-colors" :class="form.type === 'time_in' ? 'bg-white/20 text-white' : 'bg-slate-700 text-slate-400'">
+                                    <ArrowRightOnRectangleIcon class="w-8 h-8" />
+                                </div>
+                                <div class="text-left">
+                                    <div class="text-lg font-black" :class="form.type === 'time_in' ? 'text-white' : 'text-slate-300'">TIME IN</div>
+                                    <div class="text-xs font-bold" :class="form.type === 'time_in' ? 'text-emerald-100' : 'text-slate-500'">Shift Start Log</div>
+                                </div>
+                            </button>
+
+                            <button 
+                                @click="form.type = 'time_out'"
+                                class="group p-6 rounded-3xl border-2 transition-all duration-300 flex items-center gap-6"
+                                :class="form.type === 'time_out' ? 'bg-amber-500 border-amber-400 shadow-xl shadow-amber-500/20 translate-x-2' : 'bg-slate-800/50 border-slate-700 hover:border-slate-600'"
+                            >
+                                <div class="p-3 rounded-2xl transition-colors" :class="form.type === 'time_out' ? 'bg-white/20 text-white' : 'bg-slate-700 text-slate-400'">
+                                    <ArrowLeftOnRectangleIcon class="w-8 h-8" />
+                                </div>
+                                <div class="text-left">
+                                    <div class="text-lg font-black" :class="form.type === 'time_out' ? 'text-white' : 'text-slate-300'">TIME OUT</div>
+                                    <div class="text-xs font-bold" :class="form.type === 'time_out' ? 'text-amber-100' : 'text-slate-500'">Shift End Log</div>
+                                </div>
+                            </button>
+                        </div>
                     </div>
 
-                    <!-- Input -->
-                    <div class="space-y-2">
-                        <label class="text-xs font-bold text-slate-400 uppercase ml-1">Employee ID / Scan QR</label>
-                        <div class="relative">
-                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                <QrCodeIcon class="h-5 w-5 text-slate-500" />
-                            </div>
+                    <!-- Manual Entry / Scanner Input -->
+                    <div class="relative">
+                        <!-- Visible Input: Only shown when enabled by Admin in DTR -->
+                        <div v-if="settings?.kiosk_manual_input" class="space-y-2">
+                            <label class="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1">Manual Input (Debug Mode)</label>
                             <input 
                                 id="employee_code"
                                 v-model="form.employee_code" 
                                 @keyup.enter="submitAttendance"
                                 type="text" 
-                                class="w-full bg-slate-900 border border-slate-600 rounded-xl py-4 pl-12 pr-4 text-lg font-mono text-white placeholder-slate-600 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-inner"
-                                placeholder="Last 4 digits or Full ID"
+                                class="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl py-4 px-6 text-white placeholder-slate-600 focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono shadow-inner"
+                                placeholder="Paste QR Code Here..."
                                 autofocus
                                 autocomplete="off"
                             >
                         </div>
-                        <p class="text-xs text-slate-500 text-right">Enter at least last 4 digits • Press Enter</p>
-                    </div>
 
-                    <button 
-                        @click="submitAttendance" 
-                        :disabled="isLoading || !form.employee_code"
-                        class="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 transition-all transform hover:-translate-y-0.5 active:translate-y-0 text-lg flex items-center justify-center gap-2"
-                    >
-                        <span v-if="isLoading" class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></span>
-                        <span>{{ isLoading ? 'Verifying...' : 'VERIFY & LOG' }}</span>
-                    </button>
-
-                    <!-- Feedback -->
-                    <div v-if="errorMsg" class="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2">
-                        <XCircleIcon class="w-6 h-6 text-rose-500 shrink-0" />
-                        <span class="text-sm text-rose-200">{{ errorMsg }}</span>
-                    </div>
-
-                    <div v-if="lastLog && !errorMsg" class="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl animate-in fade-in slide-in-from-bottom-2">
-                        <div class="flex items-center gap-3 mb-2">
-                            <CheckCircleIcon class="w-6 h-6 text-emerald-500" />
-                            <span class="text-lg font-bold text-emerald-400">{{ lastLog.message }}</span>
+                        <!-- Hidden Input: Standard Kiosk Operation -->
+                        <input 
+                            v-else
+                            id="employee_code"
+                            v-model="form.employee_code" 
+                            @keyup.enter="submitAttendance"
+                            type="password" 
+                            class="opacity-0 absolute pointer-events-none"
+                            autofocus
+                            autocomplete="off"
+                        >
+                        
+                        <div v-if="errorMsg" class="p-6 bg-rose-500/10 border border-rose-500/20 rounded-3xl flex items-start gap-4 animate-shake">
+                            <XCircleIcon class="w-8 h-8 text-rose-500 shrink-0" />
+                            <div>
+                                <h4 class="font-black text-rose-500 text-sm uppercase">Access Denied</h4>
+                                <p class="text-xs text-rose-200 mt-1 font-medium">{{ errorMsg }}</p>
+                            </div>
                         </div>
-                        <div class="pl-9">
-                            <div class="text-white font-bold text-xl">{{ lastLog.employee }}</div>
-                            <div class="text-slate-400 text-sm font-mono mt-1">{{ lastLog.time }}</div>
+
+                        <div v-else class="p-6 bg-blue-500/5 border border-blue-500/10 rounded-3xl flex items-center gap-4">
+                            <div class="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+                            <span class="text-xs font-black text-blue-400 uppercase tracking-widest">Scanner Ready</span>
                         </div>
                     </div>
 
                 </div>
                 
-                <!-- Footer -->
-                <div class="p-4 border-t border-slate-700 text-center text-xs text-slate-500">
-                    <p>Face Recognition Active • Secure Connection</p>
+                <!-- Technical Status -->
+                <div class="p-8 border-t border-white/5 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <div class="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                        <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">System Online</span>
+                    </div>
+                    <span class="text-[10px] font-mono text-slate-600">v2.0.4-ELITE</span>
                 </div>
             </div>
         </div>
-    </template>
+    </div>
+</template>
 
 <style scoped>
-/* High contrast focus for scanner visibility */
-input:focus {
-    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3);
-}
-
-#reader :deep(video) {
-    width: 100% !important;
-    height: 100% !important;
-    object-fit: cover !important;
-}
-
-#reader :deep(img) {
-    display: none !important;
-}
-
-#reader :deep(#html5-qrcode-anchor-scan-region) {
-    border: none !important;
-}
-
-/* Hide html5-qrcode controls as we use our own */
-#reader :deep(button), 
-#reader :deep(span), 
-#reader :deep(select) {
-    display: none !important;
-}
-
-#reader :deep(#html5-qrcode-panel-scan-region) {
-    border: none !important;
-}
-
-/* Add a custom scanline effect */
-.w-72.h-72::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 2px;
-    background: rgba(59, 130, 246, 0.5);
-    box-shadow: 0 0 15px 2px rgba(59, 130, 246, 0.8);
-    animation: scan 2s linear infinite;
-    z-index: 30;
+/* Animations */
+.animate-scan {
+    animation: scan 3s ease-in-out infinite;
 }
 
 @keyframes scan {
-    0% { top: 0; }
-    50% { top: 100%; }
-    100% { top: 0; }
+    0%, 100% { top: 0; opacity: 0; }
+    50% { top: 100%; opacity: 1; }
+}
+
+.animate-glow {
+    animation: glow 2s ease-in-out infinite;
+}
+
+@keyframes glow {
+    0%, 100% { box-shadow: 0 0 20px rgba(245, 158, 11, 0.3); }
+    50% { box-shadow: 0 0 40px rgba(245, 158, 11, 0.6); }
+}
+
+.animate-shake {
+    animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+@keyframes shake {
+    10%, 90% { transform: translate3d(-1px, 0, 0); }
+    20%, 80% { transform: translate3d(2px, 0, 0); }
+    30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+    40%, 60% { transform: translate3d(4px, 0, 0); }
+}
+
+.fade-enter-active, .fade-leave-active {
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fade-enter-from, .fade-leave-to {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.1);
+    border-radius: 10px;
 }
 </style>

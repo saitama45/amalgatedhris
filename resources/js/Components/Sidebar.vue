@@ -39,6 +39,10 @@ const emit = defineEmits(['toggle']);
 
 const page = usePage();
 const user = computed(() => page.props.auth?.user || {});
+const firstName = computed(() => {
+    if (!user.value.name) return 'User';
+    return user.value.name.split(' ')[0];
+});
 const { hasPermission, hasAnyPermission } = usePermission();
 
 // Dynamic Menu Structure from Config
@@ -317,7 +321,7 @@ const handleMouseLeave = () => {
                     <Link :href="route('profile.edit')" class="flex items-center flex-1 min-w-0">
                         <div 
                             class="relative flex-shrink-0"
-                            @mouseenter="handleMouseEnter($event, user.name)"
+                            @mouseenter="handleMouseEnter($event, firstName)"
                             @mouseleave="handleMouseLeave"
                         >
                             <div v-if="user.profile_photo" class="w-10 h-10 rounded-full overflow-hidden border-2 border-[#1E293B] ring-2 ring-transparent group-hover:ring-teal-500/30 transition-all">
@@ -332,7 +336,7 @@ const handleMouseLeave = () => {
                         </div>
                         
                         <div v-if="!isCollapsed" class="ml-3 flex-1 overflow-hidden">
-                            <p class="text-sm font-medium text-slate-200 truncate group-hover:text-white transition-colors">{{ user.name || 'User' }}</p>
+                            <p class="text-sm font-medium text-slate-200 truncate group-hover:text-white transition-colors">{{ firstName }}</p>
                             <p class="text-xs text-slate-500 truncate group-hover:text-slate-400 transition-colors">{{ user.email || 'user@example.com' }}</p>
                         </div>
                     </Link>
