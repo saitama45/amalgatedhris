@@ -29,9 +29,9 @@ class OvertimeController extends Controller
             $employee = $user->employee;
             
             if ($employee && $employee->subordinates()->exists()) {
-                // User is an Immediate Head - See subordinates + own
+                // User is an Immediate Head - See ONLY subordinates (not own)
                 $subordinateUserIds = Employee::where('immediate_head_id', $employee->id)->pluck('user_id')->toArray();
-                $query->whereIn('user_id', array_merge($subordinateUserIds, [$user->id]));
+                $query->whereIn('user_id', $subordinateUserIds);
             } else {
                 // Regular user - See only own
                 $query->where('user_id', $user->id);
@@ -51,6 +51,9 @@ class OvertimeController extends Controller
             'can' => [
                 'create' => $user->can('overtime.create'),
                 'approve' => $user->can('overtime.approve'),
+                'reject' => $user->can('overtime.reject'),
+                'edit' => $user->can('overtime.edit'),
+                'delete' => $user->can('overtime.delete'),
             ]
         ]);
     }
@@ -230,7 +233,7 @@ class OvertimeController extends Controller
      */
     public function reject(Request $request, OvertimeRequest $overtimeRequest)
     {
-         $this->authorize('approve', $overtimeRequest);
+         $this->authorize('reject', $overtimeRequest);
 
         $request->validate(['rejection_reason' => 'required|string']);
 

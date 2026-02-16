@@ -53,22 +53,24 @@ return [
         'attendance.kiosk.manual_input' => 'Enable Manual Input in Kiosk',
 
         // Time & Attendance - Overtime
-        'overtime.view' => 'View OT Requests',
-        'overtime.create' => 'Request Overtime',
+        'overtime.view' => 'View Overtime',
+        'overtime.create' => 'Create Overtime',
+        'overtime.edit' => 'Edit Overtime',
+        'overtime.delete' => 'Delete Overtime',
         'overtime.approve' => 'Approve Overtime',
-        'overtime.delete' => 'Cancel/Delete Overtime',
+        'overtime.reject' => 'Reject Overtime',
 
         // Time & Attendance - Overtime Rates
         'overtime_rates.view' => 'View OT Multipliers',
         'overtime_rates.manage' => 'Manage OT Multipliers',
 
         // Time & Attendance - Leave Management
-        'leave_requests.view' => 'View Leave Requests',
-        'leave_requests.create' => 'Create/File Leave',
-        'leave_requests.edit' => 'Edit Leave Requests',
-        'leave_requests.delete' => 'Delete Leave Requests',
-        'leave_requests.approve' => 'Approve Leave Requests',
-        'leave_requests.reject' => 'Reject Leave Requests',
+        'leave_requests.view' => 'View Leave',
+        'leave_requests.create' => 'Create Leave',
+        'leave_requests.edit' => 'Edit Leave',
+        'leave_requests.delete' => 'Delete Leave',
+        'leave_requests.approve' => 'Approve Leave',
+        'leave_requests.reject' => 'Reject Leave',
         
         // Time & Attendance - Shifts
         'shifts.view' => 'View Shift Templates',

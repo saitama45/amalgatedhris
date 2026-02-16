@@ -45,4 +45,21 @@ class OvertimeRequestPolicy
 
         return false;
     }
+
+    /**
+     * Determine whether the user can reject the model.
+     */
+    public function reject(User $user, OvertimeRequest $overtimeRequest): bool
+    {
+        if ($user->can('overtime.reject')) {
+            return true;
+        }
+
+        // Immediate Head can reject their subordinates
+        if ($user->employee && $overtimeRequest->user->employee && $overtimeRequest->user->employee->immediate_head_id === $user->employee->id) {
+            return true;
+        }
+
+        return false;
+    }
 }

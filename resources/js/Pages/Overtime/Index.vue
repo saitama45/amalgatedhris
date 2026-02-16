@@ -308,16 +308,16 @@ const formatDate = (dateStr) => {
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right">
                                     <div class="flex justify-end gap-1">
-                                        <button v-if="can.approve && req.status === 'Pending'" @click="approve(req.id)" class="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all" title="Approve">
+                                        <button v-if="hasPermission('overtime.approve') && req.status === 'Pending'" @click="approve(req.id)" class="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all" title="Approve">
                                             <CheckCircleIcon class="w-5 h-5" />
                                         </button>
-                                        <button v-if="can.approve && req.status === 'Pending'" @click="openRejectModal(req.id)" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Reject">
+                                        <button v-if="hasPermission('overtime.reject') && req.status === 'Pending'" @click="openRejectModal(req.id)" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Reject">
                                             <XCircleIcon class="w-5 h-5" />
                                         </button>
-                                        <button v-if="req.status === 'Pending'" @click="openEditModal(req)" class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Edit">
+                                        <button v-if="req.status === 'Pending' && hasPermission('overtime.edit')" @click="openEditModal(req)" class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Edit">
                                             <PencilSquareIcon class="w-5 h-5" />
                                         </button>
-                                        <button v-if="(req.user_id === $page.props.auth.user.id || can.approve) && req.status !== 'Approved'" @click="deleteRequest(req.id)" class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all" title="Delete">
+                                        <button v-if="req.status !== 'Approved' && hasPermission('overtime.delete')" @click="deleteRequest(req.id)" class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all" title="Delete">
                                             <TrashIcon class="w-5 h-5" />
                                         </button>
                                     </div>

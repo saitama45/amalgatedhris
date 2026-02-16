@@ -26,9 +26,9 @@ class LeaveRequestController extends Controller
             $employee = $user->employee;
             
             if ($employee && $employee->subordinates()->exists()) {
-                // User is an Immediate Head - See subordinates + own
+                // User is an Immediate Head - See ONLY subordinates (not own)
                 $subordinateIds = $employee->subordinates()->pluck('id')->toArray();
-                $query->whereIn('employee_id', array_merge($subordinateIds, [$employee->id]));
+                $query->whereIn('employee_id', $subordinateIds);
             } else {
                 // Regular user - See only own
                 $query->whereHas('employee', function($q) use ($user) {

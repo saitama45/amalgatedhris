@@ -6,6 +6,7 @@ import DataTable from '@/Components/DataTable.vue';
 import Modal from '@/Components/Modal.vue';
 import ConfirmModal from '@/Components/ConfirmModal.vue';
 import { usePagination } from '@/Composables/usePagination.js';
+import { usePermission } from '@/Composables/usePermission.js';
 import { useToast } from '@/Composables/useToast.js';
 import { useConfirm } from '@/Composables/useConfirm.js';
 import { 
@@ -28,6 +29,7 @@ const props = defineProps({
     filters: Object
 });
 
+const { hasPermission } = usePermission();
 const { showSuccess, showError } = useToast();
 const { confirm, showConfirmModal, confirmTitle, confirmMessage, handleConfirm, handleCancel } = useConfirm();
 
@@ -224,7 +226,7 @@ const formatDate = (date) => {
                                 >
                                     <Cog6ToothIcon class="w-4 h-4 mr-2" /> Policy Setup
                                 </Link>
-                                <button @click="openCreateModal" class="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-all font-bold text-sm flex items-center shadow-lg shadow-blue-600/20">
+                                <button v-if="hasPermission('leave_requests.create')" @click="openCreateModal" class="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-all font-bold text-sm flex items-center shadow-lg shadow-blue-600/20">
                                     <PlusIcon class="w-4 h-4 mr-2" /> File Leave
                                 </button>
                             </div>
@@ -271,16 +273,16 @@ const formatDate = (date) => {
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right">
                                     <div class="flex justify-end gap-1">
-                                        <button v-if="$page.props.auth.permissions.includes('leave_requests.approve') && req.status === 'Pending'" @click="approve(req.id)" class="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all" title="Approve">
+                                        <button v-if="hasPermission('leave_requests.approve') && req.status === 'Pending'" @click="approve(req.id)" class="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all" title="Approve">
                                             <CheckCircleIcon class="w-5 h-5" />
                                         </button>
-                                        <button v-if="$page.props.auth.permissions.includes('leave_requests.reject') && req.status === 'Pending'" @click="reject(req.id)" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Reject">
+                                        <button v-if="hasPermission('leave_requests.reject') && req.status === 'Pending'" @click="reject(req.id)" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Reject">
                                             <XCircleIcon class="w-5 h-5" />
                                         </button>
-                                        <button v-if="(req.status === 'Pending' && req.employee?.user_id === $page.props.auth.user.id) || $page.props.auth.permissions.includes('leave_requests.edit')" @click="openEditModal(req)" class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Edit">
+                                        <button v-if="req.status === 'Pending' && hasPermission('leave_requests.edit')" @click="openEditModal(req)" class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Edit">
                                             <PencilSquareIcon class="w-5 h-5" />
                                         </button>
-                                        <button v-if="(req.status === 'Pending' && req.employee?.user_id === $page.props.auth.user.id) || $page.props.auth.permissions.includes('leave_requests.delete')" @click="deleteRequest(req.id)" class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all" title="Delete">
+                                        <button v-if="req.status === 'Pending' && hasPermission('leave_requests.delete')" @click="deleteRequest(req.id)" class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all" title="Delete">
                                             <TrashIcon class="w-5 h-5" />
                                         </button>
                                     </div>
