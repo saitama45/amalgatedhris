@@ -70,7 +70,7 @@ const statusClass = (status) => {
     }
 };
 
-const calculateWorkHours = (log) => {
+const getActualWorkHours = (log) => {
     if (!log.time_in || !log.time_out) return '0.00';
     let inTime = new Date(log.time_in);
     let outTime = new Date(log.time_out);
@@ -101,9 +101,38 @@ const calculateWorkHours = (log) => {
     return ((outTime - inTime) / (1000 * 60 * 60)).toFixed(2);
 };
 
+const calculateWorkHours = (log) => {
+    if (!log.time_in || !log.time_out) return '0.00';
+    
+    const record = log.employee?.active_employment_record;
+    const shift = record?.default_shift;
+
+    // For Managers and Executives, work hours are always "complete" for display
+    if (record?.position && !record.position.has_late_policy && shift) {
+        const logDate = String(log.date).split('T')[0];
+        const shiftStart = new Date(`${logDate}T${shift.start_time}`);
+        let shiftEnd = new Date(`${logDate}T${shift.end_time}`);
+        
+        if (shiftEnd < shiftStart) {
+            shiftEnd.setDate(shiftEnd.getDate() + 1);
+        }
+
+        const expectedMs = (shiftEnd - shiftStart) - (shift.break_minutes * 60 * 1000);
+        return (expectedMs / (1000 * 60 * 60)).toFixed(2);
+    }
+
+    return getActualWorkHours(log);
+};
+
 const calculateLate = (log) => {
     if (!log.time_in) return 0;
-    const shift = log.employee?.active_employment_record?.default_shift;
+
+    const record = log.employee?.active_employment_record;
+    if (record?.position && !record.position.has_late_policy) {
+        return 0;
+    }
+
+    const shift = record?.default_shift;
     if (!shift) return 0;
 
     const logDate = String(log.date).split('T')[0];
@@ -111,7 +140,7 @@ const calculateLate = (log) => {
     const timeIn = new Date(log.time_in);
     const outTime = log.time_out ? new Date(log.time_out) : null;
 
-    const workHours = parseFloat(calculateWorkHours(log));
+    const workHours = parseFloat(getActualWorkHours(log));
     const lateMinutes = Math.floor((timeIn - shiftStart) / (1000 * 60));
 
     if (workHours >= 4 && outTime) {
@@ -127,7 +156,9 @@ const calculateLate = (log) => {
 
 const calculateUndertime = (log) => {
     if (!log.time_in || !log.time_out) return 0;
-    const shift = log.employee?.active_employment_record?.default_shift;
+    
+    const record = log.employee?.active_employment_record;
+    const shift = record?.default_shift;
     if (!shift) return 0;
 
     const logDate = String(log.date).split('T')[0];
@@ -135,21 +166,24 @@ const calculateUndertime = (log) => {
     const timeIn = new Date(log.time_in);
     const outTime = new Date(log.time_out);
 
-    const workHours = parseFloat(calculateWorkHours(log));
+    const actualHours = parseFloat(getActualWorkHours(log));
     const lateMinutes = Math.floor((timeIn - shiftStart) / (1000 * 60));
 
     const afternoonCutoff = new Date(`${logDate}T13:01:00`);
-    if (workHours >= 4 && outTime < afternoonCutoff) return 0;
+    if (actualHours >= 4 && outTime < afternoonCutoff) return 0;
     if (lateMinutes > 120 && lateMinutes <= 300) return 0;
 
     let shiftEnd = new Date(`${logDate}T${shift.end_time}`);
     if (shiftEnd < shiftStart) shiftEnd.setDate(shiftEnd.getDate() + 1);
 
-    const expectedMs = (shiftEnd - shiftStart) - (shift.break_minutes * 60 * 1000);
-    const expectedHours = expectedMs / (1000 * 60 * 60);
-    const actualHours = parseFloat(calculateWorkHours(log));
-    const undertime = expectedHours - actualHours;
-    return undertime > 0.02 ? (undertime * 60).toFixed(0) : 0;
+    // Fix: Undertime is based on Time Out vs Shift End.
+    if (outTime < shiftEnd) {
+        const utMs = shiftEnd - outTime;
+        const utMinutes = Math.floor(utMs / (1000 * 60));
+        return utMinutes > 1 ? utMinutes : 0; // 1 min tolerance
+    }
+    
+    return 0;
 };
 
 const formatHours = (minutes) => {

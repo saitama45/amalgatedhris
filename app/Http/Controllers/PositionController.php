@@ -40,12 +40,14 @@ class PositionController extends Controller
             'name' => 'required|string|max:255|unique:positions,name',
             'rank' => 'required|in:RankAndFile,Supervisor,Manager,Executive',
             'description' => 'nullable|string',
+            'has_late_policy' => 'boolean',
         ]);
 
         Position::create([
             'name' => strtoupper($request->name),
             'rank' => $request->rank,
             'description' => $request->description,
+            'has_late_policy' => $request->input('has_late_policy', true),
         ]);
 
         return redirect()->back()->with('success', 'Position created successfully.');
@@ -60,12 +62,14 @@ class PositionController extends Controller
             'name' => 'required|string|max:255|unique:positions,name,' . $position->id,
             'rank' => 'required|in:RankAndFile,Supervisor,Manager,Executive',
             'description' => 'nullable|string',
+            'has_late_policy' => 'boolean',
         ]);
 
         $position->update([
             'name' => strtoupper($request->name),
             'rank' => $request->rank,
             'description' => $request->description,
+            'has_late_policy' => $request->input('has_late_policy', true),
         ]);
 
         return redirect()->back()->with('success', 'Position updated successfully.');

@@ -60,6 +60,7 @@ const form = useForm({
     name: '',
     rank: 'RankAndFile',
     description: '',
+    has_late_policy: true,
 });
 
 const openCreateModal = () => {
@@ -76,6 +77,7 @@ const openEditModal = (position) => {
     form.name = position.name;
     form.rank = position.rank;
     form.description = position.description;
+    form.has_late_policy = !!position.has_late_policy;
     form.clearErrors();
     showModal.value = true;
 };
@@ -170,6 +172,7 @@ const rankColors = {
                             <tr class="bg-slate-50">
                                 <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Name</th>
                                 <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Rank</th>
+                                <th class="px-6 py-4 text-center text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Late Policy</th>
                                 <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Description</th>
                                 <th class="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Actions</th>
                             </tr>
@@ -190,6 +193,14 @@ const rankColors = {
                                 <td class="px-6 py-4 whitespace-nowrap">
                                      <span :class="['inline-flex px-2.5 py-1 text-xs font-bold rounded-lg capitalize', rankColors[position.rank] || 'bg-slate-100 text-slate-500']">
                                         {{ position.rank }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-center">
+                                    <span v-if="position.has_late_policy" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800">
+                                        Enabled
+                                    </span>
+                                    <span v-else class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-rose-100 text-rose-800">
+                                        Disabled
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-normal">
@@ -244,6 +255,16 @@ const rankColors = {
                                 <option value="Manager">Manager</option>
                                 <option value="Executive">Executive</option>
                             </select>
+                        </div>
+                        <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700">Late Policy</label>
+                                <p class="text-xs text-slate-500">Enable late and undertime deductions for this position.</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" v-model="form.has_late_policy" class="sr-only peer">
+                                <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
                         </div>
                         <div>
                             <label class="block text-sm font-bold text-slate-700 mb-1">Description</label>

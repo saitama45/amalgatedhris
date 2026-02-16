@@ -9,5 +9,9 @@ class Position extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'description', 'rank'];
+    protected $fillable = ['name', 'description', 'rank', 'has_late_policy'];
+
+    protected $casts = [
+        'has_late_policy' => 'boolean',
+    ];
 }

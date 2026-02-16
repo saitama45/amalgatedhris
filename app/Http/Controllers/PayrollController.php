@@ -137,6 +137,7 @@ class PayrollController extends Controller
 
         foreach ($employees as $employee) {
             $record = $employee->activeEmploymentRecord;
+            $hasLatePolicy = $record->position ? $record->position->has_late_policy : true;
             
             $basicRate = $record->basic_rate; // Monthly
             $dailyRate = $basicRate / 26; // Monthly / 26 days
@@ -206,8 +207,8 @@ class PayrollController extends Controller
                 }
             }
 
-            $lateDeduction = round($totalLateMinutes * $minuteRate, 2);
-            $utDeduction = round($totalUTMinutes * $minuteRate, 2);
+            $lateDeduction = $hasLatePolicy ? round($totalLateMinutes * $minuteRate, 2) : 0;
+            $utDeduction = $hasLatePolicy ? round($totalUTMinutes * $minuteRate, 2) : 0;
             $absenceDeduction = round($absentDays * $dailyRate, 2);
 
             // 3. Fetch Approved Overtime - MUST have corresponding Attendance Log

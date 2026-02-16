@@ -18,6 +18,11 @@ class AttendanceService
      */
     public function calculateLateMinutes(Carbon $scheduledStart, Carbon $actualTimeIn, EmploymentRecord $record): int
     {
+        // 0. Check if position has late policy enabled
+        if ($record->position && !$record->position->has_late_policy) {
+            return 0;
+        }
+
         // 1. Calculate raw difference in minutes
         // If early or on time, diffInMinutes might be positive but we check if actual > scheduled
         if ($actualTimeIn->lte($scheduledStart)) {

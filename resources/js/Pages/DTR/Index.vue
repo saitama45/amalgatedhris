@@ -276,7 +276,7 @@ const statusClass = (status) => {
     }
 };
 
-const calculateWorkHours = (log) => {
+const getActualWorkHours = (log) => {
     if (!log.time_in || !log.time_out) return 0;
     let inTime = new Date(log.time_in);
     let outTime = new Date(log.time_out);
@@ -312,9 +312,38 @@ const calculateWorkHours = (log) => {
     return parseFloat(((outTime - inTime) / (1000 * 60 * 60)).toFixed(2));
 };
 
+const calculateWorkHours = (log) => {
+    if (!log.time_in || !log.time_out) return 0;
+    
+    const record = log.employee?.active_employment_record;
+    const shift = record?.default_shift;
+
+    // For Managers and Executives, work hours are always "complete" for display
+    if (record?.position && !record.position.has_late_policy && shift) {
+        const logDate = String(log.date).split('T')[0];
+        const shiftStart = new Date(`${logDate}T${shift.start_time}`);
+        let shiftEnd = new Date(`${logDate}T${shift.end_time}`);
+        
+        if (shiftEnd < shiftStart) {
+            shiftEnd.setDate(shiftEnd.getDate() + 1);
+        }
+
+        const expectedMs = (shiftEnd - shiftStart) - (shift.break_minutes * 60 * 1000);
+        return parseFloat((expectedMs / (1000 * 60 * 60)).toFixed(2));
+    }
+
+    return getActualWorkHours(log);
+};
+
 const calculateLate = (log) => {
     if (!log.time_in) return 0;
-    const shift = log.employee?.active_employment_record?.default_shift;
+
+    const record = log.employee?.active_employment_record;
+    if (record?.position && !record.position.has_late_policy) {
+        return 0;
+    }
+
+    const shift = record?.default_shift;
     if (!shift) return 0;
 
     const logDate = String(log.date).split('T')[0];
@@ -322,7 +351,7 @@ const calculateLate = (log) => {
     const timeIn = new Date(log.time_in);
     const outTime = log.time_out ? new Date(log.time_out) : null;
 
-    const workHours = parseFloat(calculateWorkHours(log));
+    const workHours = getActualWorkHours(log);
     const lateMinutes = Math.floor((timeIn - shiftStart) / (1000 * 60));
 
     // Morning Half Day Amnesty: If worked 4 hours and timed out before 1:01 PM
@@ -344,7 +373,8 @@ const calculateLate = (log) => {
 const calculateUndertime = (log) => {
     if (!log.time_in || !log.time_out) return 0;
     
-    const shift = log.employee?.active_employment_record?.default_shift;
+    const record = log.employee?.active_employment_record;
+    const shift = record?.default_shift;
     if (!shift) return 0;
 
     const logDate = String(log.date).split('T')[0];
@@ -352,7 +382,7 @@ const calculateUndertime = (log) => {
     const timeIn = new Date(log.time_in);
     const outTime = new Date(log.time_out);
 
-    const actualHours = calculateWorkHours(log);
+    const actualHours = getActualWorkHours(log);
     const lateMinutes = Math.floor((timeIn - shiftStart) / (1000 * 60));
 
     // Afternoon Amnesty: If started during the afternoon window (10:01 AM - 1:00 PM)
@@ -373,11 +403,15 @@ const calculateUndertime = (log) => {
         shiftEnd.setDate(shiftEnd.getDate() + 1);
     }
 
-    const expectedMs = (shiftEnd - shiftStart) - (shift.break_minutes * 60 * 1000);
-    const expectedHours = expectedMs / (1000 * 60 * 60);
+    // Fix: Undertime is based on Time Out vs Shift End. 
+    // The previous logic (expectedHours - actualHours) incorrectly included late arrival.
+    if (outTime < shiftEnd) {
+        const utMs = shiftEnd - outTime;
+        const utMinutes = Math.floor(utMs / (1000 * 60));
+        return utMinutes > 1 ? utMinutes : 0; // 1 min tolerance
+    }
     
-    const undertime = expectedHours - actualHours;
-    return undertime > 0.02 ? (undertime * 60).toFixed(0) : 0; // 0.02 tolerance for rounding
+    return 0;
 };
 
 const formatHours = (minutes) => {
