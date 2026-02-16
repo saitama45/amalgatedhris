@@ -65,6 +65,14 @@ Route::middleware('auth')->group(function () {
         Route::put('salary-history/{salaryHistory}', [\App\Http\Controllers\SalaryHistoryController::class, 'update'])->name('salary-history.update');
         Route::delete('salary-history/{salaryHistory}', [\App\Http\Controllers\SalaryHistoryController::class, 'destroy'])->name('salary-history.destroy');
         Route::resource('employees', \App\Http\Controllers\EmployeeController::class)->only(['index', 'update']);
+
+        // ID Printing
+        Route::middleware('permission:id_printing.view')->group(function () {
+            Route::get('id-printing', [\App\Http\Controllers\IdPrintingController::class, 'index'])->name('id_printing.index');
+            Route::post('id-printing/templates', [\App\Http\Controllers\IdPrintingController::class, 'storeTemplate'])->name('id_printing.templates.store');
+            Route::delete('id-printing/templates/{template}', [\App\Http\Controllers\IdPrintingController::class, 'destroyTemplate'])->name('id_printing.templates.destroy');
+            Route::post('id-printing/generate', [\App\Http\Controllers\IdPrintingController::class, 'generate'])->name('id_printing.generate');
+        });
     });
     
     // Timekeeping & Attendance

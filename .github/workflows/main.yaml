@@ -59,4 +59,19 @@ jobs:
             **/node_modules/**
             README.md
             Blueprint.md
+          
+      - name: Deploy to FTP (GALGAHRIS)
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_SERVER_GALGAHRIS }}
+          username: ${{ secrets.FTP_USERNAME_GALGAHRIS }}
+          password: ${{ secrets.FTP_PASSWORD_GALGAHRIS }}
+          protocol: ftp
+          port: 21
+          timeout: 120000
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            README.md
 

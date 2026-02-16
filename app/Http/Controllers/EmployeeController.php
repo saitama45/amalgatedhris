@@ -32,9 +32,9 @@ class EmployeeController extends Controller
         // AUTO-REPAIR: Ensure all employees have a QR code
         $missingQR = Employee::whereNull('qr_code')->get();
         foreach ($missingQR as $emp) {
-            $emp->update([
-                'qr_code' => 'QR-' . strtoupper(bin2hex(random_bytes(8))),
-            ]);
+            $qrCode = 'QR-' . strtoupper(bin2hex(random_bytes(8)));
+            $emp->update(['qr_code' => $qrCode]);
+            $this->saveQRCodeImage($qrCode);
         }
 
         $query = Employee::with(['user', 'immediateHead.user', 'activeEmploymentRecord.position', 'activeEmploymentRecord.department', 'activeEmploymentRecord.company', 'documents']);
@@ -398,10 +398,28 @@ class EmployeeController extends Controller
 
     public function regenerateQRCode(Employee $employee)
     {
-        $employee->update([
-            'qr_code' => 'QR-' . strtoupper(bin2hex(random_bytes(8))),
-        ]);
+        $qrCode = 'QR-' . strtoupper(bin2hex(random_bytes(8)));
+        $employee->update(['qr_code' => $qrCode]);
+        $this->saveQRCodeImage($qrCode);
 
         return redirect()->back()->with('success', 'QR Code regenerated successfully.');
+    }
+
+    private function saveQRCodeImage($qrCode)
+    {
+        $qrPath = public_path('storage/qr_codes');
+        if (!file_exists($qrPath)) {
+            mkdir($qrPath, 0755, true);
+        }
+        
+        $filename = $qrCode . '.svg';
+        $fullPath = $qrPath . DIRECTORY_SEPARATOR . $filename;
+        
+        \SimpleSoftwareIO\QrCode\Facades\QrCode::format('svg')
+            ->size(300)
+            ->margin(1)
+            ->errorCorrection('H')
+            ->encoding('UTF-8')
+            ->generate($qrCode, $fullPath);
     }
 }

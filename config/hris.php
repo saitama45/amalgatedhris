@@ -4,7 +4,7 @@ return [
     'sidebar_structure' => [
         'Overview' => ['dashboard'],
         'Recruitment' => ['applicants', 'exams'],
-        'Workforce' => ['employees'],
+        'Workforce' => ['employees', 'id_printing'],
         'Time & Attendance' => ['attendance.kiosk', 'dtr', 'shifts', 'schedules', 'holidays', 'overtime', 'overtime_rates', 'leave_requests'],
         'Compensation' => ['payroll', 'government_deductions', 'deductions'],
         'Reports' => ['government_remittances'],
@@ -42,6 +42,10 @@ return [
         // Workforce - Documents
         'employees.view_documents' => 'View Employee Documents',
         'employees.edit_documents' => 'Upload/Manage Documents',
+
+        // Workforce - ID Printing
+        'id_printing.view' => 'Access ID Printing',
+        'id_printing.manage_templates' => 'Manage ID Templates',
 
         // Time & Attendance - DTR
         'dtr.view' => 'View DTR Logs',
@@ -163,6 +167,7 @@ return [
         'applicants' => 'Applicants',
         'exams' => 'Exams',
         'employees' => 'Employees (201)',
+        'id_printing' => 'ID Layout & Printing',
         'attendance.kiosk' => 'Attendance Kiosk',
         'dtr' => 'Attendance Logs',
         'shifts' => 'Shifts',
@@ -196,6 +201,7 @@ return [
         'applicants.index' => 'Applicants Pool',
         'applicants.exams' => 'Exam Results',
         'employees.index' => 'Employee Directory',
+        'id_printing.index' => 'ID Layout & Printing',
         'attendance.kiosk' => 'Attendance Kiosk',
         'dtr.index' => 'DTR Logs',
         'overtime.index' => 'Overtime Requests',
