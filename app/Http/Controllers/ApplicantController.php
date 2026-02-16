@@ -187,7 +187,7 @@ class ApplicantController extends Controller
                 $user = User::create([
                     'name' => $fullName,
                     'email' => $applicant->email,
-                    'password' => Hash::make('welcome123'),
+                    'password' => Hash::make('password123'),
                     'company_id' => $request->company_id,
                     'email_verified_at' => now(),
                 ]);
