@@ -117,7 +117,7 @@
                 
                 <div class="p-8 max-h-[60vh] overflow-y-auto custom-scrollbar">
                     <div class="flex flex-wrap gap-2">
-                        <span v-for="permission in selectedRole?.permissions" :key="permission.id" 
+                        <span v-for="permission in (selectedRole?.permissions ? filterPermissions(selectedRole.permissions) : [])" :key="permission.id" 
                               class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 border border-blue-100">
                             {{ permission.name }}
                         </span>
@@ -255,7 +255,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, watch, computed } from 'vue'
-import { Head } from '@inertiajs/vue3'
+import { Head, usePage } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
 import DataTable from '@/Components/DataTable.vue'
 import { useToast } from '@/Composables/useToast'
@@ -263,6 +263,7 @@ import { useConfirm } from '@/Composables/useConfirm'
 import { useErrorHandler } from '@/Composables/useErrorHandler'
 import { usePagination } from '@/Composables/usePagination'
 import { usePermission } from '@/Composables/usePermission'
+import { useConfidential } from '@/Composables/useConfidential'
 import { 
     ShieldCheckIcon, 
     PencilSquareIcon, 
@@ -283,6 +284,36 @@ const { confirm } = useConfirm()
 const { post, put, destroy } = useErrorHandler()
 const pagination = usePagination(props.roles, 'roles.index')
 const { hasPermission } = usePermission();
+const { canViewSalary, canManagePayroll } = useConfidential();
+const page = usePage();
+
+// Restricted Permissions Configuration
+const salaryRestrictedPerms = ['applicants.view_salary', 'employees.view_salary'];
+const payrollRestrictedPerms = [
+    'payroll.view',
+    'payroll.create',
+    'payroll.approve',
+    'payroll.revert',
+    'payroll.edit_payslip',
+    'payroll.delete',
+    'payroll.manage_loans',
+    'payroll.settings'
+];
+
+// Helper to filter out restricted permissions for unauthorized users
+const filterPermissions = (perms) => {
+    return perms.filter(p => {
+        // Salary perms
+        if (salaryRestrictedPerms.includes(p.name)) {
+            return canViewSalary.value;
+        }
+        // Payroll perms
+        if (payrollRestrictedPerms.includes(p.name)) {
+            return canManagePayroll.value;
+        }
+        return true;
+    });
+};
 
 // Input Handlers
 const handleAlphaUpperInput = (formObj, field, e) => {
@@ -318,7 +349,10 @@ const groupedPermissions = computed(() => {
         
         categories.forEach(category => {
             if (props.permissions[category]) {
-                result[groupName][category] = props.permissions[category];
+                const filtered = filterPermissions(props.permissions[category]);
+                if (filtered.length > 0) {
+                    result[groupName][category] = filtered;
+                }
             }
         });
     });
@@ -387,21 +421,43 @@ const isCategoryIndeterminate = (category, perms) => {
 
 const toggleAllPermissions = () => {
     const allPerms = Object.values(props.permissions).flat().map(p => p.name);
+    const visiblePermNames = allPerms.filter(name => {
+        if (salaryRestrictedPerms.includes(name)) return canViewSalary.value;
+        if (payrollRestrictedPerms.includes(name)) return canManagePayroll.value;
+        return true;
+    });
+
     if (isAllSelected()) {
-        form.permissions = [];
+        // Only remove visible permissions to avoid accidentally stripping restricted ones if they exist
+        form.permissions = form.permissions.filter(p => !visiblePermNames.includes(p));
     } else {
-        form.permissions = allPerms;
+        // Add all visible permissions (avoid duplicates)
+        const currentRestricted = form.permissions.filter(p => !visiblePermNames.includes(p));
+        form.permissions = [...new Set([...currentRestricted, ...visiblePermNames])];
     }
 };
 
 const isAllSelected = () => {
     const allPerms = Object.values(props.permissions).flat().map(p => p.name);
-    return allPerms.length > 0 && allPerms.every(p => form.permissions.includes(p));
+    const visiblePermNames = allPerms.filter(name => {
+        if (salaryRestrictedPerms.includes(name)) return canViewSalary.value;
+        if (payrollRestrictedPerms.includes(name)) return canManagePayroll.value;
+        return true;
+    });
+        
+    return visiblePermNames.length > 0 && visiblePermNames.every(p => form.permissions.includes(p));
 };
 
 const isAllIndeterminate = () => {
     const allPerms = Object.values(props.permissions).flat().map(p => p.name);
-    return form.permissions.length > 0 && form.permissions.length < allPerms.length;
+    const visiblePermNames = allPerms.filter(name => {
+        if (salaryRestrictedPerms.includes(name)) return canViewSalary.value;
+        if (payrollRestrictedPerms.includes(name)) return canManagePayroll.value;
+        return true;
+    });
+        
+    const selectedVisible = visiblePermNames.filter(name => form.permissions.includes(name));
+    return selectedVisible.length > 0 && selectedVisible.length < visiblePermNames.length;
 };
 
 const editRole = (role) => {

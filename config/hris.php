@@ -22,6 +22,7 @@ return [
         'applicants.edit' => 'Edit Applicant Details',
         'applicants.delete' => 'Delete Applicant',
         'applicants.hire' => 'Hire/Convert to Employee',
+        'applicants.view_salary' => 'View Salary on Hire',
         'applicants.manage_requirements' => 'Manage Applicant Documents',
         
         // Recruitment - Exams

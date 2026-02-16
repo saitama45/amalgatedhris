@@ -50,7 +50,7 @@ class ApplicantController extends Controller
             'applicants' => $applicants,
             'filters' => $request->only(['search', 'status']),
             'options' => [
-                'companies' => Company::select('id', 'name')->where('is_active', true)->orderBy('name')->get(),
+                'companies' => Company::select('id', 'name', 'code')->where('is_active', true)->orderBy('name')->get(),
                 'departments' => Department::select('id', 'name')->orderBy('name')->get(),
                 'positions' => Position::select('id', 'name')->orderBy('name')->get(),
                 'document_types' => DocumentType::where('is_active', true)->orderBy('name')->get(),
@@ -168,16 +168,18 @@ class ApplicantController extends Controller
 
     public function hire(Request $request, Applicant $applicant)
     {
+        $hasSalaryPermission = $request->user()->can('applicants.view_salary');
+
         $request->validate([
             'company_id' => 'required|exists:companies,id',
             'department_id' => 'required|exists:departments,id',
             'position_id' => 'required|exists:positions,id',
             'start_date' => 'required|date',
-            'basic_rate' => 'required|numeric',
+            'basic_rate' => $hasSalaryPermission ? 'required|numeric|gt:0' : 'nullable|numeric',
             'allowance' => 'nullable|numeric',
         ]);
 
-        DB::transaction(function () use ($request, $applicant) {
+        DB::transaction(function () use ($request, $applicant, $hasSalaryPermission) {
             // Create User
             $fullName = strtoupper($applicant->first_name . ' ' . ($applicant->middle_name ? $applicant->middle_name . ' ' : '') . $applicant->last_name);
             
@@ -207,8 +209,8 @@ class ApplicantController extends Controller
                 'company_id' => $request->company_id,
                 'department_id' => $request->department_id,
                 'position_id' => $request->position_id,
-                'basic_rate' => $request->basic_rate,
-                'allowance' => $request->allowance ?? 0,
+                'basic_rate' => $hasSalaryPermission ? $request->basic_rate : 0,
+                'allowance' => $hasSalaryPermission ? ($request->allowance ?? 0) : 0,
                 'employment_status' => 'Probationary',
                 'start_date' => $request->start_date,
                 'is_active' => true,

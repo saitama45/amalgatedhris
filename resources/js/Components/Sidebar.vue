@@ -23,9 +23,11 @@ import {
     ChevronDownIcon,
     ChevronRightIcon,
     CameraIcon,
-    MapPinIcon
+    MapPinIcon,
+    ShieldExclamationIcon
 } from '@heroicons/vue/24/outline';
 import { usePermission } from '@/Composables/usePermission';
+import { useConfidential } from '@/Composables/useConfidential';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 
 const props = defineProps({
@@ -44,14 +46,33 @@ const firstName = computed(() => {
     return user.value.name.split(' ')[0];
 });
 const { hasPermission, hasAnyPermission } = usePermission();
+const { canManagePayroll, isPrimaryAdmin } = useConfidential();
 
 // Dynamic Menu Structure from Config
-const sidebarConfig = computed(() => page.props.config?.sidebar_structure || {});
-const moduleLabels = computed(() => page.props.config?.module_labels || {});
+const sidebarConfig = computed(() => {
+    const config = { ...page.props.config?.sidebar_structure };
+    
+    // Add Confidential Management only for Primary Admin
+    if (isPrimaryAdmin.value) {
+        if (!config['Security']) {
+            config['Security'] = ['confidential_emails'];
+        } else {
+            config['Security'].push('confidential_emails');
+        }
+    }
+    
+    return config;
+});
+
+const moduleLabels = computed(() => ({
+    ...page.props.config?.module_labels,
+    'confidential_emails': 'Confidential Access'
+}));
 
 // Helper to determine if a main group should be visible
 const canShowGroup = (groupCategories) => {
     return groupCategories.some(category => {
+        if (category === 'confidential_emails') return isPrimaryAdmin.value;
         const userPermissions = page.props.auth?.permissions || [];
         // Show group if user has the base permission OR any sub-permission
         return userPermissions.some(p => p === category || p.startsWith(category + '.'));
@@ -60,6 +81,14 @@ const canShowGroup = (groupCategories) => {
 
 // Helper to check permission for a specific category link
 const hasModuleAccess = (category) => {
+    // Management module
+    if (category === 'confidential_emails') return isPrimaryAdmin.value;
+
+    // Hardcoded restrictions for Payroll module
+    if (category === 'payroll') {
+        return canManagePayroll.value;
+    }
+
     // Check for 'category.view' OR just 'category' (for standalone permissions)
     return hasPermission(category + '.view') || hasPermission(category);
 };
@@ -82,6 +111,7 @@ const getRouteName = (category) => {
         'portal.ob-attendance': 'portal.ob-attendance',
         'portal.payslips': 'portal.payslips',
         'portal.deductions': 'portal.deductions',
+        'confidential_emails': 'confidential-emails.index',
     };
 
     return customMappings[category] || (category + '.index');
@@ -121,7 +151,8 @@ const iconMap = {
     positions: BriefcaseIcon,
     document_types: DocumentDuplicateIcon,
     roles: ShieldCheckIcon,
-    government_remittances: TableCellsIcon
+    government_remittances: TableCellsIcon,
+    confidential_emails: ShieldExclamationIcon
 };
 
 // Mapping group names to their main icons
@@ -133,7 +164,8 @@ const groupIconMap = {
     'Reports': DocumentDuplicateIcon,
     'My Portal': ComputerDesktopIcon,
     'System Administration': Cog6ToothIcon,
-    'Overview': HomeIcon
+    'Overview': HomeIcon,
+    'Security': ShieldCheckIcon
 };
 
 // Menu State (Keyed by Group Name)

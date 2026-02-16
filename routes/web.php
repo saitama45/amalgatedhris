@@ -41,6 +41,9 @@ Route::middleware('auth')->group(function () {
         Route::resource('document-types', \App\Http\Controllers\DocumentTypeController::class)->except(['create', 'edit', 'show']);
     });
 
+    // Confidential Security Settings
+    Route::resource('confidential-emails', \App\Http\Controllers\ConfidentialEmailController::class)->only(['index', 'store', 'update', 'destroy']);
+
     // Recruitment
     Route::middleware('permission:applicants.view')->group(function () {
         Route::get('applicants/exams', [\App\Http\Controllers\ApplicantController::class, 'exams'])->name('applicants.exams');

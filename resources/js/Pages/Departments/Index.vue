@@ -3,6 +3,7 @@ import { Head, useForm } from '@inertiajs/vue3';
 import { ref, onMounted, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
+import DepartmentModal from '@/Components/DepartmentModal.vue';
 import { useConfirm } from '@/Composables/useConfirm';
 import { useErrorHandler } from '@/Composables/useErrorHandler';
 import { useToast } from '@/Composables/useToast';
@@ -20,7 +21,6 @@ const props = defineProps({
 });
 
 const showModal = ref(false);
-const isEditing = ref(false);
 const editingDepartment = ref(null);
 
 const { confirm } = useConfirm();
@@ -28,34 +28,6 @@ const { destroy } = useErrorHandler();
 const { showSuccess, showError } = useToast();
 
 const pagination = usePagination(props.departments, 'departments.index');
-
-// Input Handlers
-const handleAlphaUpperInput = (formObj, field, e) => {
-    // Allow only letters and spaces, remove emojis, then convert to uppercase
-    const val = e.target.value.replace(/[^a-zA-Z\s]/g, '').replace(/\p{Extended_Pictographic}/gu, '').toUpperCase();
-    formObj[field] = val;
-    if (e.target.value !== val) {
-        e.target.value = val;
-    }
-};
-
-const handleUpperNoEmojiInput = (formObj, field, e) => {
-    // Remove emojis, then convert to uppercase
-    const val = e.target.value.replace(/\p{Extended_Pictographic}/gu, '').toUpperCase();
-    formObj[field] = val;
-    if (e.target.value !== val) {
-        e.target.value = val;
-    }
-};
-
-const handleNoEmojiInput = (formObj, field, e) => {
-    // Remove emojis
-    const val = e.target.value.replace(/\p{Extended_Pictographic}/gu, '');
-    formObj[field] = val;
-    if (e.target.value !== val) {
-        e.target.value = val;
-    }
-};
 
 onMounted(() => {
     pagination.updateData(props.departments);
@@ -65,54 +37,14 @@ watch(() => props.departments, (newDepartments) => {
     pagination.updateData(newDepartments);
 }, { deep: true });
 
-const form = useForm({
-    name: '',
-    department_code: '',
-    oms_code: '',
-    description: '',
-});
-
 const openCreateModal = () => {
-    isEditing.value = false;
     editingDepartment.value = null;
-    form.reset();
-    form.clearErrors();
     showModal.value = true;
 };
 
 const openEditModal = (department) => {
-    isEditing.value = true;
     editingDepartment.value = department;
-    form.name = department.name;
-    form.department_code = department.department_code;
-    form.oms_code = department.oms_code;
-    form.description = department.description;
-    form.clearErrors();
     showModal.value = true;
-};
-
-const submitForm = () => {
-    if (isEditing.value) {
-        form.put(route('departments.update', editingDepartment.value.id), {
-            onSuccess: () => {
-                showModal.value = false;
-            },
-            onError: (errors) => {
-                 const errorMessage = Object.values(errors).flat().join(', ') || 'Validation error';
-                 showError(errorMessage);
-            }
-        });
-    } else {
-        form.post(route('departments.store'), {
-            onSuccess: () => {
-                showModal.value = false;
-            },
-            onError: (errors) => {
-                 const errorMessage = Object.values(errors).flat().join(', ') || 'Validation error';
-                 showError(errorMessage);
-            }
-        });
-    }
 };
 
 const deleteDepartment = async (department) => {
@@ -226,46 +158,10 @@ const deleteDepartment = async (department) => {
             </div>
         </div>
         
-        <!-- Create/Edit Modal -->
-        <div v-if="showModal" class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
-             <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity" @click="showModal = false"></div>
-             
-             <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full relative overflow-hidden animate-in fade-in zoom-in duration-200">
-                <div class="px-8 py-6 border-b border-slate-100 bg-slate-50/50">
-                    <h3 class="text-xl font-bold text-slate-900">{{ isEditing ? 'Edit Department' : 'New Department' }}</h3>
-                    <p class="text-sm text-slate-500">{{ isEditing ? 'Update department details.' : 'Add a new department.' }}</p>
-                </div>
-                
-                <form @submit.prevent="submitForm" class="p-8">
-                    <div class="space-y-6">
-                        <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-1">Department Name</label>
-                            <input :value="form.name" @input="handleAlphaUpperInput(form, 'name', $event)" type="text" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" placeholder="e.g. HUMAN RESOURCES">
-                        </div>
-                        <div class="grid grid-cols-2 gap-6">
-                            <div>
-                                <label class="block text-sm font-bold text-slate-700 mb-1">Department Code</label>
-                                <input :value="form.department_code" @input="handleUpperNoEmojiInput(form, 'department_code', $event)" type="text" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" placeholder="e.g. HR">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-bold text-slate-700 mb-1">OMS Code</label>
-                                <input :value="form.oms_code" @input="handleUpperNoEmojiInput(form, 'oms_code', $event)" type="text" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" placeholder="e.g. 1001">
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-1">Description</label>
-                            <textarea :value="form.description" @input="handleNoEmojiInput(form, 'description', $event)" rows="3" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all" placeholder="Optional description..."></textarea>
-                        </div>
-                    </div>
-
-                    <div class="flex justify-end space-x-3 pt-6 border-t border-slate-100 mt-6">
-                        <button type="button" @click="showModal = false" class="px-6 py-2.5 text-slate-600 font-bold bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors">Cancel</button>
-                        <button type="submit" :disabled="form.processing" class="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-600/20 disabled:opacity-50 transition-all">
-                            {{ isEditing ? 'Save Changes' : 'Create Department' }}
-                        </button>
-                    </div>
-                </form>
-             </div>
-        </div>
+        <DepartmentModal 
+            :show="showModal" 
+            :department="editingDepartment"
+            @close="showModal = false"
+        />
     </AppLayout>
 </template>

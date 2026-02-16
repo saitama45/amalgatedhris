@@ -40,6 +40,10 @@ class HandleInertiaRequests extends Middleware
         $user = $request->user();
         $permissions = [];
         $landingPage = 'dashboard';
+        $confidential = [
+            'can_view_salary' => false,
+            'can_manage_payroll' => false
+        ];
         
         if ($user) {
             // Load roles with permissions to avoid N+1 queries in the loop
@@ -55,6 +59,13 @@ class HandleInertiaRequests extends Middleware
             if ($primaryRole && $primaryRole->landing_page) {
                 $landingPage = $primaryRole->landing_page;
             }
+
+            // Confidential Access Check
+            $access = \App\Models\ConfidentialEmail::where('email', $user->email)->first();
+            if ($access) {
+                $confidential['can_view_salary'] = (bool) $access->can_view_salary;
+                $confidential['can_manage_payroll'] = (bool) $access->can_manage_payroll;
+            }
         }
         
         return array_merge(parent::share($request), [
@@ -62,6 +73,7 @@ class HandleInertiaRequests extends Middleware
                 'user' => $user,
                 'permissions' => $permissions,
                 'landing_page' => $landingPage,
+                'confidential' => $confidential,
             ],
             'config' => [
                 'sidebar_structure' => config('hris.sidebar_structure'),

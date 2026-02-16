@@ -1,5 +1,5 @@
 <script setup>
-import { Head, useForm, router } from '@inertiajs/vue3';
+import { Head, useForm, router, usePage } from '@inertiajs/vue3';
 import { ref, onMounted, watch, computed, shallowRef } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
@@ -7,6 +7,7 @@ import Modal from '@/Components/Modal.vue';
 import { usePagination } from '@/Composables/usePagination';
 import { useToast } from '@/Composables/useToast';
 import { usePermission } from '@/Composables/usePermission';
+import { useConfidential } from '@/Composables/useConfidential';
 import { useConfirm } from '@/Composables/useConfirm';
 import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import QRCode from 'qrcode';
@@ -40,7 +41,9 @@ const props = defineProps({
 
 const { showSuccess, showError } = useToast();
 const { hasPermission } = usePermission();
+const { canViewSalary } = useConfidential();
 const { confirm } = useConfirm();
+const page = usePage();
 
 // New: Filters
 const filterForm = ref({
@@ -1079,7 +1082,7 @@ const submitResign = async () => {
                                             <DocumentDuplicateIcon class="w-5 h-5" />
                                         </button>
                                         <button 
-                                            v-if="hasPermission('employees.view_salary')"
+                                            v-if="hasPermission('employees.view_salary') && canViewSalary"
                                             @click="openSalaryModal(employee)"
                                             class="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
                                             title="Salary History"

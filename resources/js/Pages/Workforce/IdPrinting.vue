@@ -16,7 +16,12 @@ import {
     XMarkIcon,
     UserCircleIcon,
     PhotoIcon,
-    MagnifyingGlassIcon
+    MagnifyingGlassIcon,
+    MagnifyingGlassPlusIcon,
+    MagnifyingGlassMinusIcon,
+    ArrowsPointingOutIcon,
+    ChevronLeftIcon,
+    ChevronRightIcon
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
@@ -74,6 +79,67 @@ const deleteTemplate = (id) => {
 const selectedEmployees = ref([]);
 const selectedTemplate = ref(null);
 const pdfForm = ref(null);
+
+// Preview Logic
+const showPreviewModal = ref(false);
+const previewImages = ref({ front: '', back: '' });
+const currentView = ref('front'); // 'front' or 'back'
+const scale = ref(1);
+const position = ref({ x: 0, y: 0 });
+const isDragging = ref(false);
+const dragStart = ref({ x: 0, y: 0 });
+
+const openPreview = (temp) => {
+    previewImages.value = {
+        front: '/storage/' + temp.front_image_path,
+        back: temp.back_image_path ? '/storage/' + temp.back_image_path : null
+    };
+    currentView.value = 'front';
+    scale.value = 1;
+    position.value = { x: 0, y: 0 };
+    showPreviewModal.value = true;
+};
+
+const zoomIn = () => {
+    scale.value = Math.min(scale.value + 0.15, 3);
+};
+
+const zoomOut = () => {
+    scale.value = Math.max(scale.value - 0.15, 0.5);
+};
+
+const resetZoom = () => {
+    scale.value = 1;
+    position.value = { x: 0, y: 0 };
+};
+
+const startDrag = (e) => {
+    isDragging.value = true;
+    dragStart.value = { 
+        x: e.clientX - position.value.x, 
+        y: e.clientY - position.value.y 
+    };
+};
+
+const onDrag = (e) => {
+    if (!isDragging.value) return;
+    position.value = {
+        x: e.clientX - dragStart.value.x,
+        y: e.clientY - dragStart.value.y
+    };
+};
+
+const handleWheel = (e) => {
+    if (e.deltaY < 0) {
+        zoomIn();
+    } else {
+        zoomOut();
+    }
+};
+
+const stopDrag = () => {
+    isDragging.value = false;
+};
 
 const toggleEmployeeSelection = (employeeId) => {
     const index = selectedEmployees.value.indexOf(employeeId);
@@ -205,13 +271,19 @@ const generateIDs = () => {
                                     </div>
                                     
                                     <div class="mt-3 flex gap-2 overflow-hidden">
-                                        <div class="w-1/2 aspect-[1.58/1] rounded bg-white border border-slate-200 overflow-hidden relative">
+                                        <div @click.stop="openPreview(temp)" class="w-1/2 aspect-[1.58/1] rounded bg-white border border-slate-200 overflow-hidden relative group/img">
                                             <img :src="'/storage/' + temp.front_image_path" class="w-full h-full object-cover">
-                                            <div class="absolute top-1 left-1 bg-black/50 text-white text-[8px] px-1 rounded">FRONT</div>
+                                            <div class="absolute top-1 left-1 bg-black/50 text-white text-[8px] px-1 rounded font-black">FRONT</div>
+                                            <div class="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                                <MagnifyingGlassPlusIcon class="w-6 h-6 text-white" />
+                                            </div>
                                         </div>
-                                        <div v-if="temp.back_image_path" class="w-1/2 aspect-[1.58/1] rounded bg-white border border-slate-200 overflow-hidden relative">
+                                        <div v-if="temp.back_image_path" @click.stop="openPreview(temp)" class="w-1/2 aspect-[1.58/1] rounded bg-white border border-slate-200 overflow-hidden relative group/img">
                                             <img :src="'/storage/' + temp.back_image_path" class="w-full h-full object-cover">
-                                            <div class="absolute top-1 left-1 bg-black/50 text-white text-[8px] px-1 rounded">BACK</div>
+                                            <div class="absolute top-1 left-1 bg-black/50 text-white text-[8px] px-1 rounded font-black">BACK</div>
+                                            <div class="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                                <MagnifyingGlassPlusIcon class="w-6 h-6 text-white" />
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -378,6 +450,103 @@ const generateIDs = () => {
                     </button>
                 </div>
             </form>
+        </Modal>
+
+        <!-- Preview Modal -->
+        <Modal :show="showPreviewModal" @close="showPreviewModal = false" maxWidth="4xl">
+            <div class="px-6 py-4 border-b border-slate-100 bg-white flex justify-between items-center sticky top-0 z-20">
+                <div>
+                    <h3 class="text-lg font-bold text-slate-900">Template Preview</h3>
+                    <div class="flex gap-2 mt-1">
+                        <button 
+                            @click="currentView = 'front'"
+                            :class="[
+                                'px-3 py-1 text-[10px] font-black uppercase rounded-full transition-all',
+                                currentView === 'front' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                            ]"
+                        >Front</button>
+                        <button 
+                            v-if="previewImages.back"
+                            @click="currentView = 'back'"
+                            :class="[
+                                'px-3 py-1 text-[10px] font-black uppercase rounded-full transition-all',
+                                currentView === 'back' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                            ]"
+                        >Back</button>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-2">
+                    <div class="flex bg-slate-100 rounded-xl p-1">
+                        <button @click="zoomOut" class="p-2 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600" title="Zoom Out">
+                            <MagnifyingGlassMinusIcon class="w-5 h-5" />
+                        </button>
+                        <button @click="resetZoom" class="p-2 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600" title="Reset Zoom">
+                            <ArrowsPointingOutIcon class="w-5 h-5" />
+                        </button>
+                        <button @click="zoomIn" class="p-2 hover:bg-white hover:shadow-sm rounded-lg transition-all text-slate-600" title="Zoom In">
+                            <MagnifyingGlassPlusIcon class="w-5 h-5" />
+                        </button>
+                    </div>
+                    <div class="w-px h-8 bg-slate-200 mx-2"></div>
+                    <button @click="showPreviewModal = false" class="p-2 hover:bg-slate-100 rounded-xl transition-all text-slate-400">
+                        <XMarkIcon class="w-6 h-6" />
+                    </button>
+                </div>
+            </div>
+
+            <div class="relative bg-slate-900 overflow-hidden h-[70vh] flex items-center justify-center cursor-grab active:cursor-grabbing select-none"
+                @mousedown="startDrag"
+                @mousemove="onDrag"
+                @mouseup="stopDrag"
+                @mouseleave="stopDrag"
+                @wheel.prevent="handleWheel"
+            >
+                <!-- Watermark / Background -->
+                <div class="absolute inset-0 opacity-10 flex items-center justify-center">
+                    <IdentificationIcon class="w-64 h-64 text-white" />
+                </div>
+
+                <!-- Image Container -->
+                <div 
+                    class="transition-transform duration-75 ease-out"
+                    :style="{
+                        transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`
+                    }"
+                >
+                    <div class="bg-white shadow-2xl rounded-lg overflow-hidden border border-white/20 aspect-[1.58/1] w-[600px] max-w-[90vw]">
+                        <img 
+                            :src="currentView === 'front' ? previewImages.front : previewImages.back" 
+                            class="w-full h-full object-contain pointer-events-none"
+                        >
+                    </div>
+                </div>
+
+                <!-- Zoom Level Indicator -->
+                <div class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-md text-white px-4 py-1.5 rounded-full text-xs font-bold tracking-widest border border-white/10 pointer-events-none">
+                    {{ Math.round(scale * 100) }}%
+                </div>
+
+                <!-- Navigation Controls (if back image exists) -->
+                <div v-if="previewImages.back" class="absolute inset-y-0 left-0 right-0 flex justify-between items-center px-4 pointer-events-none">
+                    <button 
+                        @click="currentView = currentView === 'front' ? 'back' : 'front'" 
+                        class="p-3 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full text-white transition-all pointer-events-auto active:scale-90"
+                    >
+                        <ChevronLeftIcon class="w-6 h-6" />
+                    </button>
+                    <button 
+                        @click="currentView = currentView === 'front' ? 'back' : 'front'" 
+                        class="p-3 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full text-white transition-all pointer-events-auto active:scale-90"
+                    >
+                        <ChevronRightIcon class="w-6 h-6" />
+                    </button>
+                </div>
+            </div>
+
+            <div class="p-4 bg-white border-t border-slate-100 flex justify-center text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                Scroll to zoom • Click and drag to move
+            </div>
         </Modal>
     </AppLayout>
 </template>

@@ -1,15 +1,20 @@
 <script setup>
-import { Head, Link, useForm, router } from '@inertiajs/vue3';
+import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
 import { ref, onMounted, watch, computed } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import DataTable from '@/Components/DataTable.vue';
+import Autocomplete from '@/Components/Autocomplete.vue';
+import PositionModal from '@/Components/PositionModal.vue';
+import DepartmentModal from '@/Components/DepartmentModal.vue';
 import { useConfirm } from '@/Composables/useConfirm';
 import { useErrorHandler } from '@/Composables/useErrorHandler';
 import { useToast } from '@/Composables/useToast';
 import { usePagination } from '@/Composables/usePagination';
 import { usePermission } from '@/Composables/usePermission';
+import { useConfidential } from '@/Composables/useConfidential';
 import { 
     UserPlusIcon, 
+    PlusIcon,
     PencilSquareIcon, 
     TrashIcon, 
     DocumentTextIcon,
@@ -31,6 +36,8 @@ const props = defineProps({
 const showModal = ref(false);
 const showHireModal = ref(false);
 const showDocsModal = ref(false);
+const showPositionModal = ref(false);
+const showDepartmentModal = ref(false);
 const isEditing = ref(false);
 const editingApplicant = ref(null);
 const hiringApplicant = ref(null);
@@ -43,6 +50,8 @@ const { confirm } = useConfirm();
 const { post, put, destroy } = useErrorHandler();
 const { showSuccess, showError } = useToast();
 const { hasPermission } = usePermission();
+const { canViewSalary } = useConfidential();
+const page = usePage();
 
 const pagination = usePagination(props.applicants, 'applicants.index');
 
@@ -94,13 +103,33 @@ const openHireModal = (applicant) => {
     showHireModal.value = true;
 };
 
-const submitHire = () => {
-    // Ensure values are positive before submission
-    if (hireForm.basic_rate <= 0) {
-        showError('Basic Rate must be greater than 0.');
-        return;
+const handlePositionSuccess = (pageProps) => {
+    // Update local options if the server returned new positions
+    if (pageProps.options?.positions) {
+        props.options.positions = pageProps.options.positions;
     }
-    if (hireForm.allowance < 0) {
+};
+
+const handleDepartmentSuccess = (pageProps) => {
+    // Update local options if the server returned new departments
+    if (pageProps.options?.departments) {
+        props.options.departments = pageProps.options.departments;
+    }
+};
+
+const submitHire = () => {
+    // Ensure values are positive before submission ONLY if the user can see/edit them
+    if (hasPermission('applicants.view_salary') && canViewSalary.value) {
+        if (hireForm.basic_rate <= 0) {
+            showError('Basic Rate must be greater than 0.');
+            return;
+        }
+        if (hireForm.allowance < 0) {
+            hireForm.allowance = 0;
+        }
+    } else {
+        // Default to 0 if not visible/permitted/authorized
+        hireForm.basic_rate = 0;
         hireForm.allowance = 0;
     }
 
@@ -675,35 +704,64 @@ const statusColors = {
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                         <div>
                             <label class="block text-sm font-bold text-slate-700 mb-1">Company</label>
-                            <select v-model="hireForm.company_id" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
-                                <option value="" disabled>Select Company</option>
-                                <option v-for="company in options?.companies" :key="company.id" :value="company.id">{{ company.name }}</option>
-                            </select>
+                            <Autocomplete 
+                                v-model="hireForm.company_id"
+                                :options="options?.companies"
+                                placeholder="Select Company..."
+                                label-key="code"
+                                value-key="id"
+                            />
                         </div>
                         <div>
                             <label class="block text-sm font-bold text-slate-700 mb-1">Start Date</label>
-                            <input v-model="hireForm.start_date" type="date" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                            <input v-model="hireForm.start_date" type="date" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-slate-900">
                         </div>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                         <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-1">Department</label>
-                            <select v-model="hireForm.department_id" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
-                                <option value="" disabled>Select Department</option>
-                                <option v-for="dept in options?.departments" :key="dept.id" :value="dept.id">{{ dept.name }}</option>
-                            </select>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="block text-sm font-bold text-slate-700">Department</label>
+                                <button 
+                                    v-if="hasPermission('departments.create')"
+                                    type="button" 
+                                    @click="showDepartmentModal = true"
+                                    class="text-[10px] font-black uppercase text-blue-600 hover:text-blue-700 flex items-center bg-blue-50 px-2 py-0.5 rounded border border-blue-100 transition-all hover:shadow-sm"
+                                >
+                                    <PlusIcon class="w-3 h-3 mr-1" /> Add Dept
+                                </button>
+                            </div>
+                            <Autocomplete 
+                                v-model="hireForm.department_id"
+                                :options="options?.departments"
+                                placeholder="Select Department..."
+                                label-key="name"
+                                value-key="id"
+                            />
                         </div>
                         <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-1">Position</label>
-                            <select v-model="hireForm.position_id" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
-                                <option value="" disabled>Select Position</option>
-                                <option v-for="pos in options?.positions" :key="pos.id" :value="pos.id">{{ pos.name }}</option>
-                            </select>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="block text-sm font-bold text-slate-700">Position</label>
+                                <button 
+                                    v-if="hasPermission('positions.create')"
+                                    type="button" 
+                                    @click="showPositionModal = true"
+                                    class="text-[10px] font-black uppercase text-blue-600 hover:text-blue-700 flex items-center bg-blue-50 px-2 py-0.5 rounded border border-blue-100 transition-all hover:shadow-sm"
+                                >
+                                    <PlusIcon class="w-3 h-3 mr-1" /> Add Position
+                                </button>
+                            </div>
+                            <Autocomplete 
+                                v-model="hireForm.position_id"
+                                :options="options?.positions"
+                                placeholder="Search Position..."
+                                label-key="name"
+                                value-key="id"
+                            />
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div v-if="hasPermission('applicants.view_salary') && canViewSalary" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                         <div>
                             <label class="block text-sm font-bold text-slate-700 mb-1">Basic Rate</label>
                             <input 
@@ -714,7 +772,7 @@ const statusColors = {
                                 @keypress="(e) => { if(e.key === '-') e.preventDefault(); }"
                                 required 
                                 placeholder="0.00" 
-                                class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono"
+                                class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono text-slate-900"
                             >
                         </div>
                         <div>
@@ -726,7 +784,7 @@ const statusColors = {
                                 min="0"
                                 @keypress="(e) => { if(e.key === '-') e.preventDefault(); }"
                                 placeholder="0.00" 
-                                class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono"
+                                class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono text-slate-900"
                             >
                         </div>
                     </div>
@@ -740,5 +798,18 @@ const statusColors = {
                 </form>
              </div>
         </div>
+
+        <!-- Position Management Modal -->
+        <PositionModal 
+            :show="showPositionModal" 
+            @close="showPositionModal = false"
+            @success="handlePositionSuccess"
+        />
+
+        <DepartmentModal 
+            :show="showDepartmentModal" 
+            @close="showDepartmentModal = false"
+            @success="handleDepartmentSuccess"
+        />
     </AppLayout>
 </template>
