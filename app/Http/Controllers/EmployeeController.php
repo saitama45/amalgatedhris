@@ -37,7 +37,7 @@ class EmployeeController extends Controller
             ]);
         }
 
-        $query = Employee::with(['user', 'activeEmploymentRecord.position', 'activeEmploymentRecord.department', 'activeEmploymentRecord.company', 'documents']);
+        $query = Employee::with(['user', 'immediateHead.user', 'activeEmploymentRecord.position', 'activeEmploymentRecord.department', 'activeEmploymentRecord.company', 'documents']);
 
         if ($request->filled('search')) {
             $query->whereHas('user', function($q) use ($request) {
@@ -77,6 +77,7 @@ class EmployeeController extends Controller
                 'positions' => \App\Models\Position::select('id', 'name')->orderBy('name')->get(),
                 'departments' => \App\Models\Department::select('id', 'name')->orderBy('name')->get(),
                 'companies' => \App\Models\Company::where('is_active', true)->select('id', 'name')->orderBy('name')->get(),
+                'employees' => \App\Models\Employee::with('user')->get()->map(fn($e) => ['id' => $e->id, 'name' => $e->user->name]),
             ],
         ]);
     }
@@ -102,6 +103,8 @@ class EmployeeController extends Controller
                 $request->validate([
 
                     'employee_code' => 'required|string|max:50|unique:employees,employee_code,' . $employee->id,
+
+                    'immediate_head_id' => 'nullable|exists:employees,id|different:id',
 
                     'sss_no' => 'nullable|string|max:20',
 
@@ -160,6 +163,8 @@ class EmployeeController extends Controller
                     $data = $request->only([
 
                         'employee_code',
+
+                        'immediate_head_id',
 
                         'sss_no', 'philhealth_no', 'pagibig_no', 'tin_no', 
 

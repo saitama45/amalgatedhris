@@ -17,18 +17,40 @@ class LeaveRequestController extends Controller
         
         $query = LeaveRequest::with(['employee.user', 'leaveType', 'approver']);
 
-        if (!$user->can('leave_requests.view')) {
-            $query->whereHas('employee', function($q) use ($user) {
-                $q->where('user_id', $user->id);
-            });
+        // HIERARCHY LOGIC
+        // 1. If user is Admin/HR (has global view permission), they see all.
+        // 2. If user is an Immediate Head (has subordinates), they see their subordinates.
+        // 3. Otherwise, they only see their own.
+        
+        if (!$user->can('leave_requests.view_all')) {
+            $employee = $user->employee;
+            
+            if ($employee && $employee->subordinates()->exists()) {
+                // User is an Immediate Head - See subordinates + own
+                $subordinateIds = $employee->subordinates()->pluck('id')->toArray();
+                $query->whereIn('employee_id', array_merge($subordinateIds, [$employee->id]));
+            } else {
+                // Regular user - See only own
+                $query->whereHas('employee', function($q) use ($user) {
+                    $q->where('user_id', $user->id);
+                });
+            }
         }
 
         $requests = $query->latest()->paginate($request->get('per_page', 10));
 
+        // Filter employees list for the creation modal
+        $employeesList = [];
+        if ($user->can('leave_requests.view_all')) {
+            $employeesList = Employee::with('user')->get();
+        } elseif ($user->employee && $user->employee->subordinates()->exists()) {
+            $employeesList = $user->employee->subordinates()->with('user')->get();
+        }
+
         return Inertia::render('Leave/Index', [
             'requests' => $requests,
             'leaveTypes' => LeaveType::all(),
-            'employees' => $user->can('leave_requests.create') ? Employee::with('user')->get()->map(fn($e) => ['id' => $e->id, 'name' => $e->user->name]) : [],
+            'employees' => collect($employeesList)->map(fn($e) => ['id' => $e->id, 'name' => $e->user->name]),
             'filters' => $request->only(['status'])
         ]);
     }
@@ -90,9 +112,7 @@ class LeaveRequestController extends Controller
 
     public function approve(Request $request, LeaveRequest $leaveRequest)
     {
-        if (!auth()->user()->can('leave_requests.approve')) {
-            abort(403);
-        }
+        $this->authorize('approve', $leaveRequest);
 
         $leaveRequest->update([
             'status' => 'Approved',
@@ -104,9 +124,7 @@ class LeaveRequestController extends Controller
 
     public function reject(Request $request, LeaveRequest $leaveRequest)
     {
-        if (!auth()->user()->can('leave_requests.reject')) {
-            abort(403);
-        }
+        $this->authorize('approve', $leaveRequest);
 
         $leaveRequest->update([
             'status' => 'Rejected',

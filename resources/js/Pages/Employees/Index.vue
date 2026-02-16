@@ -313,6 +313,7 @@ const showEditModal = ref(false);
 const editingEmployee = ref(null);
 const editForm = useForm({
     employee_code: '',
+    immediate_head_id: '',
     civil_status: '',
     gender: '',
     birthday: '',
@@ -665,6 +666,7 @@ const openEditModal = (employee) => {
     editingEmployee.value = employee;
     activeTab.value = 'profile'; // Reset tab
     editForm.employee_code = employee.employee_code || '';
+    editForm.immediate_head_id = employee.immediate_head_id || '';
     editForm.civil_status = employee.civil_status || '';
     editForm.gender = employee.gender || '';
     editForm.birthday = employee.birthday ? employee.birthday.split('T')[0] : '';
@@ -1143,6 +1145,17 @@ const submitResign = async () => {
                     <div class="mb-6">
                         <label class="block text-sm font-bold text-slate-700 mb-1">Employee ID / Code</label>
                         <input v-model="editForm.employee_code" type="text" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono">
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-bold text-slate-700 mb-1">Immediate Head (Approver)</label>
+                        <select v-model="editForm.immediate_head_id" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                            <option value="">No Immediate Head (Top Level)</option>
+                            <option v-for="emp in options.employees.filter(e => e.id !== editingEmployee?.id)" :key="emp.id" :value="emp.id">
+                                {{ emp.name }}
+                            </option>
+                        </select>
+                        <p class="text-[10px] text-slate-500 mt-1 italic">Selecting a head allows them to see and approve this employee's OT and Leave requests.</p>
                     </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">

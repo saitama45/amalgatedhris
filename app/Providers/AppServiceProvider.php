@@ -25,6 +25,8 @@ class AppServiceProvider extends ServiceProvider
     {
         Gate::policy(\App\Models\Company::class, CompanyPolicy::class);
         Gate::policy(\App\Models\Payslip::class, \App\Policies\PayslipPolicy::class);
+        Gate::policy(\App\Models\LeaveRequest::class, \App\Policies\LeaveRequestPolicy::class);
+        Gate::policy(\App\Models\OvertimeRequest::class, \App\Policies\OvertimeRequestPolicy::class);
         Vite::prefetch(concurrency: 3);
     }
 }

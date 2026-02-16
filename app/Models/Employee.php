@@ -11,6 +11,7 @@ class Employee extends Model
 
     protected $fillable = [
         'user_id',
+        'immediate_head_id',
         'employee_code',
         'sss_no',
         'philhealth_no',
@@ -40,6 +41,16 @@ class Employee extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function immediateHead()
+    {
+        return $this->belongsTo(Employee::class, 'immediate_head_id');
+    }
+
+    public function subordinates()
+    {
+        return $this->hasMany(Employee::class, 'immediate_head_id');
     }
 
     public function employmentRecords()

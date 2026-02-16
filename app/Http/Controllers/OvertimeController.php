@@ -20,9 +20,22 @@ class OvertimeController extends Controller
         
         $query = OvertimeRequest::with(['user.employee.activeEmploymentRecord.department', 'approver']);
 
-        // If not admin/hr/approver, only see own
-        if (!$user->can('overtime.approve')) {
-            $query->where('user_id', $user->id);
+        // HIERARCHY LOGIC
+        // 1. If user is Admin/HR, they see all.
+        // 2. If user is an Immediate Head, they see their subordinates.
+        // 3. Otherwise, they only see their own.
+        
+        if (!$user->can('overtime.view_all')) {
+            $employee = $user->employee;
+            
+            if ($employee && $employee->subordinates()->exists()) {
+                // User is an Immediate Head - See subordinates + own
+                $subordinateUserIds = Employee::where('immediate_head_id', $employee->id)->pluck('user_id')->toArray();
+                $query->whereIn('user_id', array_merge($subordinateUserIds, [$user->id]));
+            } else {
+                // Regular user - See only own
+                $query->where('user_id', $user->id);
+            }
         }
 
         if ($request->filled('status')) {
@@ -123,9 +136,7 @@ class OvertimeController extends Controller
     public function approve(Request $request, OvertimeRequest $overtimeRequest)
     {
         // Permission check
-        if (!Auth::user()->can('overtime.approve')) {
-            abort(403);
-        }
+        $this->authorize('approve', $overtimeRequest);
 
         // --- COMPUTATION LOGIC START ---
         $employee = $overtimeRequest->user->employee;
@@ -219,9 +230,7 @@ class OvertimeController extends Controller
      */
     public function reject(Request $request, OvertimeRequest $overtimeRequest)
     {
-         if (!Auth::user()->can('overtime.approve')) {
-            abort(403);
-        }
+         $this->authorize('approve', $overtimeRequest);
 
         $request->validate(['rejection_reason' => 'required|string']);
 
