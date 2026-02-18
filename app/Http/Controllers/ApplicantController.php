@@ -168,7 +168,8 @@ class ApplicantController extends Controller
 
     public function hire(Request $request, Applicant $applicant)
     {
-        $hasSalaryPermission = $request->user()->can('applicants.view_salary');
+        $hasSalaryPermission = $request->user()->can('applicants.view_salary') && 
+            \App\Models\ConfidentialEmail::where('email', $request->user()->email)->where('can_view_salary', true)->exists();
 
         $request->validate([
             'company_id' => 'required|exists:companies,id',
