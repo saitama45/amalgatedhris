@@ -37,7 +37,7 @@ class EmployeeController extends Controller
             $this->saveQRCodeImage($qrCode);
         }
 
-        $query = Employee::with(['user', 'applicant', 'immediateHead.user', 'activeEmploymentRecord.position', 'activeEmploymentRecord.department', 'activeEmploymentRecord.company', 'documents']);
+        $query = Employee::with(['user', 'applicant', 'immediateHead.user', 'activeEmploymentRecord.position', 'activeEmploymentRecord.department', 'activeEmploymentRecord.company', 'latestEmploymentRecord', 'documents']);
 
         if ($request->filled('search')) {
             $query->where(function($q) use ($request) {

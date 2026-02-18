@@ -1072,7 +1072,7 @@ const submitResign = async () => {
                                 <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Position</th>
                                 <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Address</th>
                                 <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Department</th>
-                                <th class="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Actions</th>
+                                <th class="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100 min-w-[120px]">Actions</th>
                             </tr>
                         </template>
                         
@@ -1117,17 +1117,17 @@ const submitResign = async () => {
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span :class="[
                                         'px-2 py-1 text-[10px] font-bold rounded-lg border uppercase tracking-wider',
-                                        employee.active_employment_record?.employment_status === 'Regular' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                                        employee.active_employment_record?.employment_status === 'Probationary' ? 'bg-amber-50 text-amber-700 border-amber-100' :
-                                        employee.active_employment_record?.employment_status === 'Resigned' ? 'bg-rose-50 text-rose-700 border-rose-100' :
+                                        (employee.active_employment_record?.employment_status || employee.latest_employment_record?.employment_status) === 'Regular' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                                        (employee.active_employment_record?.employment_status || employee.latest_employment_record?.employment_status) === 'Probationary' ? 'bg-amber-50 text-amber-700 border-amber-100' :
+                                        (employee.active_employment_record?.employment_status || employee.latest_employment_record?.employment_status) === 'Resigned' ? 'bg-rose-50 text-rose-700 border-rose-100' :
                                         'bg-slate-50 text-slate-700 border-slate-100'
                                     ]">
-                                        {{ employee.active_employment_record?.employment_status || 'N/A' }}
+                                        {{ employee.active_employment_record?.employment_status || employee.latest_employment_record?.employment_status || 'N/A' }}
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span class="text-sm font-medium text-slate-700">
-                                        {{ employee.active_employment_record?.position?.name || 'No Position' }}
+                                        {{ employee.active_employment_record?.position?.name || employee.latest_employment_record?.position?.name || 'No Position' }}
                                     </span>
                                 </td>
                                 <td class="px-6 py-4">
@@ -1144,12 +1144,12 @@ const submitResign = async () => {
                                     <div class="flex flex-col">
                                         <div class="flex items-center text-sm text-slate-600">
                                             <BuildingOffice2Icon class="w-4 h-4 mr-2 text-slate-400" />
-                                            {{ employee.active_employment_record?.department?.name || 'Unassigned' }}
+                                            {{ employee.active_employment_record?.department?.name || employee.latest_employment_record?.department?.name || 'Unassigned' }}
                                         </div>
-                                        <div class="text-xs text-slate-500 ml-6">{{ employee.active_employment_record?.company?.name || '-' }}</div>
+                                        <div class="text-xs text-slate-500 ml-6">{{ employee.active_employment_record?.company?.name || employee.latest_employment_record?.company?.name || '-' }}</div>
                                     </div>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium min-w-[120px]">
                                     <div class="flex justify-end space-x-1">
                                         <button 
                                             v-if="hasPermission('employees.edit')"
@@ -1176,7 +1176,7 @@ const submitResign = async () => {
                                             <BanknotesIcon class="w-5 h-5" />
                                         </button>
                                         <button 
-                                            v-if="employee.active_employment_record?.is_active && hasPermission('employees.edit')"
+                                            v-if="(employee.active_employment_record?.employment_status || employee.latest_employment_record?.employment_status) !== 'Resigned' && hasPermission('employees.edit')"
                                             @click="openResignModal(employee)"
                                             class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                                             title="Mark as Resigned"

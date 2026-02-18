@@ -63,6 +63,11 @@ class Employee extends Model
         return $this->hasOne(EmploymentRecord::class)->where('is_active', true);
     }
 
+    public function latestEmploymentRecord()
+    {
+        return $this->hasOne(EmploymentRecord::class)->latestOfMany();
+    }
+
     public function applicant()
     {
         return $this->hasOneThrough(
