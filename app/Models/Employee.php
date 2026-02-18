@@ -35,7 +35,7 @@ class Employee extends Model
     ];
 
     protected $casts = [
-        'birthday' => 'date',
+        'birthday' => 'date:Y-m-d',
     ];
 
     public function user()
