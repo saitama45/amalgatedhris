@@ -128,6 +128,11 @@ Route::middleware('auth')->group(function () {
         Route::put('payroll/{payroll}/revert', [\App\Http\Controllers\PayrollController::class, 'revert'])->name('payroll.revert');
         Route::get('payslips/{payslip}/export-pdf', [\App\Http\Controllers\PayrollController::class, 'exportPayslipPdf'])->name('payslips.export-pdf');
         Route::put('payslips/{payslip}', [\App\Http\Controllers\PayrollController::class, 'updatePayslip'])->name('payslips.update');
+
+        // Payroll Adjustments
+        Route::get('payroll-adjustments', [\App\Http\Controllers\PayrollAdjustmentController::class, 'index'])->name('payroll-adjustments.index');
+        Route::post('payroll-adjustments', [\App\Http\Controllers\PayrollAdjustmentController::class, 'store'])->name('payroll-adjustments.store');
+        Route::delete('payroll-adjustments/{adjustment}', [\App\Http\Controllers\PayrollAdjustmentController::class, 'destroy'])->name('payroll-adjustments.destroy');
     });
 
     // Leave & Overtime Requests
@@ -159,6 +164,7 @@ Route::middleware('auth')->group(function () {
                     Route::post('/ob-attendance', [\App\Http\Controllers\PortalController::class, 'storeObAttendance'])->name('ob-attendance.store');
                     Route::get('/payslips', [\App\Http\Controllers\PortalController::class, 'payslips'])->name('payslips');        Route::get('/my-payslip/{id}/pdf', [\App\Http\Controllers\PortalController::class, 'exportPayslipPdf'])->name('payslips.pdf');
         Route::get('/deductions', [\App\Http\Controllers\PortalController::class, 'deductions'])->name('deductions');
+        Route::get('/adjustments', [\App\Http\Controllers\PayrollAdjustmentController::class, 'portalIndex'])->name('adjustments');
 
         // Self-service actions (avoiding 403 from admin routes)
         Route::post('/leaves', [\App\Http\Controllers\PortalController::class, 'storeLeave'])

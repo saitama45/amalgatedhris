@@ -36,6 +36,7 @@ class PayrollExport implements FromCollection, WithHeadings, WithMapping, WithSt
             'Employee Code',
             'Basic Pay',
             'Allowances',
+            'Adjustments',
             'OT Pay',
             'Gross Earnings',
             'SSS',
@@ -65,6 +66,7 @@ class PayrollExport implements FromCollection, WithHeadings, WithMapping, WithSt
             $payslip->employee->employee_code,
             $payslip->basic_pay,
             $payslip->allowances,
+            $payslip->adjustments,
             $payslip->ot_pay,
             $payslip->gross_pay,
             $payslip->sss_deduction,
@@ -81,7 +83,7 @@ class PayrollExport implements FromCollection, WithHeadings, WithMapping, WithSt
 
     public function styles(Worksheet $sheet)
     {
-        $sheet->getStyle('A1:O1')->applyFromArray([
+        $sheet->getStyle('A1:P1')->applyFromArray([
             'font' => [
                 'bold' => true,
                 'color' => ['rgb' => 'FFFFFF'],
@@ -100,27 +102,27 @@ class PayrollExport implements FromCollection, WithHeadings, WithMapping, WithSt
         // Alternate row colors for better readability
         for ($i = 2; $i <= $lastRow; $i++) {
             if ($i % 2 == 0) {
-                $sheet->getStyle('A' . $i . ':O' . $i)->getFill()
+                $sheet->getStyle('A' . $i . ':P' . $i)->getFill()
                     ->setFillType(Fill::FILL_SOLID)
                     ->getStartColor()->setRGB('F8FAFC'); // Slate-50
             }
         }
 
         // Highlight Net Pay column
-        $sheet->getStyle('O2:O' . $lastRow)->applyFromArray([
+        $sheet->getStyle('P2:P' . $lastRow)->applyFromArray([
             'font' => [
                 'bold' => true,
                 'color' => ['rgb' => '059669'], // Emerald-600
             ],
         ]);
 
-        // Currency format for columns C to O
-        $sheet->getStyle('C2:O' . $lastRow)
+        // Currency format for columns C to P
+        $sheet->getStyle('C2:P' . $lastRow)
             ->getNumberFormat()
             ->setFormatCode('"₱"#,##0.00');
 
         // Borders
-        $sheet->getStyle('A1:O' . $lastRow)->applyFromArray([
+        $sheet->getStyle('A1:P' . $lastRow)->applyFromArray([
             'borders' => [
                 'allBorders' => [
                     'borderStyle' => Border::BORDER_THIN,

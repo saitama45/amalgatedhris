@@ -24,7 +24,8 @@ import {
     ChevronRightIcon,
     CameraIcon,
     MapPinIcon,
-    ShieldExclamationIcon
+    ShieldExclamationIcon,
+    CalculatorIcon
 } from '@heroicons/vue/24/outline';
 import { usePermission } from '@/Composables/usePermission';
 import { useConfidential } from '@/Composables/useConfidential';
@@ -111,6 +112,8 @@ const getRouteName = (category) => {
         'portal.ob-attendance': 'portal.ob-attendance',
         'portal.payslips': 'portal.payslips',
         'portal.deductions': 'portal.deductions',
+        'portal.adjustments': 'portal.adjustments',
+        'payroll_adjustments': 'payroll-adjustments.index',
         'confidential_emails': 'confidential-emails.index',
     };
 
@@ -136,6 +139,7 @@ const iconMap = {
     overtime_rates: TableCellsIcon,
     leave_requests: DocumentDuplicateIcon,
     payroll: BanknotesIcon,
+    payroll_adjustments: CalculatorIcon,
     government_deductions: TableCellsIcon,
     deductions: CreditCardIcon,
     'portal.dashboard': HomeIcon,
@@ -145,6 +149,7 @@ const iconMap = {
     'portal.ob-attendance': CameraIcon,
     'portal.payslips': BanknotesIcon,
     'portal.deductions': CreditCardIcon,
+    'portal.adjustments': CalculatorIcon,
     users: UserGroupIcon,
     companies: BuildingOfficeIcon,
     departments: BuildingOfficeIcon,

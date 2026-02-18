@@ -6,9 +6,9 @@ return [
         'Recruitment' => ['applicants', 'exams'],
         'Workforce' => ['employees', 'id_printing'],
         'Time & Attendance' => ['attendance.kiosk', 'dtr', 'shifts', 'schedules', 'holidays', 'overtime', 'overtime_rates', 'leave_requests'],
-        'Compensation' => ['payroll', 'government_deductions', 'deductions'],
+        'Compensation' => ['payroll', 'payroll_adjustments', 'government_deductions', 'deductions'],
         'Reports' => ['government_remittances'],
-        'My Portal' => ['portal.dashboard', 'portal.leaves', 'portal.overtime', 'portal.attendance', 'portal.ob-attendance', 'portal.payslips', 'portal.deductions'],
+        'My Portal' => ['portal.dashboard', 'portal.leaves', 'portal.overtime', 'portal.attendance', 'portal.ob-attendance', 'portal.payslips', 'portal.deductions', 'portal.adjustments'],
         'System Administration' => ['users', 'companies', 'departments', 'positions', 'document_types', 'roles']
     ],
 
@@ -101,6 +101,10 @@ return [
         'payroll.revert' => 'Unlock/Revert Finalized Payroll',
         'payroll.edit_payslip' => 'Edit Payslip Adjustments',
         'payroll.delete' => 'Rollback Payroll (Delete)',
+        'payroll.manage_adjustments' => 'Manage Payroll Adjustments (One-time)',
+        'payroll_adjustments.view' => 'View Adjustment Ledger',
+        'payroll_adjustments.create' => 'Create Payroll Adjustment',
+        'payroll_adjustments.delete' => 'Delete Pending Adjustment',
         'payroll.manage_loans' => 'Manage Employee Loans',
         'payroll.settings' => 'Edit Payroll Settings',
 
@@ -125,6 +129,7 @@ return [
         'portal.ob-attendance' => 'Submit OB Attendance (Selfie + GPS)',
         'portal.payslips' => 'View Own Payslips',
         'portal.deductions' => 'View Own Deductions Ledger',
+        'portal.adjustments' => 'View Own Payroll Adjustments',
 
         // System - Users
         'users.view' => 'View Users',
@@ -178,6 +183,7 @@ return [
         'overtime_rates' => 'OT Multipliers',
         'leave_requests' => 'Leave Requests',
         'payroll' => 'Payroll',
+        'payroll_adjustments' => 'Payroll Adjustments',
         'government_deductions' => 'Government Deductions',
         'deductions' => 'Other Deductions',
         'government_remittances' => 'Govt Remittances',
@@ -188,6 +194,7 @@ return [
         'portal.ob-attendance' => 'My OB Attendance',
         'portal.payslips' => 'My Payslips',
         'portal.deductions' => 'Deductions Ledger',
+        'portal.adjustments' => 'My Adjustments',
         'users' => 'User Management',
         'companies' => 'Companies',
         'departments' => 'Departments',

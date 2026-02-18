@@ -114,6 +114,7 @@
                 <th>Employee</th>
                 <th class="text-right">Basic</th>
                 <th class="text-right">Allowances</th>
+                <th class="text-right">Adjustments</th>
                 <th class="text-right">OT Pay</th>
                 <th class="text-right">Gross Earnings</th>
                 <th class="text-right">Total Deductions</th>
@@ -129,6 +130,7 @@
                 </td>
                 <td class="text-right">{{ number_format($slip->basic_pay, 2) }}</td>
                 <td class="text-right">{{ number_format($slip->allowances, 2) }}</td>
+                <td class="text-right">{{ number_format($slip->adjustments, 2) }}</td>
                 <td class="text-right">{{ number_format($slip->ot_pay, 2) }}</td>
                 <td class="text-right font-bold">{{ number_format($slip->gross_pay, 2) }}</td>
                 <td class="text-right text-rose">

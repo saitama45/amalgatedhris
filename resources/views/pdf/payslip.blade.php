@@ -204,6 +204,10 @@
                             <td class="amount">{{ number_format($slip->allowances, 2) }}</td>
                         </tr>
                         <tr class="item-row">
+                            <td>Adjustments</td>
+                            <td class="amount">{{ number_format($slip->adjustments, 2) }}</td>
+                        </tr>
+                        <tr class="item-row">
                             <td>Overtime Pay</td>
                             <td class="amount">{{ number_format($slip->ot_pay, 2) }}</td>
                         </tr>

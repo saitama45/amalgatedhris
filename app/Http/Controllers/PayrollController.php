@@ -337,10 +337,49 @@ class PayrollController extends Controller
                 }
             }
 
-            $grossPay = $basicPay + $allowance + $totalApprovedOT;
+            // 6. Fetch Payroll Adjustments (Refunds/Missed Pay)
+            $adjustments = \App\Models\PayrollAdjustment::where('employee_id', $employee->id)
+                ->where('status', 'Pending')
+                ->where(function($q) use ($payroll) {
+                    $q->whereNull('payout_date')
+                      ->orWhere('payout_date', '<=', $payroll->payout_date);
+                })
+                ->get();
+
+            $adjAdditions = 0;
+            $adjDeductions = 0;
+            $taxableAdj = 0;
+            $adjustmentDetails = [];
+
+            foreach ($adjustments as $adj) {
+                if ($adj->type === 'Addition') {
+                    $adjAdditions += $adj->amount;
+                    if ($adj->is_taxable) {
+                        $taxableAdj += $adj->amount;
+                    }
+                } else {
+                    $adjDeductions += $adj->amount;
+                }
+                
+                $adjustmentDetails[] = [
+                    'id' => $adj->id,
+                    'type' => $adj->type,
+                    'amount' => $adj->amount,
+                    'reason' => $adj->reason
+                ];
+
+                // Link and update status
+                $adj->update([
+                    'payroll_id' => $payroll->id,
+                    'status' => 'Processed',
+                    'processed_at' => now()
+                ]);
+            }
+
+            $grossPay = $basicPay + $allowance + $totalApprovedOT + $adjAdditions;
             
             // Calculate Taxable Income
-            $taxableIncome = $grossPay - ($sss + $philhealth + $pagibig);
+            $taxableIncome = ($grossPay - $adjAdditions + $taxableAdj) - ($sss + $philhealth + $pagibig);
             
             // Calculate Withholding Tax based on Company Cycle
             $withholdingTax = 0;
@@ -365,7 +404,7 @@ class PayrollController extends Controller
                 }
             }
 
-            $totalDeductions = $lateDeduction + $utDeduction + $absenceDeduction + $sss + $philhealth + $pagibig + $totalOtherDeductions + $withholdingTax;
+            $totalDeductions = $lateDeduction + $utDeduction + $absenceDeduction + $sss + $philhealth + $pagibig + $totalOtherDeductions + $withholdingTax + $adjDeductions;
             $netPay = $grossPay - $totalDeductions;
 
             Payslip::create([
@@ -375,6 +414,7 @@ class PayrollController extends Controller
                 'gross_pay' => $grossPay,
                 'allowances' => $allowance,
                 'ot_pay' => $totalApprovedOT,
+                'adjustments' => $adjAdditions,
                 'late_deduction' => $lateDeduction,
                 'undertime_deduction' => $utDeduction,
                 'sss_deduction' => $sss,
@@ -382,7 +422,7 @@ class PayrollController extends Controller
                 'pagibig_ded' => $pagibig,
                 'tax_withheld' => $withholdingTax,
                 'loan_deductions' => 0,
-                'other_deductions' => $totalOtherDeductions + $absenceDeduction,
+                'other_deductions' => $totalOtherDeductions + $absenceDeduction + $adjDeductions,
                 'net_pay' => $netPay,
                 'details' => [
                     'days_worked' => $daysPresent,
@@ -393,6 +433,7 @@ class PayrollController extends Controller
                     'ut_minutes' => $totalUTMinutes,
                     'period_factor' => $periodFactor,
                     'deductions' => $deductionBreakdown,
+                    'adjustments' => $adjustmentDetails,
                     'contributions' => [
                         'sss' => $contributions['sss'] ?? null,
                         'philhealth' => $contributions['philhealth'] ?? null,
@@ -470,6 +511,14 @@ class PayrollController extends Controller
                     }
                 }
             }
+
+            // Revert Adjustments
+            \App\Models\PayrollAdjustment::where('payroll_id', $payroll->id)
+                ->update([
+                    'status' => 'Pending',
+                    'payroll_id' => null,
+                    'processed_at' => null
+                ]);
 
             $payroll->update(['status' => 'Draft']);
 
@@ -590,6 +639,7 @@ class PayrollController extends Controller
         $validated = $request->validate([
             'basic_pay' => 'required|numeric',
             'allowances' => 'required|numeric',
+            'adjustments' => 'required|numeric',
             'ot_pay' => 'required|numeric',
             'late_deduction' => 'required|numeric',
             'undertime_deduction' => 'required|numeric',
@@ -601,7 +651,7 @@ class PayrollController extends Controller
             'details' => 'nullable|array',
         ]);
 
-        $gross = $validated['basic_pay'] + $validated['allowances'] + $validated['ot_pay'];
+        $gross = $validated['basic_pay'] + $validated['allowances'] + $validated['ot_pay'] + $validated['adjustments'];
         $deductions = $validated['late_deduction'] + $validated['undertime_deduction'] + 
                       $validated['sss_deduction'] + $validated['philhealth_ded'] + 
                       $validated['pagibig_ded'] + $validated['tax_withheld'] + 

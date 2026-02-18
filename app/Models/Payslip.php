@@ -16,6 +16,7 @@ class Payslip extends Model
         'gross_pay',
         'allowances',
         'ot_pay',
+        'adjustments',
         'late_deduction',
         'undertime_deduction',
         'sss_deduction',

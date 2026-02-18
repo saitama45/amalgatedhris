@@ -104,9 +104,10 @@ const formatPeriod = (payroll) => {
                             <tr class="bg-slate-50">
                                 <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Pay Period</th>
                                 <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Payout Date</th>
-                                <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Gross Pay</th>
-                                <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Deductions</th>
-                                <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Net Pay</th>
+                                <th class="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Adjustments</th>
+                                <th class="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Gross Pay</th>
+                                <th class="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Deductions</th>
+                                <th class="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Net Pay</th>
                                 <th class="px-6 py-4 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Actions</th>
                             </tr>
                         </template>
@@ -127,15 +128,18 @@ const formatPeriod = (payroll) => {
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm font-bold text-slate-700">{{ formatFullDate(slip.payroll?.payout_date) }}</div>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
+                                <td class="px-6 py-4 text-right whitespace-nowrap">
+                                    <div class="text-sm font-medium text-slate-600">{{ formatCurrency(slip.adjustments) }}</div>
+                                </td>
+                                <td class="px-6 py-4 text-right whitespace-nowrap">
                                     <div class="text-sm font-medium text-slate-600">{{ formatCurrency(slip.gross_pay) }}</div>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
+                                <td class="px-6 py-4 text-right whitespace-nowrap">
                                     <div class="text-sm font-medium text-rose-600">
                                         {{ formatCurrency(parseFloat(slip.sss_deduction) + parseFloat(slip.philhealth_ded) + parseFloat(slip.pagibig_ded) + parseFloat(slip.tax_withheld) + parseFloat(slip.loan_deductions) + parseFloat(slip.other_deductions)) }}
                                     </div>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
+                                <td class="px-6 py-4 text-right whitespace-nowrap">
                                     <div class="text-sm font-bold text-emerald-600">{{ formatCurrency(slip.net_pay) }}</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right">

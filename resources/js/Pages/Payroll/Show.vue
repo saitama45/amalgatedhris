@@ -45,6 +45,7 @@ const editingSlip = ref(null);
 const editForm = useForm({
     basic_pay: 0,
     allowances: 0,
+    adjustments: 0,
     ot_pay: 0,
     late_deduction: 0,
     undertime_deduction: 0,
@@ -62,6 +63,7 @@ const openEditModal = (slip) => {
     editingSlip.value = slip;
     editForm.basic_pay = slip.basic_pay;
     editForm.allowances = slip.allowances;
+    editForm.adjustments = slip.adjustments;
     editForm.ot_pay = slip.ot_pay;
     editForm.late_deduction = slip.late_deduction;
     editForm.undertime_deduction = slip.undertime_deduction;
@@ -86,7 +88,7 @@ const preventNegative = (e) => {
 
 const submitEdit = () => {
     // 1. Validate all fields are >= 0
-    const fields = ['basic_pay', 'allowances', 'ot_pay', 'late_deduction', 'undertime_deduction', 'sss_deduction', 'philhealth_ded', 'pagibig_ded', 'tax_withheld', 'absence_deduction'];
+    const fields = ['basic_pay', 'allowances', 'adjustments', 'ot_pay', 'late_deduction', 'undertime_deduction', 'sss_deduction', 'philhealth_ded', 'pagibig_ded', 'tax_withheld', 'absence_deduction'];
     for (const field of fields) {
         if (parseFloat(editForm[field]) < 0) {
             showError(`The ${field.replace('_', ' ')} must be greater than or equal to 0.`);
@@ -291,6 +293,7 @@ const formatDate = (date) => {
                                 <th class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Employee</th>
                                 <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Basic</th>
                                 <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Allowances</th>
+                                <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Adjustments</th>
                                 <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">OT Pay</th>
                                 <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Gross Earnings</th>
                                 <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Total Deductions</th>
@@ -314,6 +317,7 @@ const formatDate = (date) => {
                                 </td>
                                 <td class="px-6 py-4 text-right text-sm text-slate-600 font-mono">{{ formatCurrency(slip.basic_pay) }}</td>
                                 <td class="px-6 py-4 text-right text-sm text-slate-600 font-mono">{{ formatCurrency(slip.allowances) }}</td>
+                                <td class="px-6 py-4 text-right text-sm text-slate-600 font-mono">{{ formatCurrency(slip.adjustments) }}</td>
                                 <td class="px-6 py-4 text-right text-sm text-blue-600 font-mono font-medium">{{ formatCurrency(slip.ot_pay) }}</td>
                                 <td class="px-6 py-4 text-right text-sm text-slate-800 font-mono font-bold">{{ formatCurrency(slip.gross_pay) }}</td>
                                 <td class="px-6 py-4 text-right text-sm text-rose-600 font-mono">
@@ -384,6 +388,10 @@ const formatDate = (date) => {
                             <div>
                                 <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Total Allowances</label>
                                 <input v-model="editForm.allowances" type="number" step="0.01" min="0" @keypress="preventNegative" class="w-full rounded-xl border-slate-200 text-sm focus:ring-emerald-500 font-mono">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Adjustment Pay</label>
+                                <input v-model="editForm.adjustments" type="number" step="0.01" min="0" @keypress="preventNegative" class="w-full rounded-xl border-slate-200 text-sm focus:ring-emerald-500 font-mono">
                             </div>
                             <div>
                                 <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Overtime Pay</label>
@@ -460,7 +468,7 @@ const formatDate = (date) => {
                         <div class="pt-4 border-t border-slate-100 flex justify-between items-center font-bold">
                             <span class="text-[10px] text-slate-500 uppercase tracking-wider">Total Gross Earnings</span>
                             <span class="text-lg font-mono text-slate-800">
-                                {{ formatCurrency(parseFloat(editForm.basic_pay || 0) + parseFloat(editForm.allowances || 0) + parseFloat(editForm.ot_pay || 0)) }}
+                                {{ formatCurrency(parseFloat(editForm.basic_pay || 0) + parseFloat(editForm.allowances || 0) + parseFloat(editForm.adjustments || 0) + parseFloat(editForm.ot_pay || 0)) }}
                             </span>
                         </div>
 
@@ -485,7 +493,7 @@ const formatDate = (date) => {
                         <div class="text-slate-400 text-xs font-bold uppercase tracking-widest">Calculated Net Pay</div>
                         <div class="text-2xl font-mono font-bold text-emerald-400">
                             {{ formatCurrency(
-                                (parseFloat(editForm.basic_pay || 0) + parseFloat(editForm.allowances || 0) + parseFloat(editForm.ot_pay || 0)) - 
+                                (parseFloat(editForm.basic_pay || 0) + parseFloat(editForm.allowances || 0) + parseFloat(editForm.adjustments || 0) + parseFloat(editForm.ot_pay || 0)) - 
                                 (parseFloat(editForm.late_deduction || 0) + parseFloat(editForm.undertime_deduction || 0) + 
                                  parseFloat(editForm.sss_deduction || 0) + parseFloat(editForm.philhealth_ded || 0) + 
                                  parseFloat(editForm.pagibig_ded || 0) + parseFloat(editForm.tax_withheld || 0) + 
