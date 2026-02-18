@@ -178,6 +178,8 @@ class ApplicantController extends Controller
             'start_date' => 'required|date',
             'basic_rate' => $hasSalaryPermission ? 'required|numeric|gt:0' : 'nullable|numeric',
             'allowance' => 'nullable|numeric',
+            'allowance_15th' => 'nullable|numeric',
+            'allowance_30th' => 'nullable|numeric',
         ]);
 
         DB::transaction(function () use ($request, $applicant, $hasSalaryPermission) {
@@ -211,7 +213,9 @@ class ApplicantController extends Controller
                 'department_id' => $request->department_id,
                 'position_id' => $request->position_id,
                 'basic_rate' => $hasSalaryPermission ? $request->basic_rate : 0,
-                'allowance' => $hasSalaryPermission ? ($request->allowance ?? 0) : 0,
+                'allowance_15th' => $hasSalaryPermission ? ($request->allowance_15th ?? 0) : 0,
+                'allowance_30th' => $hasSalaryPermission ? ($request->allowance_30th ?? 0) : 0,
+                'allowance' => $hasSalaryPermission ? ($request->allowance ?? ($request->allowance_15th + $request->allowance_30th)) : 0,
                 'employment_status' => 'Probationary',
                 'start_date' => $request->start_date,
                 'is_active' => true,

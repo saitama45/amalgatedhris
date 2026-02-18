@@ -62,6 +62,18 @@ class Employee extends Model
     {
         return $this->hasOne(EmploymentRecord::class)->where('is_active', true);
     }
+
+    public function applicant()
+    {
+        return $this->hasOneThrough(
+            Applicant::class,
+            User::class,
+            'id', // Foreign key on users table (users.id)
+            'email', // Foreign key on applicants table (applicants.email)
+            'user_id', // Local key on employees table (employees.user_id)
+            'email' // Local key on users table (users.email)
+        );
+    }
     
     public function documents()
     {

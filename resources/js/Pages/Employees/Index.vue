@@ -30,7 +30,9 @@ import {
     TrashIcon,
     PlusIcon,
     CameraIcon,
-    FunnelIcon
+    FunnelIcon,
+    ChevronUpIcon,
+    ChevronDownIcon
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
@@ -50,6 +52,9 @@ const filterForm = ref({
     company_id: props.filters.company_id || '',
     department_id: props.filters.department_id || '',
     position_id: props.filters.position_id || '',
+    employment_status: props.filters.employment_status || '',
+    sort_by: props.filters.sort_by || 'created_at',
+    sort_dir: props.filters.sort_dir || 'desc',
 });
 
 const pagination = usePagination(props.employees, 'employees.index', () => ({
@@ -64,6 +69,16 @@ const applyFilters = () => {
         per_page: pagination.perPage.value
     };
     pagination.performSearch(route('employees.index'), params);
+};
+
+const sortBy = (field) => {
+    if (filterForm.value.sort_by === field) {
+        filterForm.value.sort_dir = filterForm.value.sort_dir === 'asc' ? 'desc' : 'asc';
+    } else {
+        filterForm.value.sort_by = field;
+        filterForm.value.sort_dir = 'asc';
+    }
+    applyFilters();
 };
 
 const modelsLoaded = ref(false);
@@ -121,6 +136,8 @@ const canShowSalaryForm = computed(() => {
 const salaryForm = useForm({
     basic_rate: '',
     allowance: 0,
+    allowance_15th: 0,
+    allowance_30th: 0,
     position_id: '',
     company_id: '',
     effective_date: new Date().toISOString().split('T')[0],
@@ -154,6 +171,8 @@ const editSalaryItem = (item) => {
     showAddForm.value = true;
     
     salaryForm.basic_rate = item.basic_rate;
+    salaryForm.allowance_15th = item.allowance_15th || 0;
+    salaryForm.allowance_30th = item.allowance_30th || 0;
     salaryForm.allowance = item.allowance;
     salaryForm.position_id = item.position_id; 
     salaryForm.company_id = item.company_id;
@@ -178,6 +197,8 @@ const fetchSalaryHistory = (employeeId) => {
             // Set current rates in form as default for new record if NOT editing
             if (!isEditingSalary.value && historyData.length > 0) {
                 salaryForm.basic_rate = historyData[0].basic_rate;
+                salaryForm.allowance_15th = historyData[0].allowance_15th || 0;
+                salaryForm.allowance_30th = historyData[0].allowance_30th || 0;
                 salaryForm.allowance = historyData[0].allowance;
             }
         })
@@ -185,6 +206,9 @@ const fetchSalaryHistory = (employeeId) => {
 };
 
 const submitSalary = () => {
+    // Total monthly allowance
+    salaryForm.allowance = parseFloat(salaryForm.allowance_15th || 0) + parseFloat(salaryForm.allowance_30th || 0);
+
     if (isEditingSalary.value && editingSalaryItem.value) {
         // Update existing record
         salaryForm.put(route('salary-history.update', editingSalaryItem.value.id), {
@@ -972,6 +996,18 @@ const submitResign = async () => {
                             </select>
                         </div>
                         <div class="w-full">
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Status</label>
+                            <select v-model="filterForm.employment_status" class="w-full rounded-lg border-slate-200 text-sm">
+                                <option value="">All Statuses</option>
+                                <option value="Probationary">Probationary</option>
+                                <option value="Regular">Regular</option>
+                                <option value="Consultant">Consultant</option>
+                                <option value="Project-Based">Project-Based</option>
+                                <option value="Casual">Casual</option>
+                                <option value="Resigned">Resigned</option>
+                            </select>
+                        </div>
+                        <div class="w-full xl:col-span-1">
                             <button @click="applyFilters" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2">
                                 <FunnelIcon class="w-4 h-4" /> Filter Employees
                             </button>
@@ -998,8 +1034,41 @@ const submitResign = async () => {
                     >
                         <template #header>
                             <tr class="bg-slate-50">
-                                <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Employee</th>
-                                <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">ID & Contact</th>
+                                <th @click="sortBy('name')" class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors group">
+                                    <div class="flex items-center space-x-1">
+                                        <span>Employee</span>
+                                        <ChevronUpIcon v-if="filterForm.sort_by === 'name' && filterForm.sort_dir === 'asc'" class="w-3 h-3" />
+                                        <ChevronDownIcon v-if="filterForm.sort_by === 'name' && filterForm.sort_dir === 'desc'" class="w-3 h-3" />
+                                    </div>
+                                </th>
+                                <th @click="sortBy('first_name')" class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors group">
+                                    <div class="flex items-center space-x-1">
+                                        <span>First Name</span>
+                                        <ChevronUpIcon v-if="filterForm.sort_by === 'first_name' && filterForm.sort_dir === 'asc'" class="w-3 h-3" />
+                                        <ChevronDownIcon v-if="filterForm.sort_by === 'first_name' && filterForm.sort_dir === 'desc'" class="w-3 h-3" />
+                                    </div>
+                                </th>
+                                <th @click="sortBy('last_name')" class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors group">
+                                    <div class="flex items-center space-x-1">
+                                        <span>Last Name</span>
+                                        <ChevronUpIcon v-if="filterForm.sort_by === 'last_name' && filterForm.sort_dir === 'asc'" class="w-3 h-3" />
+                                        <ChevronDownIcon v-if="filterForm.sort_by === 'last_name' && filterForm.sort_dir === 'desc'" class="w-3 h-3" />
+                                    </div>
+                                </th>
+                                <th @click="sortBy('employee_code')" class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors group">
+                                    <div class="flex items-center space-x-1">
+                                        <span>ID & Contact</span>
+                                        <ChevronUpIcon v-if="filterForm.sort_by === 'employee_code' && filterForm.sort_dir === 'asc'" class="w-3 h-3" />
+                                        <ChevronDownIcon v-if="filterForm.sort_by === 'employee_code' && filterForm.sort_dir === 'desc'" class="w-3 h-3" />
+                                    </div>
+                                </th>
+                                <th @click="sortBy('status')" class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors group">
+                                    <div class="flex items-center space-x-1">
+                                        <span>Status</span>
+                                        <ChevronUpIcon v-if="filterForm.sort_by === 'status' && filterForm.sort_dir === 'asc'" class="w-3 h-3" />
+                                        <ChevronDownIcon v-if="filterForm.sort_by === 'status' && filterForm.sort_dir === 'desc'" class="w-3 h-3" />
+                                    </div>
+                                </th>
                                 <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Position</th>
                                 <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Address</th>
                                 <th class="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Department</th>
@@ -1031,6 +1100,12 @@ const submitResign = async () => {
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm text-slate-900 font-medium">{{ employee.applicant?.first_name || '-' }}</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm text-slate-900 font-medium">{{ employee.applicant?.last_name || '-' }}</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="flex flex-col space-y-1">
                                         <div class="flex items-center text-sm text-slate-600 font-mono">
                                             <IdentificationIcon class="w-4 h-4 mr-2 text-slate-400" />
@@ -1038,6 +1113,17 @@ const submitResign = async () => {
                                         </div>
                                         <div class="text-xs text-slate-500 ml-6">{{ employee.user?.email }}</div>
                                     </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span :class="[
+                                        'px-2 py-1 text-[10px] font-bold rounded-lg border uppercase tracking-wider',
+                                        employee.active_employment_record?.employment_status === 'Regular' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                                        employee.active_employment_record?.employment_status === 'Probationary' ? 'bg-amber-50 text-amber-700 border-amber-100' :
+                                        employee.active_employment_record?.employment_status === 'Resigned' ? 'bg-rose-50 text-rose-700 border-rose-100' :
+                                        'bg-slate-50 text-slate-700 border-slate-100'
+                                    ]">
+                                        {{ employee.active_employment_record?.employment_status || 'N/A' }}
+                                    </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span class="text-sm font-medium text-slate-700">
@@ -1732,12 +1818,18 @@ const submitResign = async () => {
                             <p v-if="isEditingSalary" class="text-[10px] text-amber-600 mt-1">Changing Position or Company here updates the linked historical record.</p>
                         </div>
                         <div>
-                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Basic Monthly Rate</label>
+                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Basic Rate (Monthly)</label>
                             <input v-model="salaryForm.basic_rate" type="number" step="0.01" min="0.01" @keypress="(e) => { if(e.key === '-') e.preventDefault(); }" required placeholder="0.00" class="w-full rounded-xl border-slate-200 text-sm focus:ring-emerald-500">
                         </div>
-                        <div>
-                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Allowance</label>
-                            <input v-model="salaryForm.allowance" type="number" step="0.01" min="0" @keypress="(e) => { if(e.key === '-') e.preventDefault(); }" placeholder="0.00" class="w-full rounded-xl border-slate-200 text-sm focus:ring-emerald-500">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Allowance (15th)</label>
+                                <input v-model="salaryForm.allowance_15th" type="number" step="0.01" min="0" @keypress="(e) => { if(e.key === '-') e.preventDefault(); }" placeholder="0.00" class="w-full rounded-xl border-slate-200 text-sm focus:ring-emerald-500">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Allowance (30th)</label>
+                                <input v-model="salaryForm.allowance_30th" type="number" step="0.01" min="0" @keypress="(e) => { if(e.key === '-') e.preventDefault(); }" placeholder="0.00" class="w-full rounded-xl border-slate-200 text-sm focus:ring-emerald-500">
+                            </div>
                         </div>
                         <div class="md:col-span-2">
                             <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Effectivity Date</label>
@@ -1761,53 +1853,59 @@ const submitResign = async () => {
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                 </div>
-                <div v-else class="overflow-hidden border border-slate-100 rounded-xl shadow-sm">
+                <div v-else class="overflow-x-auto border border-slate-100 rounded-xl shadow-sm">
                     <table class="min-w-full divide-y divide-slate-100">
                         <thead class="bg-slate-50">
                             <tr>
-                                <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Effectivity</th>
-                                <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase">Company / Position</th>
-                                <th class="px-4 py-2 text-right text-[10px] font-bold text-slate-500 uppercase">Basic Rate</th>
-                                <th class="px-4 py-2 text-right text-[10px] font-bold text-slate-500 uppercase">Allowance</th>
-                                <th class="px-4 py-2 text-right text-[10px] font-bold text-slate-500 uppercase">Total</th>
-                                <th class="px-4 py-2 text-right text-[10px] font-bold text-slate-500 uppercase w-10"></th>
+                                <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase whitespace-nowrap">Effectivity</th>
+                                <th class="px-4 py-2 text-left text-[10px] font-bold text-slate-500 uppercase whitespace-nowrap">Company / Position</th>
+                                <th class="px-4 py-2 text-right text-[10px] font-bold text-slate-500 uppercase whitespace-nowrap">Basic Rate (Monthly)</th>
+                                <th class="px-4 py-2 text-right text-[10px] font-bold text-slate-500 uppercase whitespace-nowrap">Allow. (15th)</th>
+                                <th class="px-4 py-2 text-right text-[10px] font-bold text-slate-500 uppercase whitespace-nowrap">Allow. (30th)</th>
+                                <th class="px-4 py-2 text-right text-[10px] font-bold text-slate-500 uppercase whitespace-nowrap">Total</th>
+                                <th class="px-4 py-2 text-right text-[10px] font-bold text-slate-500 uppercase w-20 whitespace-nowrap">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-slate-50">
                             <tr v-for="item in salaryHistory" :key="item.id" class="hover:bg-slate-50 group">
-                                <td class="px-4 py-3 text-sm font-bold text-slate-700">
+                                <td class="px-4 py-3 text-sm font-bold text-slate-700 whitespace-nowrap">
                                     {{ item.start_date }}
                                 </td>
-                                <td class="px-4 py-3 text-sm text-slate-600">
+                                <td class="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">
                                     <div class="font-bold text-slate-800">{{ item.company?.name || 'Unknown Company' }}</div>
                                     <div class="text-xs">{{ item.position?.name || 'Unknown Position' }}</div>
                                 </td>
-                                <td class="px-4 py-3 text-sm text-right font-mono">
+                                <td class="px-4 py-3 text-sm text-right font-mono whitespace-nowrap">
                                     {{ parseFloat(item.basic_rate).toLocaleString(undefined, {minimumFractionDigits: 2}) }}
                                 </td>
-                                <td class="px-4 py-3 text-sm text-right font-mono text-slate-500">
-                                    {{ parseFloat(item.allowance).toLocaleString(undefined, {minimumFractionDigits: 2}) }}
+                                <td class="px-4 py-3 text-sm text-right font-mono text-slate-500 whitespace-nowrap">
+                                    {{ parseFloat(item.allowance_15th || 0).toLocaleString(undefined, {minimumFractionDigits: 2}) }}
                                 </td>
-                                <td class="px-4 py-3 text-sm text-right font-bold text-emerald-600 font-mono">
+                                <td class="px-4 py-3 text-sm text-right font-mono text-slate-500 whitespace-nowrap">
+                                    {{ parseFloat(item.allowance_30th || 0).toLocaleString(undefined, {minimumFractionDigits: 2}) }}
+                                </td>
+                                <td class="px-4 py-3 text-sm text-right font-bold text-emerald-600 font-mono whitespace-nowrap">
                                     {{ (parseFloat(item.basic_rate) + parseFloat(item.allowance)).toLocaleString(undefined, {minimumFractionDigits: 2}) }}
                                 </td>
-                                <td class="px-4 py-3 text-right">
-                                    <button 
-                                        v-if="hasPermission('employees.edit_salary')"
-                                        @click="editSalaryItem(item)" 
-                                        class="text-blue-600 hover:text-blue-800 p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 transition-all border border-blue-200"
-                                        title="Edit Record"
-                                    >
-                                        <PencilSquareIcon class="w-4 h-4" />
-                                    </button>
-                                    <button 
-                                        v-if="hasPermission('employees.delete_salary')"
-                                        @click="deleteSalaryItem(item)" 
-                                        class="ml-1 text-red-600 hover:text-red-800 p-1.5 rounded-lg bg-red-50 hover:bg-red-100 transition-all border border-red-200"
-                                        title="Delete Record"
-                                    >
-                                        <TrashIcon class="w-4 h-4" />
-                                    </button>
+                                <td class="px-4 py-3 text-right whitespace-nowrap">
+                                    <div class="flex justify-end items-center space-x-1">
+                                        <button 
+                                            v-if="hasPermission('employees.edit_salary')"
+                                            @click="editSalaryItem(item)" 
+                                            class="text-blue-600 hover:text-blue-800 p-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 transition-all border border-blue-200"
+                                            title="Edit Record"
+                                        >
+                                            <PencilSquareIcon class="w-4 h-4" />
+                                        </button>
+                                        <button 
+                                            v-if="hasPermission('employees.delete_salary')"
+                                            @click="deleteSalaryItem(item)" 
+                                            class="text-red-600 hover:text-red-800 p-1.5 rounded-lg bg-red-50 hover:bg-red-100 transition-all border border-red-200"
+                                            title="Delete Record"
+                                        >
+                                            <TrashIcon class="w-4 h-4" />
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                             <tr v-if="salaryHistory.length === 0">

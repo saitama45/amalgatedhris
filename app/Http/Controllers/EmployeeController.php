@@ -37,13 +37,20 @@ class EmployeeController extends Controller
             $this->saveQRCodeImage($qrCode);
         }
 
-        $query = Employee::with(['user', 'immediateHead.user', 'activeEmploymentRecord.position', 'activeEmploymentRecord.department', 'activeEmploymentRecord.company', 'documents']);
+        $query = Employee::with(['user', 'applicant', 'immediateHead.user', 'activeEmploymentRecord.position', 'activeEmploymentRecord.department', 'activeEmploymentRecord.company', 'documents']);
 
         if ($request->filled('search')) {
-            $query->whereHas('user', function($q) use ($request) {
-                $q->where('name', 'like', "%{$request->search}%")
-                  ->orWhere('email', 'like', "%{$request->search}%");
-            })->orWhere('employee_code', 'like', "%{$request->search}%");
+            $query->where(function($q) use ($request) {
+                $q->whereHas('user', function($uq) use ($request) {
+                    $uq->where('name', 'like', "%{$request->search}%")
+                      ->orWhere('email', 'like', "%{$request->search}%");
+                })
+                ->orWhereHas('applicant', function($aq) use ($request) {
+                    $aq->where('first_name', 'like', "%{$request->search}%")
+                      ->orWhere('last_name', 'like', "%{$request->search}%");
+                })
+                ->orWhere('employee_code', 'like', "%{$request->search}%");
+            });
         }
 
         // Apply company filter
@@ -67,11 +74,46 @@ class EmployeeController extends Controller
             });
         }
 
-        $employees = $query->paginate(10)->withQueryString();
+        // Apply employment status filter
+        if ($request->filled('employment_status')) {
+            $query->whereHas('activeEmploymentRecord', function ($q) use ($request) {
+                $q->where('employment_status', $request->employment_status);
+            });
+        }
+
+        // Sorting
+        $sortBy = $request->get('sort_by', 'created_at');
+        $sortDir = $request->get('sort_dir', 'desc');
+
+        if ($sortBy === 'name') {
+            $query->join('users', 'employees.user_id', '=', 'users.id')
+                  ->orderBy('users.name', $sortDir)
+                  ->select('employees.*');
+        } elseif ($sortBy === 'first_name') {
+            $query->join('users', 'employees.user_id', '=', 'users.id')
+                  ->leftJoin('applicants', 'users.email', '=', 'applicants.email')
+                  ->orderBy('applicants.first_name', $sortDir)
+                  ->select('employees.*');
+        } elseif ($sortBy === 'last_name') {
+            $query->join('users', 'employees.user_id', '=', 'users.id')
+                  ->leftJoin('applicants', 'users.email', '=', 'applicants.email')
+                  ->orderBy('applicants.last_name', $sortDir)
+                  ->select('employees.*');
+        } elseif ($sortBy === 'status') {
+            $query->join('employment_records', function($join) {
+                $join->on('employees.id', '=', 'employment_records.employee_id')
+                     ->where('employment_records.is_active', true);
+            })->orderBy('employment_records.employment_status', $sortDir)
+              ->select('employees.*');
+        } else {
+            $query->orderBy($sortBy, $sortDir);
+        }
+
+        $employees = $query->paginate($request->get('per_page', 10))->withQueryString();
 
         return Inertia::render('Employees/Index', [
             'employees' => $employees,
-            'filters' => $request->only(['search', 'company_id', 'department_id', 'position_id']),
+            'filters' => $request->only(['search', 'company_id', 'department_id', 'position_id', 'employment_status', 'sort_by', 'sort_dir']),
             'options' => [
                 'document_types' => \App\Models\DocumentType::all(),
                 'positions' => \App\Models\Position::select('id', 'name')->orderBy('name')->get(),

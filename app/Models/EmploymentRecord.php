@@ -16,6 +16,8 @@ class EmploymentRecord extends Model
         'position_id',
         'basic_rate',
         'allowance',
+        'allowance_15th',
+        'allowance_30th',
         'default_shift_id',
         'work_days',
         'grace_period_minutes',
@@ -42,6 +44,8 @@ class EmploymentRecord extends Model
         'is_withholding_tax_deducted' => 'boolean',
         'basic_rate' => 'float',
         'allowance' => 'float',
+        'allowance_15th' => 'float',
+        'allowance_30th' => 'float',
     ];
 
     public function defaultShift()

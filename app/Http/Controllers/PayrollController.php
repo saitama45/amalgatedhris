@@ -152,6 +152,21 @@ class PayrollController extends Controller
             
             $basicPay = $basicRate * $periodFactor;
 
+            // Determine Allowance for this cut-off
+            $allowance = 0;
+            if ($periodFactor >= 1) {
+                // Monthly Payroll
+                $allowance = $record->allowance;
+            } else {
+                // Semi-monthly: Pick based on payout date
+                $payoutDay = Carbon::parse($payroll->payout_date)->day;
+                if ($payoutDay <= 15) {
+                    $allowance = $record->allowance_15th;
+                } else {
+                    $allowance = $record->allowance_30th;
+                }
+            }
+
             // 2. Fetch Attendance Logs & Calculate Deductions/Absences
             $totalLateMinutes = 0;
             $totalUTMinutes = 0;
@@ -322,7 +337,7 @@ class PayrollController extends Controller
                 }
             }
 
-            $grossPay = $basicPay + $record->allowance + $totalApprovedOT;
+            $grossPay = $basicPay + $allowance + $totalApprovedOT;
             
             // Calculate Taxable Income
             $taxableIncome = $grossPay - ($sss + $philhealth + $pagibig);
@@ -358,7 +373,7 @@ class PayrollController extends Controller
                 'employee_id' => $employee->id,
                 'basic_pay' => $basicPay,
                 'gross_pay' => $grossPay,
-                'allowances' => $record->allowance,
+                'allowances' => $allowance,
                 'ot_pay' => $totalApprovedOT,
                 'late_deduction' => $lateDeduction,
                 'undertime_deduction' => $utDeduction,

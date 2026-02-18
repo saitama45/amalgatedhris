@@ -52,6 +52,8 @@ class SalaryHistoryController extends Controller
         $request->validate([
             'basic_rate' => 'required|numeric|min:0',
             'allowance' => 'nullable|numeric|min:0',
+            'allowance_15th' => 'nullable|numeric|min:0',
+            'allowance_30th' => 'nullable|numeric|min:0',
             'effective_date' => 'required|date',
             'position_id' => 'required|exists:positions,id',
             'company_id' => 'required|exists:companies,id',
@@ -79,7 +81,9 @@ class SalaryHistoryController extends Controller
                 'department_id' => $departmentId,
                 'position_id' => $request->position_id,
                 'basic_rate' => $request->basic_rate,
-                'allowance' => $request->allowance ?? 0,
+                'allowance' => $request->allowance ?? ($request->allowance_15th + $request->allowance_30th),
+                'allowance_15th' => $request->allowance_15th ?? 0,
+                'allowance_30th' => $request->allowance_30th ?? 0,
                 'employment_status' => $activeRecord ? $activeRecord->employment_status : 'Probationary',
                 'start_date' => $request->effective_date,
                 'is_active' => true,
@@ -105,6 +109,8 @@ class SalaryHistoryController extends Controller
         $request->validate([
             'basic_rate' => 'required|numeric|min:0',
             'allowance' => 'nullable|numeric|min:0',
+            'allowance_15th' => 'nullable|numeric|min:0',
+            'allowance_30th' => 'nullable|numeric|min:0',
             'effective_date' => 'required|date',
             'position_id' => 'required|exists:positions,id',
             'company_id' => 'required|exists:companies,id',
@@ -122,7 +128,9 @@ class SalaryHistoryController extends Controller
         DB::transaction(function () use ($request, $record) {
             $record->update([
                 'basic_rate' => $request->basic_rate,
-                'allowance' => $request->allowance ?? 0,
+                'allowance' => $request->allowance ?? ($request->allowance_15th + $request->allowance_30th),
+                'allowance_15th' => $request->allowance_15th ?? 0,
+                'allowance_30th' => $request->allowance_30th ?? 0,
                 'start_date' => $request->effective_date,
                 'position_id' => $request->position_id,
                 'company_id' => $request->company_id,

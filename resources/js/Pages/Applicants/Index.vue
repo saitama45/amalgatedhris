@@ -95,6 +95,8 @@ const hireForm = useForm({
     start_date: new Date().toISOString().split('T')[0],
     basic_rate: '',
     allowance: 0,
+    allowance_15th: 0,
+    allowance_30th: 0,
 });
 
 const openHireModal = (applicant) => {
@@ -121,16 +123,22 @@ const submitHire = () => {
     // Ensure values are positive before submission ONLY if the user can see/edit them
     if (hasPermission('applicants.view_salary') && canViewSalary.value) {
         if (hireForm.basic_rate <= 0) {
-            showError('Basic Rate must be greater than 0.');
+            showError('Basic Rate (Monthly) must be greater than 0.');
             return;
         }
-        if (hireForm.allowance < 0) {
-            hireForm.allowance = 0;
-        }
+        
+        // Ensure non-negative allowances
+        if (hireForm.allowance_15th < 0) hireForm.allowance_15th = 0;
+        if (hireForm.allowance_30th < 0) hireForm.allowance_30th = 0;
+        
+        // Total monthly allowance
+        hireForm.allowance = parseFloat(hireForm.allowance_15th) + parseFloat(hireForm.allowance_30th);
     } else {
         // Default to 0 if not visible/permitted/authorized
         hireForm.basic_rate = 0;
         hireForm.allowance = 0;
+        hireForm.allowance_15th = 0;
+        hireForm.allowance_30th = 0;
     }
 
     hireForm.post(route('applicants.hire', hiringApplicant.value.id), {
@@ -763,7 +771,7 @@ const statusColors = {
 
                     <div v-if="hasPermission('applicants.view_salary') && canViewSalary" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                         <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-1">Basic Rate</label>
+                            <label class="block text-sm font-bold text-slate-700 mb-1">Basic Rate (Monthly)</label>
                             <input 
                                 v-model="hireForm.basic_rate" 
                                 type="number" 
@@ -775,17 +783,31 @@ const statusColors = {
                                 class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono text-slate-900"
                             >
                         </div>
-                        <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-1">Allowance</label>
-                            <input 
-                                v-model="hireForm.allowance" 
-                                type="number" 
-                                step="0.01" 
-                                min="0"
-                                @keypress="(e) => { if(e.key === '-') e.preventDefault(); }"
-                                placeholder="0.00" 
-                                class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono text-slate-900"
-                            >
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1">Allowance (15th)</label>
+                                <input 
+                                    v-model="hireForm.allowance_15th" 
+                                    type="number" 
+                                    step="0.01" 
+                                    min="0"
+                                    @keypress="(e) => { if(e.key === '-') e.preventDefault(); }"
+                                    placeholder="0.00" 
+                                    class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono text-slate-900"
+                                >
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1">Allowance (30th)</label>
+                                <input 
+                                    v-model="hireForm.allowance_30th" 
+                                    type="number" 
+                                    step="0.01" 
+                                    min="0"
+                                    @keypress="(e) => { if(e.key === '-') e.preventDefault(); }"
+                                    placeholder="0.00" 
+                                    class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono text-slate-900"
+                                >
+                            </div>
                         </div>
                     </div>
 
