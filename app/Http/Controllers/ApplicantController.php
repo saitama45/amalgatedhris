@@ -196,8 +196,11 @@ class ApplicantController extends Controller
                     'company_id' => $request->company_id,
                     'email_verified_at' => now(),
                 ]);
-                $user->assignRole('Employee');
+                $user->syncRoles(['Employee']);
             }
+
+            // Always ensure the user has the 'Employee' role if they were an applicant being hired
+            $user->syncRoles(['Employee']);
 
             // Create Employee
             $employee = Employee::create([

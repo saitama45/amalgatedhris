@@ -112,6 +112,9 @@ class UserController extends Controller
             if ($request->filled('applicant_id')) {
                 $applicant = \App\Models\Applicant::find($request->applicant_id);
                 
+                // Force Employee role if being hired from applicant pool
+                $user->syncRoles(['Employee']);
+
                 // Create Employee record if it's an applicant
                 $employee = \App\Models\Employee::create([
                     'user_id' => $user->id,
