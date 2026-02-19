@@ -180,6 +180,8 @@ class PayrollController extends Controller
             $paidLeaveDays = 0;
             $holidayPay = 0;
             $holidayWorkPay = 0;
+            $absenceDeduction = 0;
+            $totalRequiredDays = 0;
             
             $periodStart = Carbon::parse($payroll->cutoff_start);
             $periodEnd = Carbon::parse($payroll->cutoff_end);
@@ -189,8 +191,7 @@ class PayrollController extends Controller
                 $dayOfWeek = $d->dayOfWeek; // 0 (Sun) to 6 (Sat)
                 $workDays = explode(',', $record->work_days ?? '1,2,3,4,5');
                 $isWorkDay = in_array((string)$dayOfWeek, $workDays);
-                
-                // Check for Holiday (Handle Recurring)
+
                 $holiday = \App\Models\Holiday::where(function($q) use ($d) {
                     $q->where('date', $d->format('Y-m-d')) // Specific Date
                       ->orWhere(function($sub) use ($d) {
@@ -199,6 +200,10 @@ class PayrollController extends Controller
                               ->whereDay('date', $d->day);
                       });
                 })->first();
+
+                if ($isWorkDay && !$holiday) {
+                    $totalRequiredDays++;
+                }
                 
                 // Check for Approved Leave
                 $onLeave = LeaveRequest::where('employee_id', $employee->id)
@@ -455,6 +460,7 @@ class PayrollController extends Controller
                 'other_deductions' => $totalOtherDeductions + $absenceDeduction + $adjDeductions,
                 'net_pay' => $netPay,
                 'details' => [
+                    'total_required_days' => $totalRequiredDays,
                     'days_worked' => $daysPresent,
                     'absent_days' => $absentDays,
                     'absence_deduction' => $absenceDeduction,

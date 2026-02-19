@@ -61,22 +61,25 @@ const editForm = useForm({
 
 const openEditModal = (slip) => {
     editingSlip.value = slip;
-    editForm.basic_pay = slip.basic_pay;
-    editForm.allowances = slip.allowances;
-    editForm.adjustments = slip.adjustments;
-    editForm.ot_pay = slip.ot_pay;
-    editForm.late_deduction = slip.late_deduction;
-    editForm.undertime_deduction = slip.undertime_deduction;
-    editForm.sss_deduction = slip.sss_deduction;
-    editForm.philhealth_ded = slip.philhealth_ded;
-    editForm.pagibig_ded = slip.pagibig_ded;
-    editForm.tax_withheld = slip.tax_withheld;
-    editForm.other_deductions = slip.other_deductions;
+    editForm.basic_pay = parseFloat(slip.basic_pay || 0).toFixed(2);
+    editForm.allowances = parseFloat(slip.allowances || 0).toFixed(2);
+    editForm.adjustments = parseFloat(slip.adjustments || 0).toFixed(2);
+    editForm.ot_pay = parseFloat(slip.ot_pay || 0).toFixed(2);
+    editForm.late_deduction = parseFloat(slip.late_deduction || 0).toFixed(2);
+    editForm.undertime_deduction = parseFloat(slip.undertime_deduction || 0).toFixed(2);
+    editForm.sss_deduction = parseFloat(slip.sss_deduction || 0).toFixed(2);
+    editForm.philhealth_ded = parseFloat(slip.philhealth_ded || 0).toFixed(2);
+    editForm.pagibig_ded = parseFloat(slip.pagibig_ded || 0).toFixed(2);
+    editForm.tax_withheld = parseFloat(slip.tax_withheld || 0).toFixed(2);
+    editForm.other_deductions = parseFloat(slip.other_deductions || 0).toFixed(2);
     
     // Extract specialized fields from details
-    editForm.absence_deduction = slip.details?.absence_deduction || 0;
-    // Deep copy deductions array to avoid direct state mutation
-    editForm.itemized_deductions = JSON.parse(JSON.stringify(slip.details?.deductions || []));
+    editForm.absence_deduction = parseFloat(slip.details?.absence_deduction || 0).toFixed(2);
+    // Deep copy deductions array and format amounts to 2 decimals
+    editForm.itemized_deductions = (slip.details?.deductions || []).map(d => ({
+        ...d,
+        amount: parseFloat(d.amount || 0).toFixed(2)
+    }));
     editForm.details = JSON.parse(JSON.stringify(slip.details || {}));
     
     showEditModal.value = true;
@@ -291,6 +294,7 @@ const formatDate = (date) => {
                         <template #header>
                             <tr class="bg-slate-50">
                                 <th class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Employee</th>
+                                <th class="px-6 py-3 text-center text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Attendance</th>
                                 <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Basic</th>
                                 <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Allowances</th>
                                 <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-100">Adjustments</th>
@@ -313,6 +317,11 @@ const formatDate = (date) => {
                                             <div class="font-bold text-sm text-slate-900">{{ slip.employee?.user?.name }}</div>
                                             <div class="text-[10px] text-slate-500 uppercase tracking-tighter">{{ slip.employee?.employee_code }}</div>
                                         </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-center">
+                                    <div class="inline-flex items-center px-2 py-1 rounded bg-slate-100 border border-slate-200 text-[10px] font-bold text-slate-600">
+                                        {{ slip.details?.days_worked || 0 }} / {{ slip.details?.total_required_days || 0 }}d
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 text-right text-sm text-slate-600 font-mono">{{ formatCurrency(slip.basic_pay) }}</td>
@@ -438,6 +447,12 @@ const formatDate = (date) => {
                                     <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Pag-IBIG</label>
                                     <input v-model="editForm.pagibig_ded" type="number" step="0.01" class="w-full rounded-xl border-slate-200 text-xs font-mono">
                                 </div>
+                                                                                        <div>
+                                                                                            <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1 text-slate-600">Req. Days</label>
+                                                                                            <div class="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs font-mono text-slate-700 font-bold">
+                                                                                                {{ editingSlip.details?.total_required_days || 0 }}d
+                                                                                            </div>
+                                                                                        </div>
                                                                                         <div>
                                                                                             <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1 text-rose-600">Absences ({{ editingSlip.details?.absent_days || 0 }}d)</label>
                                                                                             <input v-model="editForm.absence_deduction" type="number" step="0.01" class="w-full rounded-xl border-slate-200 text-xs font-mono text-rose-600 font-bold">

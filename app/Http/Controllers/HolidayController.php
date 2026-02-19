@@ -15,7 +15,27 @@ class HolidayController extends Controller
         $query = Holiday::query();
 
         if ($request->filled('search')) {
-            $query->where('name', 'like', "%{$request->search}%");
+            $search = $request->search;
+            
+            // Intelligent Month Mapping
+            $months = [
+                'january' => 1, 'february' => 2, 'march' => 3, 'april' => 4, 'may' => 5, 'june' => 6,
+                'july' => 7, 'august' => 8, 'september' => 9, 'october' => 10, 'november' => 11, 'december' => 12,
+                'jan' => 1, 'feb' => 2, 'mar' => 3, 'apr' => 4, 'may' => 5, 'jun' => 6,
+                'jul' => 7, 'aug' => 8, 'sep' => 9, 'oct' => 10, 'nov' => 11, 'dec' => 12
+            ];
+
+            $loweredSearch = strtolower($search);
+            $monthNum = $months[$loweredSearch] ?? null;
+
+            $query->where(function($q) use ($search, $monthNum) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('type', 'like', "%{$search}%");
+                
+                if ($monthNum) {
+                    $q->orWhereMonth('date', $monthNum);
+                }
+            });
         }
         
         // Show upcoming holidays first, then past

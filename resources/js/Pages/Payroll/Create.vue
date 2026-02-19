@@ -56,7 +56,9 @@ const submit = () => {
                                     </div>
                                     <select v-model="form.company_id" class="block w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium text-slate-700">
                                         <option value="" disabled>Choose an entity...</option>
-                                        <option v-for="company in companies" :key="company.id" :value="company.id">{{ company.name }}</option>
+                                        <option v-for="company in companies" :key="company.id" :value="company.id">
+                                            {{ company.code ? company.code + ' - ' : '' }}{{ company.name }}
+                                        </option>
                                     </select>
                                 </div>
                                 <p v-if="form.errors.company_id" class="text-xs text-rose-500 mt-1 font-bold">{{ form.errors.company_id }}</p>

@@ -148,7 +148,7 @@ const typeColors = {
                     <DataTable
                         title="Holiday Calendar"
                         subtitle="Upcoming and past holidays"
-                        search-placeholder="Search holiday name..."
+                        search-placeholder="Search name, type, or month (e.g. Feb)..."
                         empty-message="No holidays found."
                         :search="pagination.search.value"
                         :data="pagination.data.value"

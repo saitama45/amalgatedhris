@@ -182,6 +182,10 @@
                                 <td class="label">Status:</td>
                                 <td class="value">{{ $payroll->status }}</td>
                             </tr>
+                            <tr>
+                                <td class="label">Attendance:</td>
+                                <td class="value">{{ $slip->details['days_worked'] ?? 0 }} / {{ $slip->details['total_required_days'] ?? 0 }} day/s</td>
+                            </tr>
                         </table>
                     </td>
                 </tr>
