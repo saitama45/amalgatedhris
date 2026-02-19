@@ -35,7 +35,7 @@ const { showSuccess, showError } = useToast();
 const { hasPermission } = usePermission();
 
 // View Management
-const viewMode = ref('grid'); // 'grid' or 'list'
+const viewMode = ref('list'); // 'grid' or 'list'
 
 // Filters
 const search = ref(props.filters.search || '');
@@ -220,6 +220,17 @@ const isWorkingDay = (employee, dayId) => {
                     <!-- Toolbar -->
                     <div class="px-8 py-4 border-b border-slate-200 bg-white/50 backdrop-blur-md flex flex-wrap items-center justify-between gap-4 shrink-0">
                         <div class="flex items-center gap-4 flex-1">
+                            <!-- Global Selection -->
+                            <div class="flex items-center gap-2 pr-4 border-r border-slate-200 mr-2">
+                                <label class="flex items-center gap-3 cursor-pointer group">
+                                    <div class="relative flex items-center">
+                                        <input type="checkbox" v-model="selectAll" @change="toggleSelectAll" 
+                                            class="w-5 h-5 rounded-lg border-slate-300 text-blue-600 focus:ring-blue-500 transition-all">
+                                    </div>
+                                    <span class="text-xs font-black text-slate-400 uppercase tracking-widest group-hover:text-slate-600 transition-colors">Select All</span>
+                                </label>
+                            </div>
+
                             <div class="relative max-w-sm w-full group">
                                 <MagnifyingGlassIcon class="w-5 h-5 absolute left-3.5 top-2.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                                 <input v-model="search" type="text" placeholder="Search employees..." 
@@ -238,9 +249,94 @@ const isWorkingDay = (employee, dayId) => {
                         </div>
                     </div>
 
-                    <!-- The Grid (Scrollable) -->
+                    <!-- Main Visualization Area -->
                     <div class="flex-1 overflow-auto custom-scrollbar p-8 pt-0">
-                        <div class="mt-6">
+                        
+                        <!-- GRID VIEW: Card-based Orchestration -->
+                        <div v-if="viewMode === 'grid'" 
+                            class="mt-8 grid gap-6"
+                            style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));"
+                        >
+                            <div v-for="employee in employees" :key="employee.id" 
+                                :class="[
+                                    'group relative bg-white rounded-[2rem] border-2 p-6 transition-all duration-300 hover:shadow-2xl hover:shadow-slate-200/50 hover:-translate-y-1',
+                                    selectedEmployees.includes(employee.id) ? 'border-blue-600 ring-4 ring-blue-500/5' : 'border-slate-100'
+                                ]"
+                            >
+                                <!-- Card Header -->
+                                <div class="flex items-start justify-between mb-6">
+                                    <div class="flex items-center gap-4 min-w-0">
+                                        <div class="relative shrink-0">
+                                            <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-slate-600 font-black text-lg border-2 border-white shadow-sm overflow-hidden">
+                                                <span class="truncate px-1">{{ getInitials(employee.user?.name) }}</span>
+                                            </div>
+                                            <div v-if="employee.active_employment_record?.is_active" class="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full"></div>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <h3 class="text-base font-black text-slate-900 leading-tight truncate">{{ employee.user?.name }}</h3>
+                                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5 truncate">{{ employee.active_employment_record?.position?.name || 'Position Unset' }}</p>
+                                        </div>
+                                    </div>
+                                    <input type="checkbox" v-model="selectedEmployees" :value="employee.id" 
+                                        class="w-6 h-6 rounded-lg border-slate-200 text-blue-600 focus:ring-blue-500 transition-all cursor-pointer shrink-0">
+                                </div>
+
+                                <!-- Current Pattern -->
+                                <div class="space-y-4 mb-6">
+                                    <div class="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                                        <div class="flex items-center justify-between mb-3">
+                                            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Template</span>
+                                            <div v-if="employee.active_employment_record?.default_shift" class="flex items-center gap-1.5 text-[10px] font-bold text-blue-600">
+                                                <ClockIcon class="w-3.5 h-3.5" />
+                                                {{ employee.active_employment_record.default_shift.name }}
+                                            </div>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <div v-for="day in daysOptions" :key="day.id" class="flex flex-col items-center gap-1.5">
+                                                <span class="text-[9px] font-black text-slate-300">{{ day.label[0] }}</span>
+                                                <div 
+                                                    :class="[
+                                                        'w-6 h-6 rounded-lg flex items-center justify-center text-[9px] font-black transition-all',
+                                                        isWorkingDay(employee, day.id) 
+                                                            ? 'bg-blue-600 text-white shadow-md shadow-blue-100' 
+                                                            : 'bg-white border border-slate-100 text-slate-200'
+                                                    ]"
+                                                >
+                                                    {{ day.id === 0 || day.id === 6 ? '•' : '' }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="flex items-center justify-between px-2">
+                                        <div class="flex items-center gap-2">
+                                            <div class="bg-amber-100 p-1.5 rounded-lg text-amber-600">
+                                                <BookmarkSquareIcon class="w-4 h-4" />
+                                            </div>
+                                            <span class="text-[10px] font-bold text-slate-600 uppercase">{{ employee.active_employment_record?.late_policy }} Policy</span>
+                                        </div>
+                                        <div class="text-[10px] font-bold text-slate-400">
+                                            Grace: {{ employee.active_employment_record?.grace_period_minutes }}m
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Card Actions -->
+                                <div class="flex items-center gap-2 pt-4 border-t border-slate-50">
+                                    <button @click="editSchedule(employee)" 
+                                        class="flex-1 bg-slate-900 text-white py-2.5 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg shadow-slate-200">
+                                        Configure
+                                    </button>
+                                    <button @click="openScheduleModal(employee)"
+                                        class="p-2.5 bg-slate-100 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all">
+                                        <EyeIcon class="w-5 h-5" />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- LIST VIEW: Dense Orchestration -->
+                        <div v-if="viewMode === 'list'" class="mt-8">
                             <table class="min-w-full w-max border-separate border-spacing-0 bg-white rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/50">
                                 <thead class="bg-slate-50 sticky top-0 z-30 shadow-sm">
                                     <tr>
