@@ -51,7 +51,13 @@ class ScheduleController extends Controller
             ->get()
             ->keyBy('date');
 
-        // 2. Generate Calendar View based on Default Pattern + Overrides
+        // 2. Get Holidays
+        $holidays = \App\Models\Holiday::where(function($q) use ($start, $end) {
+                $q->whereBetween('date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
+                  ->orWhere('is_recurring', true);
+            })->get();
+
+        // 3. Generate Calendar View based on Default Pattern + Overrides + Holidays
         $calendarData = [];
         $activeRecord = $employee->activeEmploymentRecord;
         $defaultShift = $activeRecord ? $activeRecord->defaultShift : null;
@@ -66,6 +72,30 @@ class ScheduleController extends Controller
             $dateStr = $currentDate->format('Y-m-d');
             $dayOfWeek = $currentDate->dayOfWeek; // 0 (Sun) - 6 (Sat)
             
+            // Check if it's a holiday
+            $todayHoliday = $holidays->first(function($h) use ($currentDate) {
+                if ($h->is_recurring) {
+                    return $h->date->format('m-d') === $currentDate->format('m-d');
+                }
+                return $h->date->format('Y-m-d') === $currentDate->format('Y-m-d');
+            });
+
+            if ($todayHoliday) {
+                $calendarData[] = [
+                    'id' => 'holiday-' . $todayHoliday->id . '-' . $dateStr,
+                    'title' => 'HOLIDAY: ' . $todayHoliday->name,
+                    'start' => $dateStr . 'T00:00:00',
+                    'end' => $dateStr . 'T23:59:59',
+                    'className' => 'bg-purple-100 text-purple-700 border-purple-200',
+                    'extendedProps' => [
+                        'type' => 'Holiday',
+                        'holiday_type' => $todayHoliday->type,
+                        'start_time' => '00:00',
+                        'end_time' => '23:59',
+                    ]
+                ];
+            }
+
             // Check for override
             if (isset($schedules[$dateStr])) {
                 $schedule = $schedules[$dateStr];

@@ -113,6 +113,7 @@ const submitSchedule = () => {
         return;
     }
 
+    form.clearErrors();
     form.employee_ids = selectedEmployees.value;
     
     form.post(route('schedules.store'), {
@@ -121,7 +122,7 @@ const submitSchedule = () => {
             selectAll.value = false;
             showConsole.value = false;
         },
-        onError: () => showError('Failed to update schedule. Check inputs.')
+        onError: () => showError('Validation failed. Please check the highlighted fields.')
     });
 };
 
@@ -330,7 +331,7 @@ const isWorkingDay = (employee, dayId) => {
                                                     'text-left p-3 rounded-2xl border-2 transition-all group',
                                                     form.shift_id === shift.id 
                                                         ? 'border-blue-600 bg-blue-50/50 shadow-md shadow-blue-100' 
-                                                        : 'border-slate-100 hover:border-slate-200'
+                                                        : (form.errors.shift_id ? 'border-rose-200 bg-rose-50/30' : 'border-slate-100 hover:border-slate-200')
                                                 ]"
                                             >
                                                 <div class="flex justify-between items-center mb-1">
@@ -343,6 +344,7 @@ const isWorkingDay = (employee, dayId) => {
                                                 </div>
                                             </button>
                                         </div>
+                                        <p v-if="form.errors.shift_id" class="mt-2 text-[10px] text-rose-500 font-bold uppercase tracking-wider">{{ form.errors.shift_id }}</p>
                                     </div>
 
                                     <div>
@@ -350,26 +352,42 @@ const isWorkingDay = (employee, dayId) => {
                                         <div class="flex flex-wrap gap-2">
                                             <label v-for="day in daysOptions" :key="day.id" class="cursor-pointer">
                                                 <input type="checkbox" v-model="form.days_of_week" :value="day.id" class="peer sr-only">
-                                                <span class="inline-flex items-center justify-center w-10 h-10 rounded-xl text-[10px] font-black border-2 border-slate-100 bg-white text-slate-400 peer-checked:bg-blue-600 peer-checked:text-white peer-checked:border-blue-600 transition-all shadow-sm hover:border-slate-200">
+                                                <span 
+                                                    :class="[
+                                                        'inline-flex items-center justify-center w-10 h-10 rounded-xl text-[10px] font-black border-2 transition-all shadow-sm hover:border-slate-200',
+                                                        form.errors.days_of_week && !form.days_of_week.includes(day.id) 
+                                                            ? 'border-rose-200 bg-rose-50 text-rose-400' 
+                                                            : 'border-slate-100 bg-white text-slate-400 peer-checked:bg-blue-600 peer-checked:text-white peer-checked:border-blue-600'
+                                                    ]"
+                                                >
                                                     {{ day.label.substring(0,3) }}
                                                 </span>
                                             </label>
                                         </div>
+                                        <p v-if="form.errors.days_of_week" class="mt-2 text-[10px] text-rose-500 font-bold uppercase tracking-wider">{{ form.errors.days_of_week }}</p>
                                     </div>
 
                                     <div class="grid grid-cols-2 gap-4">
                                         <div>
                                             <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Grace (Min)</label>
                                             <input v-model="form.grace_period_minutes" type="number" min="0" 
-                                                class="w-full rounded-xl border-slate-200 text-sm font-bold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500">
+                                                :class="[
+                                                    'w-full rounded-xl text-sm font-bold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all',
+                                                    form.errors.grace_period_minutes ? 'border-rose-300 bg-rose-50/50 text-rose-900' : 'border-slate-200'
+                                                ]">
+                                            <p v-if="form.errors.grace_period_minutes" class="mt-1 text-[10px] text-rose-500 font-bold uppercase tracking-wider">{{ form.errors.grace_period_minutes }}</p>
                                         </div>
                                         <div>
                                             <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Late Policy</label>
                                             <select v-model="form.late_policy" 
-                                                class="w-full rounded-xl border-slate-200 text-sm font-bold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500">
+                                                :class="[
+                                                    'w-full rounded-xl text-sm font-bold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all',
+                                                    form.errors.late_policy ? 'border-rose-300 bg-rose-50/50 text-rose-900' : 'border-slate-200'
+                                                ]">
                                                 <option value="exact">Exact</option>
                                                 <option value="block_30">30m Block</option>
                                             </select>
+                                            <p v-if="form.errors.late_policy" class="mt-1 text-[10px] text-rose-500 font-bold uppercase tracking-wider">{{ form.errors.late_policy }}</p>
                                         </div>
                                     </div>
 
@@ -381,6 +399,7 @@ const isWorkingDay = (employee, dayId) => {
                                             </div>
                                             <span class="ml-3 text-xs font-black text-slate-700 uppercase tracking-tight">Allow Overtime</span>
                                         </label>
+                                        <p v-if="form.errors.is_ot_allowed" class="mt-2 text-[10px] text-rose-500 font-bold uppercase tracking-wider">{{ form.errors.is_ot_allowed }}</p>
                                     </div>
 
                                     <button 
@@ -394,6 +413,9 @@ const isWorkingDay = (employee, dayId) => {
                                     
                                     <p v-if="selectedEmployees.length === 0" class="text-[10px] text-center text-rose-500 font-black uppercase tracking-wider">
                                         Select employees from the grid first.
+                                    </p>
+                                    <p v-if="form.errors.employee_ids" class="text-[10px] text-center text-rose-500 font-black uppercase tracking-wider">
+                                        {{ form.errors.employee_ids }}
                                     </p>
                                 </form>
                             </div>
@@ -447,8 +469,16 @@ const isWorkingDay = (employee, dayId) => {
                                 </td>
                                 <td class="px-6 py-4">
                                     <div class="flex items-center gap-2">
-                                        <div :class="['w-2 h-2 rounded-full', sched.extendedProps.type === 'Override' ? 'bg-amber-500' : 'bg-slate-300']"></div>
-                                        <span :class="['text-[10px] font-black uppercase tracking-tighter', sched.extendedProps.type === 'Override' ? 'text-amber-600' : 'text-slate-400']">
+                                        <div :class="[
+                                            'w-2 h-2 rounded-full', 
+                                            sched.extendedProps.type === 'Override' ? 'bg-amber-500' : 
+                                            (sched.extendedProps.type === 'Holiday' ? 'bg-purple-500' : 'bg-slate-300')
+                                        ]"></div>
+                                        <span :class="[
+                                            'text-[10px] font-black uppercase tracking-tighter', 
+                                            sched.extendedProps.type === 'Override' ? 'text-amber-600' : 
+                                            (sched.extendedProps.type === 'Holiday' ? 'text-purple-600' : 'text-slate-400')
+                                        ]">
                                             {{ sched.extendedProps.type || 'Standard' }}
                                         </span>
                                     </div>

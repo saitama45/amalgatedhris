@@ -173,6 +173,8 @@ class PayrollController extends Controller
             $daysPresent = 0;
             $absentDays = 0;
             $paidLeaveDays = 0;
+            $holidayPay = 0;
+            $holidayWorkPay = 0;
             
             $periodStart = Carbon::parse($payroll->cutoff_start);
             $periodEnd = Carbon::parse($payroll->cutoff_end);
@@ -204,8 +206,31 @@ class PayrollController extends Controller
                     ->where('date', $d->format('Y-m-d'))
                     ->first();
 
+                if ($holiday) {
+                    if ($holiday->type === 'Regular') {
+                        // Regular Holiday: 100% pay if not working, 200% if working
+                        if ($log) {
+                            $daysPresent++;
+                            $holidayWorkPay += $dailyRate; // The extra 100% (Basic already covers the first 100%)
+                        } else {
+                            // Paid even if absent (Standard for Regular Holiday in PH)
+                            $holidayPay += $dailyRate; 
+                        }
+                    } elseif ($holiday->type === 'Special Non-Working') {
+                        // Special Holiday: 0% if not working (No work, no pay), 130% if working
+                        if ($log) {
+                            $daysPresent++;
+                            $holidayWorkPay += ($dailyRate * 0.3); // The extra 30%
+                        } else {
+                            // No work, no pay. But basic pay is monthly-fixed. 
+                            // We need to deduct the daily rate since it's "No work, No pay"
+                            $absenceDeduction += $dailyRate;
+                        }
+                    }
+                }
+
                 if ($log) {
-                    $daysPresent++;
+                    if (!$holiday) $daysPresent++;
                     $totalLateMinutes += $log->late_minutes;
                     
                     if ($log->time_out && $record->defaultShift) {
@@ -224,7 +249,7 @@ class PayrollController extends Controller
 
             $lateDeduction = $hasLatePolicy ? round($totalLateMinutes * $minuteRate, 2) : 0;
             $utDeduction = $hasLatePolicy ? round($totalUTMinutes * $minuteRate, 2) : 0;
-            $absenceDeduction = round($absentDays * $dailyRate, 2);
+            $absenceDeduction += round($absentDays * $dailyRate, 2);
 
             // 3. Fetch Approved Overtime - MUST have corresponding Attendance Log
             $approvedOTRequests = OvertimeRequest::where('user_id', $employee->user_id)
@@ -376,7 +401,7 @@ class PayrollController extends Controller
                 ]);
             }
 
-            $grossPay = $basicPay + $allowance + $totalApprovedOT + $adjAdditions;
+            $grossPay = $basicPay + $allowance + $totalApprovedOT + $adjAdditions + $holidayWorkPay;
             
             // Calculate Taxable Income
             $taxableIncome = ($grossPay - $adjAdditions + $taxableAdj) - ($sss + $philhealth + $pagibig);
@@ -414,7 +439,7 @@ class PayrollController extends Controller
                 'gross_pay' => $grossPay,
                 'allowances' => $allowance,
                 'ot_pay' => $totalApprovedOT,
-                'adjustments' => $adjAdditions,
+                'adjustments' => $adjAdditions + $holidayWorkPay,
                 'late_deduction' => $lateDeduction,
                 'undertime_deduction' => $utDeduction,
                 'sss_deduction' => $sss,
@@ -432,6 +457,7 @@ class PayrollController extends Controller
                     'late_minutes' => $totalLateMinutes,
                     'ut_minutes' => $totalUTMinutes,
                     'period_factor' => $periodFactor,
+                    'holiday_work_pay' => $holidayWorkPay,
                     'deductions' => $deductionBreakdown,
                     'adjustments' => $adjustmentDetails,
                     'contributions' => [

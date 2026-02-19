@@ -397,6 +397,12 @@ const formatDate = (date) => {
                                 <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Overtime Pay</label>
                                 <input v-model="editForm.ot_pay" type="number" step="0.01" min="0" @keypress="preventNegative" class="w-full rounded-xl border-slate-200 text-sm focus:ring-emerald-500 font-mono text-blue-600 font-bold">
                             </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Holiday Pay (Premium)</label>
+                                <div class="w-full px-4 py-2 bg-purple-50 border border-purple-100 rounded-xl text-sm font-mono text-purple-700 font-bold">
+                                    {{ formatCurrency(editingSlip.details?.holiday_work_pay || 0) }}
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Deductions -->
