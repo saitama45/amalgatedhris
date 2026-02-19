@@ -146,6 +146,14 @@ class EmployeeController extends Controller
 
                     'employee_code' => 'required|string|max:50|unique:employees,employee_code,' . $employee->id,
 
+                    'first_name' => 'required|string|max:255',
+
+                    'middle_name' => 'nullable|string|max:255',
+
+                    'last_name' => 'required|string|max:255',
+
+                    'email' => 'required|email|max:255|unique:users,email,' . $employee->user_id,
+
                     'immediate_head_id' => 'nullable|exists:employees,id|different:id',
 
                     'sss_no' => 'nullable|string|max:20',
@@ -201,6 +209,25 @@ class EmployeeController extends Controller
         
 
                 DB::transaction(function () use ($request, $employee) {
+
+                    // Construct full name for User
+                    $fullName = trim("{$request->first_name} {$request->middle_name} {$request->last_name}");
+
+                    // Update associated User
+                    $employee->user->update([
+                        'name' => $fullName,
+                        'email' => $request->email,
+                    ]);
+
+                    // Update associated Applicant record if it exists
+                    if ($employee->applicant) {
+                        $employee->applicant->update([
+                            'first_name' => $request->first_name,
+                            'middle_name' => $request->middle_name,
+                            'last_name' => $request->last_name,
+                            'email' => $request->email,
+                        ]);
+                    }
 
                     $data = $request->only([
 

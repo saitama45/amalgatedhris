@@ -340,6 +340,10 @@ const showEditModal = ref(false);
 const editingEmployee = ref(null);
 const editForm = useForm({
     employee_code: '',
+    first_name: '',
+    middle_name: '',
+    last_name: '',
+    email: '',
     immediate_head_id: '',
     civil_status: '',
     gender: '',
@@ -693,6 +697,10 @@ const openEditModal = (employee) => {
     editingEmployee.value = employee;
     activeTab.value = 'profile'; // Reset tab
     editForm.employee_code = employee.employee_code || '';
+    editForm.first_name = employee.applicant?.first_name || '';
+    editForm.middle_name = employee.applicant?.middle_name || '';
+    editForm.last_name = employee.applicant?.last_name || '';
+    editForm.email = employee.user?.email || '';
     editForm.immediate_head_id = employee.immediate_head_id || '';
     editForm.civil_status = employee.civil_status || '';
     editForm.gender = employee.gender || '';
@@ -1231,6 +1239,26 @@ const submitResign = async () => {
             
             <form @submit.prevent="submitEdit" class="p-6">
                 <div v-show="activeTab === 'profile'">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-1">First Name</label>
+                            <input v-model="editForm.first_name" type="text" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all uppercase">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-1">Middle Name</label>
+                            <input v-model="editForm.middle_name" type="text" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all uppercase" placeholder="(Optional)">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-1">Last Name</label>
+                            <input v-model="editForm.last_name" type="text" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all uppercase">
+                        </div>
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-sm font-bold text-slate-700 mb-1">Email Address</label>
+                        <input v-model="editForm.email" type="email" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                    </div>
+
                     <div class="mb-6">
                         <label class="block text-sm font-bold text-slate-700 mb-1">Employee ID / Code</label>
                         <input v-model="editForm.employee_code" type="text" required class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono">
