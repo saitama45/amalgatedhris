@@ -137,7 +137,12 @@ class PayrollController extends Controller
 
         foreach ($employees as $employee) {
             $record = $employee->activeEmploymentRecord;
+            
+            // Late Policy exemption logic: Check position policy OR specific employee exemption (GM)
             $hasLatePolicy = $record->position ? $record->position->has_late_policy : true;
+            if ($employee->employee_code === 'EMP-2026-0001') {
+                $hasLatePolicy = false;
+            }
             
             $basicRate = $record->basic_rate; // Monthly
             $dailyRate = $basicRate / 26; // Monthly / 26 days

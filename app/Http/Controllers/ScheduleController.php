@@ -15,9 +15,11 @@ class ScheduleController extends Controller
 {
     public function index(Request $request)
     {
-        // View for generating/managing schedules
-        // We need options for the filter dropdowns (Departments, Shifts)
-        
+        // Default to showing those with no shift assignment if no filter is set
+        if (!$request->has('search') && !$request->has('department_id') && !$request->has('no_shift')) {
+            $request->merge(['no_shift' => '1']);
+        }
+
         $employees = Employee::with('user', 'activeEmploymentRecord.department', 'activeEmploymentRecord.defaultShift')
             ->when($request->department_id, function($q) use ($request) {
                 $q->whereHas('activeEmploymentRecord', function($sq) use ($request) {
@@ -29,13 +31,18 @@ class ScheduleController extends Controller
                     $sq->where('name', 'like', "%{$request->search}%");
                 });
             })
+            ->when($request->no_shift == '1', function($q) {
+                $q->whereHas('activeEmploymentRecord', function($sq) {
+                    $sq->whereNull('default_shift_id');
+                });
+            })
             ->get();
 
         return Inertia::render('Schedules/Index', [
             'employees' => $employees,
             'shifts' => Shift::orderBy('name')->get(),
             'departments' => Department::orderBy('name')->get(),
-            'filters' => $request->only(['department_id', 'search']),
+            'filters' => $request->only(['department_id', 'search', 'no_shift']),
         ]);
     }
 

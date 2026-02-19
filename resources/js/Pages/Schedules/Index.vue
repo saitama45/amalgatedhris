@@ -40,11 +40,13 @@ const viewMode = ref('list'); // 'grid' or 'list'
 // Filters
 const search = ref(props.filters.search || '');
 const departmentId = ref(props.filters.department_id || '');
+const noShift = ref(props.filters.no_shift === '1');
 
 const applyFilters = () => {
     router.get(route('schedules.index'), { 
         search: search.value, 
-        department_id: departmentId.value 
+        department_id: departmentId.value,
+        no_shift: noShift.value ? '1' : '0'
     }, { 
         preserveState: true, 
         preserveScroll: true,
@@ -52,7 +54,7 @@ const applyFilters = () => {
     });
 };
 
-watch(search, (val) => {
+watch([search, noShift], () => {
     applyFilters();
 });
 
@@ -64,12 +66,20 @@ const showConsole = ref(false);
 const toggleSelectAll = () => {
     if (selectAll.value) {
         selectedEmployees.value = props.employees.map(e => e.id);
-        showConsole.value = true;
     } else {
         selectedEmployees.value = [];
-        showConsole.value = false;
     }
 };
+
+// World Class UX: Auto-show console when selections are made
+watch(selectedEmployees, (newVal) => {
+    if (newVal.length > 0) {
+        showConsole.value = true;
+    } else {
+        showConsole.value = false;
+        selectAll.value = false;
+    }
+}, { deep: true });
 
 // Form Logic
 const form = useForm({
@@ -241,11 +251,21 @@ const isWorkingDay = (employee, dayId) => {
                                 <option value="">All Departments</option>
                                 <option v-for="dept in departments" :key="dept.id" :value="dept.id">{{ dept.name }}</option>
                             </select>
+
+                            <label class="flex items-center gap-2 cursor-pointer group ml-2">
+                                <input type="checkbox" v-model="noShift" class="w-5 h-5 rounded-lg border-slate-300 text-blue-600 focus:ring-blue-500 transition-all">
+                                <span class="text-xs font-black text-slate-400 uppercase tracking-widest group-hover:text-slate-600 transition-colors">No Shift</span>
+                            </label>
                         </div>
                         
-                        <div class="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
-                            <UserGroupIcon class="w-4 h-4" />
-                            {{ selectedEmployees.length }} Employees Selected
+                        <div class="flex items-center gap-4">
+                            <div class="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+                                Total: {{ employees.length }} Resources
+                            </div>
+                            <div class="flex items-center gap-2 text-[10px] font-bold text-blue-600 uppercase tracking-widest bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
+                                <UserGroupIcon class="w-4 h-4" />
+                                {{ selectedEmployees.length }} Selected
+                            </div>
                         </div>
                     </div>
 
@@ -264,21 +284,25 @@ const isWorkingDay = (employee, dayId) => {
                                 ]"
                             >
                                 <!-- Card Header -->
-                                <div class="flex items-start justify-between mb-6">
+                                <div class="flex items-start justify-between mb-6 group/card">
                                     <div class="flex items-center gap-4 min-w-0">
                                         <div class="relative shrink-0">
-                                            <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-slate-600 font-black text-lg border-2 border-white shadow-sm overflow-hidden">
+                                            <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-slate-600 font-black text-lg border-2 border-white shadow-sm overflow-hidden group-hover:from-blue-50 group-hover:to-blue-100 transition-colors">
                                                 <span class="truncate px-1">{{ getInitials(employee.user?.name) }}</span>
                                             </div>
                                             <div v-if="employee.active_employment_record?.is_active" class="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full"></div>
                                         </div>
                                         <div class="min-w-0">
-                                            <h3 class="text-base font-black text-slate-900 leading-tight truncate">{{ employee.user?.name }}</h3>
+                                            <h3 class="text-base font-black text-slate-900 leading-tight truncate group-hover:text-blue-600 transition-colors">{{ employee.user?.name }}</h3>
                                             <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5 truncate">{{ employee.active_employment_record?.position?.name || 'Position Unset' }}</p>
                                         </div>
                                     </div>
-                                    <input type="checkbox" v-model="selectedEmployees" :value="employee.id" 
-                                        class="w-6 h-6 rounded-lg border-slate-200 text-blue-600 focus:ring-blue-500 transition-all cursor-pointer shrink-0">
+                                    
+                                    <!-- High Fidelity Multi-select Checkbox -->
+                                    <div class="flex items-center justify-center p-1 rounded-xl bg-slate-50 border border-slate-100 group-hover:border-blue-200 transition-all">
+                                        <input type="checkbox" v-model="selectedEmployees" :value="employee.id" 
+                                            class="w-6 h-6 rounded-lg border-slate-200 text-blue-600 focus:ring-blue-500 transition-all cursor-pointer shrink-0">
+                                    </div>
                                 </div>
 
                                 <!-- Current Pattern -->

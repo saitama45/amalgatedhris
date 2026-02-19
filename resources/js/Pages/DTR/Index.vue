@@ -318,8 +318,11 @@ const calculateWorkHours = (log) => {
     const record = log.employee?.active_employment_record;
     const shift = record?.default_shift;
 
-    // For Managers and Executives, work hours are always "complete" for display
-    if (record?.position && !record.position.has_late_policy && shift) {
+    // For Managers, Executives, and specific exemption (GM)
+    const isExempt = (record?.position && !record.position.has_late_policy) || 
+                     log.employee?.employee_code === 'EMP-2026-0001';
+
+    if (isExempt && shift) {
         const logDate = String(log.date).split('T')[0];
         const shiftStart = new Date(`${logDate}T${shift.start_time}`);
         let shiftEnd = new Date(`${logDate}T${shift.end_time}`);
@@ -337,6 +340,10 @@ const calculateWorkHours = (log) => {
 
 const calculateLate = (log) => {
     if (!log.time_in) return 0;
+
+    if (log.employee?.employee_code === 'EMP-2026-0001') {
+        return 0;
+    }
 
     const record = log.employee?.active_employment_record;
     if (record?.position && !record.position.has_late_policy) {
@@ -373,6 +380,10 @@ const calculateLate = (log) => {
 const calculateUndertime = (log) => {
     if (!log.time_in || !log.time_out) return 0;
     
+    if (log.employee?.employee_code === 'EMP-2026-0001') {
+        return 0;
+    }
+
     const record = log.employee?.active_employment_record;
     const shift = record?.default_shift;
     if (!shift) return 0;
