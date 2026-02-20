@@ -15,6 +15,15 @@ class Applicant extends Model
         'last_name',
         'email',
         'phone',
+        'civil_status',
+        'gender',
+        'birthday',
+        'home_no_street',
+        'barangay',
+        'city',
+        'region',
+        'zip_code',
+        'skills',
         'status',
         'resume_path',
         'exam_score',
@@ -23,6 +32,7 @@ class Applicant extends Model
 
     protected $casts = [
         'exam_score' => 'decimal:2',
+        'birthday' => 'date',
     ];
     
     // Add logic for full name accessor if needed

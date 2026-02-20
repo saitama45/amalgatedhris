@@ -88,6 +88,15 @@ class ApplicantController extends Controller
             'email' => 'required|email|unique:applicants,email',
             'phone' => 'required|string|max:20',
             'resume' => 'nullable|file|mimes:pdf,doc,docx|max:2048',
+            'civil_status' => 'nullable|string',
+            'gender' => 'nullable|string',
+            'birthday' => 'nullable|date',
+            'home_no_street' => 'nullable|string',
+            'barangay' => 'nullable|string',
+            'city' => 'nullable|string',
+            'region' => 'nullable|string',
+            'zip_code' => 'nullable|string',
+            'skills' => 'nullable|string',
         ]);
 
         $path = null;
@@ -109,6 +118,15 @@ class ApplicantController extends Controller
             'last_name' => strtoupper($request->last_name),
             'email' => $request->email,
             'phone' => $request->phone,
+            'civil_status' => $request->civil_status,
+            'gender' => $request->gender,
+            'birthday' => $request->birthday,
+            'home_no_street' => $request->home_no_street,
+            'barangay' => $request->barangay,
+            'city' => $request->city,
+            'region' => $request->region,
+            'zip_code' => $request->zip_code,
+            'skills' => $request->skills,
             'status' => 'pool',
             'resume_path' => $path,
         ]);
@@ -128,6 +146,15 @@ class ApplicantController extends Controller
             'exam_score' => 'nullable|numeric|min:0|max:100',
             'interviewer_notes' => 'nullable|string',
             'resume' => 'nullable|file|mimes:pdf,doc,docx|max:2048',
+            'civil_status' => 'nullable|string',
+            'gender' => 'nullable|string',
+            'birthday' => 'nullable|date',
+            'home_no_street' => 'nullable|string',
+            'barangay' => 'nullable|string',
+            'city' => 'nullable|string',
+            'region' => 'nullable|string',
+            'zip_code' => 'nullable|string',
+            'skills' => 'nullable|string',
         ]);
 
         if ($request->hasFile('resume')) {
@@ -207,6 +234,15 @@ class ApplicantController extends Controller
                 'user_id' => $user->id,
                 'employee_code' => 'EMP-' . now()->year . '-' . str_pad($user->id, 4, '0', STR_PAD_LEFT),
                 'qr_code' => 'QR-' . strtoupper(bin2hex(random_bytes(8))),
+                'civil_status' => $applicant->civil_status,
+                'gender' => $applicant->gender,
+                'birthday' => $applicant->birthday,
+                'home_no_street' => $applicant->home_no_street,
+                'barangay' => $applicant->barangay,
+                'city' => $applicant->city,
+                'region' => $applicant->region,
+                'zip_code' => $applicant->zip_code,
+                'address' => trim("{$applicant->home_no_street} {$applicant->barangay} {$applicant->city} {$applicant->region} {$applicant->zip_code}"),
             ]);
 
             // Create Employment Record (Consolidated Assignment & Pay)

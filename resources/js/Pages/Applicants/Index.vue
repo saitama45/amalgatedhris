@@ -34,6 +34,7 @@ const props = defineProps({
 });
 
 const showModal = ref(false);
+const activeTab = ref('basic');
 const showHireModal = ref(false);
 const showDocsModal = ref(false);
 const showPositionModal = ref(false);
@@ -158,6 +159,15 @@ const form = useForm({
     last_name: '',
     email: '',
     phone: '',
+    civil_status: '',
+    gender: '',
+    birthday: '',
+    home_no_street: '',
+    barangay: '',
+    city: '',
+    region: '',
+    zip_code: '',
+    skills: '',
     status: 'pool',
     resume: null,
     exam_score: '',
@@ -167,6 +177,7 @@ const form = useForm({
 const openCreateModal = () => {
     isEditing.value = false;
     editingApplicant.value = null;
+    activeTab.value = 'basic';
     form.reset();
     form.clearErrors();
     showModal.value = true;
@@ -175,11 +186,21 @@ const openCreateModal = () => {
 const openEditModal = (applicant) => {
     isEditing.value = true;
     editingApplicant.value = applicant;
+    activeTab.value = 'basic';
     form.first_name = applicant.first_name;
     form.middle_name = applicant.middle_name;
     form.last_name = applicant.last_name;
     form.email = applicant.email;
     form.phone = formatPhoneNumber(applicant.phone);
+    form.civil_status = applicant.civil_status || '';
+    form.gender = applicant.gender || '';
+    form.birthday = applicant.birthday || '';
+    form.home_no_street = applicant.home_no_street || '';
+    form.barangay = applicant.barangay || '';
+    form.city = applicant.city || '';
+    form.region = applicant.region || '';
+    form.zip_code = applicant.zip_code || '';
+    form.skills = applicant.skills || '';
     form.status = applicant.status;
     form.exam_score = applicant.exam_score;
     form.interviewer_notes = applicant.interviewer_notes;
@@ -187,6 +208,29 @@ const openEditModal = (applicant) => {
     form.clearErrors();
     showModal.value = true;
 };
+
+const skillInput = ref('');
+const addSkill = () => {
+    if (!skillInput.value.trim()) return;
+    
+    const currentSkills = form.skills ? form.skills.split(',').map(s => s.trim()).filter(s => s) : [];
+    if (!currentSkills.includes(skillInput.value.trim().toLowerCase())) {
+        currentSkills.push(skillInput.value.trim().toLowerCase());
+        form.skills = currentSkills.join(', ');
+    }
+    skillInput.value = '';
+};
+
+const removeSkill = (index) => {
+    const currentSkills = form.skills.split(',').map(s => s.trim()).filter(s => s);
+    currentSkills.splice(index, 1);
+    form.skills = currentSkills.join(', ');
+};
+
+const skillTags = computed(() => {
+    if (!form.skills) return [];
+    return form.skills.split(',').map(s => s.trim()).filter(s => s);
+});
 
 const formatPhoneNumber = (value) => {
     if (!value) return '';
@@ -481,117 +525,210 @@ const statusColors = {
         </div>
         
         <!-- Create/Edit Modal -->
-        <div v-if="showModal" class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4">
+        <div v-if="showModal" class="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 sm:p-10 overflow-y-auto">
              <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity" @click="showModal = false"></div>
              
-             <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full relative overflow-hidden animate-in fade-in zoom-in duration-200">
-                <div class="px-8 py-6 border-b border-slate-100 bg-slate-50/50">
+             <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full relative flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in duration-200 my-auto">
+                <div class="px-8 py-6 border-b border-slate-100 bg-slate-50/50 flex-shrink-0">
                     <h3 class="text-xl font-bold text-slate-900">{{ isEditing ? 'Update Applicant Profile' : 'New Applicant' }}</h3>
                     <p class="text-sm text-slate-500">{{ isEditing ? 'Manage candidate details and status.' : 'Add a new candidate to the pool.' }}</p>
                 </div>
+
+                <div class="flex border-b border-slate-100 px-8 bg-white flex-shrink-0">
+                    <button type="button" @click="activeTab = 'basic'" 
+                        :class="{'border-blue-600 text-blue-600': activeTab === 'basic', 'border-transparent text-slate-500': activeTab !== 'basic'}" 
+                        class="px-6 py-3 border-b-2 font-bold text-sm transition-all"
+                    >
+                        Basic Info
+                    </button>
+                    <button type="button" @click="activeTab = 'personal'" 
+                        :class="{'border-blue-600 text-blue-600': activeTab === 'personal', 'border-transparent text-slate-500': activeTab !== 'personal'}" 
+                        class="px-6 py-3 border-b-2 font-bold text-sm transition-all"
+                    >
+                        Personal Info
+                    </button>
+                </div>
                 
-                <form @submit.prevent="submitForm" class="p-8">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                        <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-1">First Name</label>
-                            <input 
-                                :value="form.first_name" 
-                                @input="handleNameInput('first_name', $event)" 
-                                type="text" 
-                                required 
-                                placeholder="JUAN"
-                                class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all uppercase"
-                            >
-                        </div>
-                        <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-1">Middle Name</label>
-                            <input 
-                                :value="form.middle_name" 
-                                @input="handleNameInput('middle_name', $event)" 
-                                type="text" 
-                                placeholder="(Optional)" 
-                                class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all uppercase"
-                            >
-                        </div>
-                         <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-1">Last Name</label>
-                            <input 
-                                :value="form.last_name" 
-                                @input="handleNameInput('last_name', $event)" 
-                                type="text" 
-                                required 
-                                placeholder="DELA CRUZ"
-                                class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all uppercase"
-                            >
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                         <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-1">Email Address</label>
-                            <input 
-                                :value="form.email" 
-                                @input="handleEmailInput"
-                                type="email" 
-                                required 
-                                placeholder="juan@example.com"
-                                class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                                :class="{'border-rose-500 ring-rose-500/20': !isEmailValid && form.email}"
-                            >
-                            <p v-if="!isEmailValid && form.email" class="text-[10px] text-rose-600 mt-1 font-bold">Please enter a valid email format.</p>
-                        </div>
-                         <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-1">Phone Number</label>
-                            <input 
-                                :value="form.phone" 
-                                @input="handlePhoneInput"
-                                @keydown="onlyNumbers"
-                                type="text" 
-                                required 
-                                placeholder="09XX XXX XXXX"
-                                maxlength="13"
-                                inputmode="numeric"
-                                class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono"
-                            >
-                        </div>
-                    </div>
-                    
-                    <div class="mb-6">
-                        <label class="block text-sm font-bold text-slate-700 mb-1">Resume / CV (PDF, DOC)</label>
-                        <input type="file" @input="form.resume = $event.target.files[0]" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-all">
-                    </div>
-                    
-                    <div v-if="isEditing" class="border-t border-slate-100 pt-6 mt-6">
-                         <h4 class="font-bold text-slate-800 mb-4">Recruitment Progress</h4>
-                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                             <div>
-                                <label class="block text-sm font-bold text-slate-700 mb-1">Current Status</label>
-                                <select v-model="form.status" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
-                                    <option value="pool">Pool</option>
-                                    <option value="exam">For Exam</option>
-                                    <option value="interview">For Interview</option>
-                                    <option value="passed">Passed</option>
-                                    <option value="failed">Failed</option>
-                                    <option value="backed_out">Back Out</option>
-                                </select>
+                <form @submit.prevent="submitForm" class="flex-1 overflow-y-auto p-8 custom-scrollbar">
+                    <div v-show="activeTab === 'basic'">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1">First Name</label>
+                                <input 
+                                    :value="form.first_name" 
+                                    @input="handleNameInput('first_name', $event)" 
+                                    type="text" 
+                                    required 
+                                    placeholder="JUAN"
+                                    class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all uppercase"
+                                >
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1">Middle Name</label>
+                                <input 
+                                    :value="form.middle_name" 
+                                    @input="handleNameInput('middle_name', $event)" 
+                                    type="text" 
+                                    placeholder="(Optional)" 
+                                    class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all uppercase"
+                                >
                             </div>
                              <div>
-                                <label class="block text-sm font-bold text-slate-700 mb-1">Exam Score (%)</label>
-                                <input v-model="form.exam_score" type="number" min="0" max="100" step="0.01" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                                <label class="block text-sm font-bold text-slate-700 mb-1">Last Name</label>
+                                <input 
+                                    :value="form.last_name" 
+                                    @input="handleNameInput('last_name', $event)" 
+                                    type="text" 
+                                    required 
+                                    placeholder="DELA CRUZ"
+                                    class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all uppercase"
+                                >
                             </div>
-                         </div>
-                         <div>
-                            <label class="block text-sm font-bold text-slate-700 mb-1">Interviewer Notes</label>
-                            <textarea v-model="form.interviewer_notes" rows="3" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"></textarea>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                             <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1">Email Address</label>
+                                <input 
+                                    :value="form.email" 
+                                    @input="handleEmailInput"
+                                    type="email" 
+                                    required 
+                                    placeholder="juan@example.com"
+                                    class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                                    :class="{'border-rose-500 ring-rose-500/20': !isEmailValid && form.email}"
+                                >
+                                <p v-if="!isEmailValid && form.email" class="text-[10px] text-rose-600 mt-1 font-bold">Please enter a valid email format.</p>
+                            </div>
+                             <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1">Phone Number</label>
+                                <input 
+                                    :value="form.phone" 
+                                    @input="handlePhoneInput"
+                                    @keydown="onlyNumbers"
+                                    type="text" 
+                                    required 
+                                    placeholder="09XX XXX XXXX"
+                                    maxlength="13"
+                                    inputmode="numeric"
+                                    class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-mono"
+                                >
+                            </div>
+                        </div>
+                        
+                        <div class="mb-6">
+                            <label class="block text-sm font-bold text-slate-700 mb-1">Resume / CV (PDF, DOC)</label>
+                            <input type="file" @input="form.resume = $event.target.files[0]" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-all">
+                        </div>
+                        
+                        <div v-if="isEditing" class="border-t border-slate-100 pt-6 mt-6">
+                             <h4 class="font-bold text-slate-800 mb-4">Recruitment Progress</h4>
+                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                 <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1">Current Status</label>
+                                    <select v-model="form.status" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                                        <option value="pool">Pool</option>
+                                        <option value="exam">For Exam</option>
+                                        <option value="interview">For Interview</option>
+                                        <option value="passed">Passed</option>
+                                        <option value="failed">Failed</option>
+                                        <option value="backed_out">Back Out</option>
+                                    </select>
+                                </div>
+                                 <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1">Exam Score (%)</label>
+                                    <input v-model="form.exam_score" type="number" min="0" max="100" step="0.01" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                                </div>
+                             </div>
+                             <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1">Interviewer Notes</label>
+                                <textarea v-model="form.interviewer_notes" rows="3" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"></textarea>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="flex justify-end space-x-3 pt-6 border-t border-slate-100 mt-6">
-                        <button type="button" @click="showModal = false" class="px-6 py-2.5 text-slate-600 font-bold bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors">Cancel</button>
-                        <button type="submit" :disabled="form.processing" class="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-600/20 disabled:opacity-50 transition-all">
-                            {{ isEditing ? 'Save Changes' : 'Add Candidate' }}
-                        </button>
+                    <div v-show="activeTab === 'personal'">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1">Civil Status</label>
+                                <select v-model="form.civil_status" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                                    <option value="">Select Status</option>
+                                    <option value="Single">Single</option>
+                                    <option value="Married">Married</option>
+                                    <option value="Widowed">Widowed</option>
+                                    <option value="Separated">Separated</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1">Gender</label>
+                                <select v-model="form.gender" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                                    <option value="">Select Gender</option>
+                                    <option value="Male">Male</option>
+                                    <option value="Female">Female</option>
+                                </select>
+                            </div>
+                             <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1">Birthday</label>
+                                <input v-model="form.birthday" type="date" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1">Home No. / Street</label>
+                                <input v-model="form.home_no_street" type="text" placeholder="House #, Street name" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1">Barangay</label>
+                                <input v-model="form.barangay" type="text" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1">City</label>
+                                <input v-model="form.city" type="text" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1">Region</label>
+                                <input v-model="form.region" type="text" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                            </div>
+                             <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1">Zip Code</label>
+                                <input v-model="form.zip_code" type="text" class="block w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
+                            </div>
+                        </div>
+
+                        <div class="mb-6">
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Skills (Tagging Keywords)</label>
+                            <div class="flex flex-wrap gap-2 mb-3 bg-slate-50 p-3 rounded-xl border border-slate-200 min-h-[50px]">
+                                <span v-for="(tag, index) in skillTags" :key="index" class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-100 text-blue-700 border border-blue-200">
+                                    {{ tag }}
+                                    <button @click="removeSkill(index)" type="button" class="ml-1.5 text-blue-400 hover:text-blue-600">
+                                        <XMarkIcon class="w-3 h-3" />
+                                    </button>
+                                </span>
+                                <span v-if="skillTags.length === 0" class="text-slate-400 text-xs italic">No skills tagged yet...</span>
+                            </div>
+                            <div class="flex space-x-2">
+                                <input 
+                                    v-model="skillInput" 
+                                    @keydown.enter.prevent="addSkill"
+                                    type="text" 
+                                    placeholder="Type a skill (e.g., Leadership) and press Enter" 
+                                    class="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                                >
+                                <button type="button" @click="addSkill" class="px-4 py-2 bg-blue-50 text-blue-600 font-bold rounded-xl hover:bg-blue-100 border border-blue-100 transition-all">Add</button>
+                            </div>
+                        </div>
                     </div>
                 </form>
+
+                <div class="flex justify-end space-x-3 p-8 border-t border-slate-100 bg-slate-50/50 flex-shrink-0 rounded-b-2xl">
+                    <button type="button" @click="showModal = false" class="px-6 py-2.5 text-slate-600 font-bold bg-slate-100 rounded-xl hover:bg-slate-200 transition-colors">Cancel</button>
+                    <button type="button" @click="submitForm" :disabled="form.processing" class="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-600/20 disabled:opacity-50 transition-all">
+                        {{ isEditing ? 'Save Changes' : 'Add Candidate' }}
+                    </button>
+                </div>
              </div>
         </div>
 
