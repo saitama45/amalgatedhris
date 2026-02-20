@@ -131,29 +131,31 @@ const submit = () => {
     }
 };
 
-const approve = async (id) => {
+const approve = async (req) => {
     const isConfirmed = await confirm({
         title: 'Approve Leave',
-        message: 'Are you sure you want to approve this leave request?',
-        confirmButtonText: 'Approve'
+        message: `Are you sure you want to approve this leave request from ${req.employee?.user?.name}? \n\nReason: "${req.reason}"`,
+        confirmButtonText: 'Approve',
+        variant: 'success'
     });
 
     if (isConfirmed) {
-        router.put(route('leave-requests.approve', id), {}, {
+        router.put(route('leave-requests.approve', req.id), {}, {
             onError: () => showError('Failed to approve request.')
         });
     }
 };
 
-const reject = async (id) => {
+const reject = async (req) => {
     const isConfirmed = await confirm({
         title: 'Reject Leave',
-        message: 'Are you sure you want to reject this leave request?',
-        confirmButtonText: 'Reject'
+        message: `Are you sure you want to reject this leave request from ${req.employee?.user?.name}? \n\nReason: "${req.reason}"`,
+        confirmButtonText: 'Reject',
+        variant: 'danger'
     });
 
     if (isConfirmed) {
-        router.put(route('leave-requests.reject', id), {}, {
+        router.put(route('leave-requests.reject', req.id), {}, {
             onError: () => showError('Failed to reject request.')
         });
     }
@@ -273,10 +275,10 @@ const formatDate = (date) => {
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right">
                                     <div class="flex justify-end gap-1">
-                                        <button v-if="hasPermission('leave_requests.approve') && req.status === 'Pending'" @click="approve(req.id)" class="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all" title="Approve">
+                                        <button v-if="hasPermission('leave_requests.approve') && req.status === 'Pending'" @click="approve(req)" class="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all" title="Approve">
                                             <CheckCircleIcon class="w-5 h-5" />
                                         </button>
-                                        <button v-if="hasPermission('leave_requests.reject') && req.status === 'Pending'" @click="reject(req.id)" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Reject">
+                                        <button v-if="hasPermission('leave_requests.reject') && req.status === 'Pending'" @click="reject(req)" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all" title="Reject">
                                             <XCircleIcon class="w-5 h-5" />
                                         </button>
                                         <button v-if="req.status === 'Pending' && hasPermission('leave_requests.edit')" @click="openEditModal(req)" class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Edit">

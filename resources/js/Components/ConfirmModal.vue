@@ -30,7 +30,7 @@
                     <!-- Content -->
                     <div class="px-6 py-4 text-center">
                         <h3 class="text-xl font-semibold text-gray-900 mb-2">{{ title }}</h3>
-                        <p class="text-gray-600 mb-6">{{ message }}</p>
+                        <p class="text-gray-600 mb-6 whitespace-pre-wrap text-sm">{{ message }}</p>
                         
                         <!-- Actions -->
                         <div class="flex space-x-3">
