@@ -14,7 +14,7 @@ class SalfController extends Controller
 {
     public function index(Request $request)
     {
-        $query = SalfForm::with(['employee', 'department', 'company']);
+        $query = SalfForm::with(['employee.applicant', 'employee.department', 'employee.company', 'employee.position', 'department', 'company']);
         $user = auth()->user();
 
         // If it's a portal request, ALWAYS scope to the logged-in employee only
@@ -117,7 +117,7 @@ class SalfController extends Controller
             abort(403, 'Unauthorized access to SALF record.');
         }
 
-        $salf->load(['employee.user', 'department', 'company', 'items']);
+        $salf->load(['employee.applicant', 'employee.department', 'employee.company', 'department', 'company', 'items']);
         return Inertia::render('Salf/Show', [
             'salf' => $salf,
             'overallEfficiency' => $salf->overall_efficiency,
@@ -132,7 +132,7 @@ class SalfController extends Controller
             abort(403, 'Unauthorized access to SALF record.');
         }
 
-        $salf->load(['items']);
+        $salf->load(['items', 'employee.applicant', 'employee.department', 'employee.company']);
         $employees = Employee::with(['department', 'company'])->get();
         return Inertia::render('Salf/Edit', [
             'salf' => $salf,

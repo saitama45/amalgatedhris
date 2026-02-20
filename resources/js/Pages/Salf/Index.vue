@@ -126,8 +126,8 @@ const getStatusColor = (status) => {
                                     {{ form.period_covered }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-slate-700 font-semibold">{{ form.department?.name || '-' }}</div>
-                                    <div class="text-xs text-slate-500">{{ form.company?.name || '-' }}</div>
+                                    <div class="text-sm text-slate-700 font-semibold">{{ form.department?.name || form.employee?.department?.name || '-' }}</div>
+                                    <div class="text-xs text-slate-500">{{ form.company?.name || form.employee?.company?.name || '-' }}</div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span :class="['px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider border', getStatusColor(form.status)]">

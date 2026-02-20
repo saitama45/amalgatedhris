@@ -92,16 +92,16 @@ const getTextColor = (percent) => {
         <div class="py-6">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 <!-- Header Stats Cards -->
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden group">
                         <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-blue-50 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
                         <div class="relative flex items-center space-x-4">
-                            <div class="p-3 bg-blue-100 rounded-xl text-blue-600">
+                            <div class="p-3 bg-blue-100 rounded-xl text-blue-600 shrink-0">
                                 <UserCircleIcon class="w-6 h-6" />
                             </div>
-                            <div>
+                            <div class="min-w-0">
                                 <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Employee</p>
-                                <p class="text-sm font-bold text-slate-800 truncate w-40">{{ salf.employee.first_name }} {{ salf.employee.last_name }}</p>
+                                <p class="text-sm font-bold text-slate-800 break-words">{{ salf.employee.first_name }} {{ salf.employee.last_name }}</p>
                             </div>
                         </div>
                     </div>
@@ -109,12 +109,12 @@ const getTextColor = (percent) => {
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden group">
                         <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-indigo-50 rounded-full group-hover:scale-110 transition-transform duration-500"></div>
                         <div class="relative flex items-center space-x-4">
-                            <div class="p-3 bg-indigo-100 rounded-xl text-indigo-600">
+                            <div class="p-3 bg-indigo-100 rounded-xl text-indigo-600 shrink-0">
                                 <BuildingOfficeIcon class="w-6 h-6" />
                             </div>
-                            <div>
+                            <div class="min-w-0">
                                 <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Department</p>
-                                <p class="text-sm font-bold text-slate-800">{{ salf.department?.name || 'N/A' }}</p>
+                                <p class="text-sm font-bold text-slate-800 break-words">{{ salf.department?.name || salf.employee.department?.name || 'N/A' }}</p>
                             </div>
                         </div>
                     </div>
@@ -246,12 +246,12 @@ const getTextColor = (percent) => {
                 </div>
 
                 <!-- Footer Signatures Mockup -->
-                <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8 px-4">
+                <div class="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-8 px-4">
                     <div class="border-t-2 border-slate-100 pt-6">
                         <div class="h-16 flex items-end justify-start pb-2">
                              <div class="font-serif italic text-2xl text-slate-300">Signature</div>
                         </div>
-                        <p class="text-sm font-bold text-slate-800">{{ salf.employee.first_name }} {{ salf.employee.last_name }}</p>
+                        <p class="text-sm font-bold text-slate-800 break-words">{{ (salf.employee.first_name || '') + ' ' + (salf.employee.last_name || '') }}</p>
                         <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Employee Signature</p>
                     </div>
                     <div class="border-t-2 border-slate-100 pt-6">

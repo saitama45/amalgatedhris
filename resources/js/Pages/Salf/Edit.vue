@@ -9,6 +9,7 @@ import {
     PlusIcon, 
     TrashIcon,
     Bars3BottomLeftIcon,
+    SparklesIcon
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
@@ -122,7 +123,7 @@ const submit = () => {
                             <div v-else>
                                 <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Employee</label>
                                 <div class="w-full bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700">
-                                    {{ salf.employee.first_name }} {{ salf.employee.last_name }}
+                                    {{ salf.employee?.first_name }} {{ salf.employee?.last_name }}
                                 </div>
                             </div>
 

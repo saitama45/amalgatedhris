@@ -38,6 +38,8 @@ class Employee extends Model
         'birthday' => 'date:Y-m-d',
     ];
 
+    protected $appends = ['first_name', 'last_name'];
+
     public function user()
     {
         return $this->belongsTo(User::class);
