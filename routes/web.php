@@ -163,6 +163,9 @@ Route::middleware('auth')->group(function () {
                     Route::get('/ob-attendance', [\App\Http\Controllers\PortalController::class, 'obAttendance'])->name('ob-attendance');
                     Route::post('/ob-attendance', [\App\Http\Controllers\PortalController::class, 'storeObAttendance'])->name('ob-attendance.store');
                     Route::get('/payslips', [\App\Http\Controllers\PortalController::class, 'payslips'])->name('payslips');        Route::get('/my-payslip/{id}/pdf', [\App\Http\Controllers\PortalController::class, 'exportPayslipPdf'])->name('payslips.pdf');
+        Route::get('/salf', [\App\Http\Controllers\PortalController::class, 'salf'])
+            ->middleware('permission:portal.salf')
+            ->name('salf');
         Route::get('/deductions', [\App\Http\Controllers\PortalController::class, 'deductions'])->name('deductions');
         Route::get('/adjustments', [\App\Http\Controllers\PayrollAdjustmentController::class, 'portalIndex'])->name('adjustments');
 
@@ -197,6 +200,12 @@ Route::middleware('auth')->group(function () {
     Route::get('profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
+
+    // Strategic Action Layout Form (SALF)
+    Route::middleware('permission:salf.view|portal.salf')->group(function () {
+        Route::resource('salf', \App\Http\Controllers\SalfController::class);
+        Route::get('salf/{salf}/export-pdf', [\App\Http\Controllers\SalfController::class, 'exportPdf'])->name('salf.export-pdf');
+    });
 
     // Global Search (Authenticated)
     Route::get('global-search', [\App\Http\Controllers\GlobalSearchController::class, 'search'])->name('global.search');

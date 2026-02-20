@@ -115,6 +115,8 @@ const getRouteName = (category) => {
         'portal.adjustments': 'portal.adjustments',
         'payroll_adjustments': 'payroll-adjustments.index',
         'confidential_emails': 'confidential-emails.index',
+        'salf': 'salf.index',
+        'portal.salf': 'portal.salf',
     };
 
     return customMappings[category] || (category + '.index');
@@ -130,6 +132,7 @@ const iconMap = {
     applicants: UserPlusIcon,
     exams: ClipboardDocumentCheckIcon,
     employees: UserGroupIcon,
+    salf: ClipboardDocumentCheckIcon,
     'attendance.kiosk': ComputerDesktopIcon,
     dtr: ClockIcon,
     shifts: CalendarDaysIcon,
@@ -143,6 +146,7 @@ const iconMap = {
     government_deductions: TableCellsIcon,
     deductions: CreditCardIcon,
     'portal.dashboard': HomeIcon,
+    'portal.salf': ClipboardDocumentCheckIcon,
     'portal.leaves': DocumentDuplicateIcon,
     'portal.overtime': ClockIcon,
     'portal.attendance': ClockIcon,
@@ -187,6 +191,13 @@ const isRouteActive = (category) => {
     }
     if (category === 'exams') {
         return route().current('applicants.exams*');
+    }
+
+    if (category === 'portal.salf') {
+        return route().current('portal.salf') || (route().current('salf.*') && page.props.isPortal);
+    }
+    if (category === 'salf') {
+        return route().current('salf.*') && !page.props.isPortal;
     }
 
     const routeName = getRouteName(category);

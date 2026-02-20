@@ -68,6 +68,42 @@ class Employee extends Model
         return $this->hasOne(EmploymentRecord::class)->latestOfMany();
     }
 
+    public function department()
+    {
+        return $this->hasOneThrough(
+            Department::class,
+            EmploymentRecord::class,
+            'employee_id',
+            'id',
+            'id',
+            'department_id'
+        )->where('employment_records.is_active', true);
+    }
+
+    public function company()
+    {
+        return $this->hasOneThrough(
+            Company::class,
+            EmploymentRecord::class,
+            'employee_id',
+            'id',
+            'id',
+            'company_id'
+        )->where('employment_records.is_active', true);
+    }
+
+    public function position()
+    {
+        return $this->hasOneThrough(
+            Position::class,
+            EmploymentRecord::class,
+            'employee_id',
+            'id',
+            'id',
+            'position_id'
+        )->where('employment_records.is_active', true);
+    }
+
     public function applicant()
     {
         return $this->hasOneThrough(
@@ -78,6 +114,16 @@ class Employee extends Model
             'user_id', // Local key on employees table (employees.user_id)
             'email' // Local key on users table (users.email)
         );
+    }
+
+    public function getFirstNameAttribute()
+    {
+        return $this->applicant?->first_name ?? $this->user?->name;
+    }
+
+    public function getLastNameAttribute()
+    {
+        return $this->applicant?->last_name ?? '';
     }
     
     public function documents()

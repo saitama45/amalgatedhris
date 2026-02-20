@@ -530,4 +530,9 @@ class PortalController extends Controller
             'deductions' => $deductionsWithHistory,
         ]);
     }
+
+    public function salf(Request $request)
+    {
+        return (new SalfController())->index($request);
+    }
 }

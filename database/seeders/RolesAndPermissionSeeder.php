@@ -36,6 +36,7 @@ class RolesAndPermissionSeeder extends Seeder
         $employee->syncPermissions([
             'dashboard.view',
             'portal.dashboard',
+            'portal.salf',
             'portal.leaves',
             'portal.overtime',
             'portal.attendance',

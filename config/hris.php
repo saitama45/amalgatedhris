@@ -4,11 +4,11 @@ return [
     'sidebar_structure' => [
         'Overview' => ['dashboard'],
         'Recruitment' => ['applicants', 'exams'],
-        'Workforce' => ['employees', 'id_printing'],
+        'Workforce' => ['employees', 'salf', 'id_printing'],
         'Time & Attendance' => ['attendance.kiosk', 'dtr', 'shifts', 'schedules', 'holidays', 'overtime', 'overtime_rates', 'leave_requests'],
         'Compensation' => ['payroll', 'payroll_adjustments', 'government_deductions', 'deductions'],
         'Reports' => ['government_remittances'],
-        'My Portal' => ['portal.dashboard', 'portal.leaves', 'portal.overtime', 'portal.attendance', 'portal.ob-attendance', 'portal.payslips', 'portal.deductions', 'portal.adjustments'],
+        'My Portal' => ['portal.dashboard', 'portal.salf', 'portal.leaves', 'portal.overtime', 'portal.attendance', 'portal.ob-attendance', 'portal.payslips', 'portal.deductions', 'portal.adjustments'],
         'System Administration' => ['users', 'companies', 'departments', 'positions', 'document_types', 'roles']
     ],
 
@@ -43,6 +43,13 @@ return [
         // Workforce - Documents
         'employees.view_documents' => 'View Employee Documents',
         'employees.edit_documents' => 'Upload/Manage Documents',
+
+        // Workforce - SALF
+        'salf.view' => 'View SALF Records',
+        'salf.create' => 'Create New SALF',
+        'salf.edit' => 'Edit SALF Details',
+        'salf.delete' => 'Delete SALF Record',
+        'salf.approve' => 'Approve/Finalize SALF',
 
         // Workforce - ID Printing
         'id_printing.view' => 'Access ID Printing',
@@ -123,6 +130,7 @@ return [
 
         // My Portal
         'portal.dashboard' => 'Access My Portal Dashboard',
+        'portal.salf' => 'View/Manage Own SALF',
         'portal.leaves' => 'File/View Own Leaves',
         'portal.overtime' => 'Request/View Own Overtime',
         'portal.attendance' => 'View Own Attendance Logs',
@@ -173,6 +181,7 @@ return [
         'applicants' => 'Applicants',
         'exams' => 'Exams',
         'employees' => 'Employees (201)',
+        'salf' => 'Employee SALF',
         'id_printing' => 'ID Layout & Printing',
         'attendance.kiosk' => 'Attendance Kiosk',
         'dtr' => 'Attendance Logs',
@@ -188,6 +197,7 @@ return [
         'deductions' => 'Other Deductions',
         'government_remittances' => 'Govt Remittances',
         'portal.dashboard' => 'Overview',
+        'portal.salf' => 'My SALF',
         'portal.leaves' => 'My Leaves',
         'portal.overtime' => 'My Overtime',
         'portal.attendance' => 'My Attendance',
